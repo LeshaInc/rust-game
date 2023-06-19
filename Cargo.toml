@@ -6,7 +6,11 @@ members = [
 ]
 
 [workspace.dependencies]
-bevy = { version = "0.10.0", features = ["dynamic_linking"] }
+
+[workspace.dependencies.bevy]
+git = "https://github.com/bevyengine/bevy.git"
+rev = "8b5bf42c28d9b870ee36210b73950f4af99fd2cf"
+features = ["dynamic_linking"]
 
 [profile.dev]
 opt-level = 1

@@ -17,7 +17,7 @@ fn single_light(
     light_color: vec3<f32>,
     light_attenuation: f32,
 ) -> vec3<f32> {
-    let n_dot_l = saturate(dot(mesh_normal, light_incident));
+    let n_dot_l = step(0.5, saturate(dot(mesh_normal, light_incident)));
     return mesh_albedo * light_color * n_dot_l * light_attenuation;
 }
 
@@ -39,7 +39,7 @@ fn all_lights(
     let n_directional_lights = lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i++) {
         let light = &lights.directional_lights[i];
-        let shadow = fetch_directional_shadow(i, world_position, mesh_normal, view_z);
+        let shadow = step(0.5, fetch_directional_shadow(i, world_position, mesh_normal, view_z));
         out_color += single_light(mesh_normal, mesh_albedo, (*light).direction_to_light, (*light).color.rgb, shadow);
     }
 
@@ -85,24 +85,25 @@ fn check_depth_edge(s: DepthSamples, treshold: f32) -> bool {
 }
 
 
-fn get_normal(frag_coord: vec2<f32>) -> vec3<f32> {
-    return prepass_normal(vec4(frag_coord, 0.0, 1.0), 0u);
+fn get_view_normal(frag_coord: vec2<f32>) -> vec3<f32> {
+    let view_mat = mat3x3(view.view[0].xyz, view.view[1].xyz, view.view[2].xyz);
+    return view_mat * prepass_normal(vec4(frag_coord, 0.0, 1.0), 0u);
 }
 
 fn get_normal_samples(frag_coord: vec2<f32>) -> NormalSamples {
     var samples: NormalSamples;
-    samples.c = get_normal(frag_coord);
-    samples.u = get_normal(frag_coord + vec2( 0.0, -1.0));
-    samples.d = get_normal(frag_coord + vec2( 0.0,  1.0));
-    samples.l = get_normal(frag_coord + vec2(-1.0,  0.0));
-    samples.r = get_normal(frag_coord + vec2( 1.0,  0.0));
+    samples.c = get_view_normal(frag_coord);
+    samples.u = get_view_normal(frag_coord + vec2( 0.0, -1.0));
+    samples.d = get_view_normal(frag_coord + vec2( 0.0,  1.0));
+    samples.l = get_view_normal(frag_coord + vec2(-1.0,  0.0));
+    samples.r = get_view_normal(frag_coord + vec2( 1.0,  0.0));
     return samples;
 }
 
 fn normal_neighbour_edge(base_normal: vec3<f32>, new_normal: vec3<f32>, depth_diff: f32) -> f32 {
     let normal_diff = dot(base_normal - new_normal, vec3(-1.0, -1.0, -1.0));
     let normal_indicator = saturate(smoothstep(-0.025, 0.025, normal_diff));
-    let depth_indicator = saturate(sign(depth_diff * 0.01 + 0.0025));
+    let depth_indicator = saturate(sign(depth_diff + 0.1));
     return (1.0 - dot(base_normal, new_normal)) * depth_indicator * normal_indicator;
 }
 
@@ -122,15 +123,18 @@ fn fragment(
     let depth_samples = get_depth_samples(frag_coord.xy);
     let normal_samples = get_normal_samples(frag_coord.xy);
 
-    let is_depth_edge = check_depth_edge(depth_samples, 0.2);
-    let is_normal_edge = check_normal_edge(depth_samples, normal_samples, 0.5);
+    let is_depth_edge = check_depth_edge(depth_samples, 0.3);
+    let is_normal_edge = check_normal_edge(depth_samples, normal_samples, 1.0);
 
-    var out_color = all_lights(frag_coord, world_position, world_normal, material.color.rgb);
+    var albedo = material.color.rgb;
     if (is_depth_edge) {
-        out_color *= 0.5;
+        albedo *= 0.5;
     } else if (is_normal_edge) {
-        out_color *= 0.5;
+        albedo *= 0.5;
     }
 
+    var out_color = all_lights(frag_coord, world_position, world_normal, albedo);
     return vec4<f32>(out_color, 1.0);
+
+    // return vec4<f32>(out_color, 1.0);
 }

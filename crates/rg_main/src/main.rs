@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
 use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
@@ -32,8 +31,6 @@ fn main() {
                     ..default()
                 }),
         )
-        .add_plugins(LogDiagnosticsPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(CameraControllerPlugin)
         .add_plugins(TerrainPlugin)

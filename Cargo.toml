@@ -10,7 +10,7 @@ members = [
 
 [workspace.dependencies.bevy]
 git = "https://github.com/bevyengine/bevy.git"
-rev = "8b5bf42c28d9b870ee36210b73950f4af99fd2cf"
+rev = "bb59509d44d2979e4b91bd0f998c047f16b89dd0"
 features = ["dynamic_linking"]
 
 [profile.dev]

@@ -1,3 +1,5 @@
+mod camera_controller;
+
 use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
@@ -10,6 +12,8 @@ use bevy::render::render_resource::{
 use bevy::sprite::Anchor;
 use bevy::window::{WindowResized, WindowResolution};
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
+
+use crate::camera_controller::{CameraController, CameraControllerPlugin};
 
 const PIXEL_SCALE: f32 = 2.0;
 
@@ -32,6 +36,7 @@ fn main() {
                 }),
         )
         .add_plugin(PixelMaterialPlugin)
+        .add_plugin(CameraControllerPlugin)
         .insert_resource(Msaa::Off)
         .add_systems(Startup, setup)
         .add_systems(Update, on_resize_system)
@@ -123,10 +128,6 @@ fn setup(
     // camera
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(
-                Quat::from_rotation_y(45f32.to_radians())
-                    * Quat::from_rotation_x(-30f32.to_radians()),
-            ),
             camera: Camera {
                 order: -1,
                 target: RenderTarget::Image(image_handle.clone()),
@@ -147,6 +148,7 @@ fn setup(
         },
         DepthPrepass,
         NormalPrepass,
+        CameraController::default(),
     ));
 
     commands.spawn(Camera2dBundle::default());

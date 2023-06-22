@@ -28,7 +28,7 @@ fn single_light(
     light *= f32(material.bands);
 
 #ifdef DITHER_ENABLED
-    let bayer = pow(textureLoad(dither_matrix, vec2<u32>(frag_coord) % 4u, 0).r, 1.0 / 2.2);
+    let bayer = pow(textureLoad(dither_matrix, (vec2<u32>(frag_coord) + material.dither_offset) % 4u, 0).r, 1.0 / 2.2);
     light = mix(floor(light), ceil(light), f32(fract(light) > bayer));
 #elseif
     light = round(light);

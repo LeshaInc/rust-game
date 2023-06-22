@@ -12,7 +12,7 @@ impl Plugin for PixelMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(MaterialPlugin::<PixelMaterial>::default())
             .add_systems(Startup, setup)
-            .add_systems(Update, update_globals);
+            .add_systems(PostUpdate, update_globals);
     }
 }
 

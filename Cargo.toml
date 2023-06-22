@@ -2,7 +2,8 @@
 resolver = "2"
 
 members = [
-  "crates/rg_main"
+  "crates/rg_main",
+  "crates/rg_pixel_material",
 ]
 
 [workspace.dependencies]

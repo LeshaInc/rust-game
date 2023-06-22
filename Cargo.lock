@@ -2583,6 +2583,14 @@ name = "rg_main"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "rg_pixel_material",
+]
+
+[[package]]
+name = "rg_pixel_material"
+version = "0.1.0"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]

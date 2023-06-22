@@ -1,5 +1,3 @@
-mod material;
-
 use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
@@ -11,8 +9,7 @@ use bevy::render::render_resource::{
 };
 use bevy::sprite::Anchor;
 use bevy::window::{WindowResized, WindowResolution};
-
-use crate::material::PixelMaterial;
+use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 
 const PIXEL_SCALE: f32 = 2.0;
 
@@ -34,7 +31,7 @@ fn main() {
                     ..default()
                 }),
         )
-        .add_plugin(MaterialPlugin::<PixelMaterial>::default())
+        .add_plugin(PixelMaterialPlugin)
         .insert_resource(Msaa::Off)
         .add_systems(Startup, setup)
         .add_systems(Update, on_resize_system)

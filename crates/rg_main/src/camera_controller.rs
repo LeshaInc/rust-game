@@ -45,11 +45,11 @@ impl Default for CameraController {
             translation_smoothing: 0.01,
             rotation_smoothing: 0.001,
             pixel_scale: 2.0,
-            camera_scale: 1.0 / 64.0,
+            camera_scale: 1.0 / 48.0,
             camera_pitch: 30f32.to_radians(),
             camera_near: 0.1,
-            camera_far: 20.0,
-            camera_distance: 10.0,
+            camera_far: 50.0,
+            camera_distance: 25.0,
         }
     }
 }

@@ -8,6 +8,7 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
+use rg_terrain::TerrainPlugin;
 
 use crate::camera_controller::{CameraController, CameraControllerPlugin};
 
@@ -34,6 +35,7 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(CameraControllerPlugin)
+        .add_plugins(TerrainPlugin)
         .insert_resource(Msaa::Off)
         .add_systems(Startup, setup)
         .add_systems(Update, handle_input)

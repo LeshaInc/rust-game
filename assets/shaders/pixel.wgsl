@@ -5,20 +5,33 @@
 
 struct PixelMaterial {
     color: vec4<f32>,
+    dither_offset: vec2<u32>,
 };
 
 @group(1) @binding(0)
 var<uniform> material: PixelMaterial;
 
+@group(1) @binding(1)
+var dither_matrix: texture_2d<f32>;
+
 fn single_light(
+    frag_coord: vec2<f32>,
     mesh_normal: vec3<f32>,
     mesh_albedo: vec3<f32>,
     light_incident: vec3<f32>,
     light_color: vec3<f32>,
     light_attenuation: f32,
 ) -> vec3<f32> {
-    let n_dot_l = step(0.5, saturate(dot(mesh_normal, light_incident)));
-    return mesh_albedo * light_color * n_dot_l * light_attenuation;
+    var light = saturate(dot(mesh_normal, light_incident));
+    light *= light_attenuation;
+    light *= 6.0;
+
+    let bayer = pow(textureLoad(dither_matrix, vec2<u32>(frag_coord) % 4u, 0).r, 1.0 / 2.2);
+    light = mix(floor(light), ceil(light), f32(fract(light) > bayer));
+
+    light /= 6.0;
+    
+    return mesh_albedo * light_color * light;
 }
 
 fn all_lights(
@@ -40,7 +53,10 @@ fn all_lights(
     for (var i: u32 = 0u; i < n_directional_lights; i++) {
         let light = &lights.directional_lights[i];
         let shadow = step(0.5, fetch_directional_shadow(i, world_position, mesh_normal, view_z));
-        out_color += single_light(mesh_normal, mesh_albedo, (*light).direction_to_light, (*light).color.rgb, shadow);
+        out_color += single_light(
+            frag_coord.xy, mesh_normal, mesh_albedo,
+            (*light).direction_to_light, (*light).color.rgb, shadow
+        );
     }
 
     return out_color;

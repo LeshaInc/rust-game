@@ -49,6 +49,7 @@ fn setup(
         mesh: meshes.add(shape::Plane::from_size(5.0).into()),
         material: materials.add(PixelMaterial {
             color: Color::rgb(0.3, 0.7, 0.3),
+            ..default()
         }),
         ..default()
     });
@@ -58,6 +59,7 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(PixelMaterial {
             color: Color::rgb(0.3, 0.3, 0.7),
+            ..default()
         }),
         ..default()
     });
@@ -71,6 +73,7 @@ fn setup(
         transform: Transform::from_xyz(-1.2, 0.5, 1.2),
         material: materials.add(PixelMaterial {
             color: Color::rgb(0.7, 0.3, 0.3),
+            ..default()
         }),
         ..default()
     });

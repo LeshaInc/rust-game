@@ -49,6 +49,7 @@ fn setup(
         mesh: meshes.add(shape::Plane::from_size(5.0).into()),
         material: materials.add(PixelMaterial {
             color: Color::rgb(0.3, 0.7, 0.3),
+            dither_enabled: false,
             ..default()
         }),
         ..default()

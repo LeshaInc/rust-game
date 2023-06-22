@@ -5,6 +5,7 @@
 
 struct PixelMaterial {
     color: vec4<f32>,
+    bands: u32,
     dither_offset: vec2<u32>,
 };
 
@@ -24,12 +25,16 @@ fn single_light(
 ) -> vec3<f32> {
     var light = saturate(dot(mesh_normal, light_incident));
     light *= light_attenuation;
-    light *= 6.0;
+    light *= f32(material.bands);
 
+#ifdef DITHER_ENABLED
     let bayer = pow(textureLoad(dither_matrix, vec2<u32>(frag_coord) % 4u, 0).r, 1.0 / 2.2);
     light = mix(floor(light), ceil(light), f32(fract(light) > bayer));
+#elseif
+    light = round(light);
+#endif
 
-    light /= 6.0;
+    light /= f32(material.bands);
     
     return mesh_albedo * light_color * light;
 }

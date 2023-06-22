@@ -1,9 +1,13 @@
 mod generator;
+mod heightmap;
+mod map;
 
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
 use rg_pixel_material::PixelMaterial;
+
+pub use crate::map::{ChunkMap, ChunkMapRefMut};
 
 pub const CHUNK_SIZE: f32 = 32.0;
 pub const CHUNK_RESOLUTION: u32 = 64;

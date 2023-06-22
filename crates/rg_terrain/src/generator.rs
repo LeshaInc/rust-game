@@ -1,19 +1,17 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 
-use crate::{CHUNK_RESOLUTION, CHUNK_SIZE};
+use crate::{heightmap, CHUNK_RESOLUTION, CHUNK_SIZE};
 
-pub fn generate(_seed: u64, chunk_pos: IVec2) -> Mesh {
+pub fn generate(seed: u64, chunk_pos: IVec2) -> Mesh {
     let _span = info_span!("chunk generator").entered();
+
+    let heightmap = heightmap::generate(seed, chunk_pos);
 
     let mut builder = MeshBuilder::default();
     for sx in 0..CHUNK_RESOLUTION {
         for sz in 0..CHUNK_RESOLUTION {
-            let fx = CHUNK_SIZE * (sx as f32) / (CHUNK_RESOLUTION as f32) + chunk_pos.x as f32;
-            let fz = CHUNK_SIZE * (sz as f32) / (CHUNK_RESOLUTION as f32) + chunk_pos.y as f32;
-
-            let y = fx.sin() * fz.cos() * 0.2;
-
+            let y = heightmap.0.get(UVec2::new(sx, sz));
             let a = Vec3::new(sx as f32, y, sz as f32);
             let b = a + Vec3::new(0.0, 0.0, 1.0);
             let c = a + Vec3::new(1.0, 0.0, 1.0);

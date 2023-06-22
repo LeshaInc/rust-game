@@ -24,15 +24,18 @@ pub struct ChunkPos(pub IVec2);
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Resource)]
 pub struct Seed(pub u64);
 
+#[derive(Debug, Clone, Resource)]
+pub struct TerrainMaterial(pub Handle<PixelMaterial>);
+
 #[derive(Debug, Component)]
 pub struct FutureChunk(Task<Mesh>);
 
-fn startup(mut commands: Commands, seed: Res<Seed>) {
+fn startup(mut commands: Commands, seed: Res<Seed>, mut materials: ResMut<Assets<PixelMaterial>>) {
     let task_pool = AsyncComputeTaskPool::get();
     let seed = seed.0;
 
-    for sx in -3..=3 {
-        for sz in -3..=3 {
+    for sx in -10..=10 {
+        for sz in -10..=10 {
             let chunk_pos = IVec2::new(sx, sz);
             let task = task_pool.spawn(async move { generator::generate(seed, chunk_pos) });
 
@@ -43,13 +46,21 @@ fn startup(mut commands: Commands, seed: Res<Seed>) {
             ));
         }
     }
+
+    let material = materials.add(PixelMaterial {
+        color: Color::rgb(0.3, 0.7, 0.3),
+        dither_enabled: false,
+        ..default()
+    });
+
+    commands.insert_resource(TerrainMaterial(material));
 }
 
 fn refresh_chunks(
     mut q_future_chunks: Query<(Entity, &Transform, &mut FutureChunk)>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<PixelMaterial>>,
+    terrain_material: Res<TerrainMaterial>,
 ) {
     for (chunk_id, transform, mut future_chunk) in &mut q_future_chunks {
         let Some(mesh) = future::block_on(future::poll_once(&mut future_chunk.0)) else  {
@@ -57,18 +68,13 @@ fn refresh_chunks(
         };
 
         let mesh = meshes.add(mesh);
-        println!("added chunk!");
 
         commands
             .entity(chunk_id)
             .remove::<FutureChunk>()
             .insert(MaterialMeshBundle {
                 mesh,
-                material: materials.add(PixelMaterial {
-                    color: Color::rgb(0.3, 0.7, 0.3),
-                    dither_enabled: false,
-                    ..default()
-                }),
+                material: terrain_material.0.clone(),
                 transform: *transform,
                 ..default()
             });

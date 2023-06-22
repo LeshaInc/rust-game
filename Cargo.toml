@@ -13,7 +13,7 @@ futures-lite = "1.13"
 [workspace.dependencies.bevy]
 git = "https://github.com/bevyengine/bevy.git"
 rev = "bb59509d44d2979e4b91bd0f998c047f16b89dd0"
-features = ["dynamic_linking"]
+features = ["dynamic_linking", "trace_tracy"]
 
 [profile.dev]
 opt-level = 1

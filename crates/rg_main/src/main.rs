@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
 use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
@@ -29,6 +30,8 @@ fn main() {
                     ..default()
                 }),
         )
+        .add_plugins(LogDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(CameraControllerPlugin)
         .insert_resource(Msaa::Off)
@@ -105,6 +108,8 @@ fn setup(
         DepthPrepass,
         NormalPrepass,
     ));
+
+    debug!("Spawned everything");
 }
 
 fn handle_input(

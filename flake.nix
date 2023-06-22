@@ -44,7 +44,7 @@
           VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d/";
 
           RUST_SRC_PATH = "${rust-toolchain}/lib/rustlib/src/rust/library";
-          RUST_LOG = "warn";
+          RUST_LOG = "warn,bevy=info,rg=debug";
           RUST_BACKTRACE = 1;
         };
       }

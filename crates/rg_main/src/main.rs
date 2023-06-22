@@ -35,8 +35,8 @@ fn main() {
                     ..default()
                 }),
         )
-        .add_plugin(PixelMaterialPlugin)
-        .add_plugin(CameraControllerPlugin)
+        .add_plugins(PixelMaterialPlugin)
+        .add_plugins(CameraControllerPlugin)
         .insert_resource(Msaa::Off)
         .add_systems(Startup, setup)
         .add_systems(Update, on_resize_system)

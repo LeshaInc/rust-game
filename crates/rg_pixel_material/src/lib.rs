@@ -10,7 +10,7 @@ pub struct PixelMaterialPlugin;
 
 impl Plugin for PixelMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(MaterialPlugin::<PixelMaterial>::default())
+        app.add_plugins(MaterialPlugin::<PixelMaterial>::default())
             .add_systems(Startup, setup)
             .add_systems(PostUpdate, update_globals);
     }

@@ -8,6 +8,7 @@ members = [
 ]
 
 [workspace.dependencies]
+futures-lite = "1.13"
 
 [workspace.dependencies.bevy]
 git = "https://github.com/bevyengine/bevy.git"

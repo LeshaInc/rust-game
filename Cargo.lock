@@ -2606,6 +2606,8 @@ name = "rg_terrain"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "futures-lite",
+ "rg_pixel_material",
 ]
 
 [[package]]

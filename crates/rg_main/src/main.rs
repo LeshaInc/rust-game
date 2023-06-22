@@ -50,15 +50,15 @@ fn setup(
     mut materials: ResMut<Assets<PixelMaterial>>,
 ) {
     // plane
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(PixelMaterial {
-            color: Color::rgb(0.3, 0.7, 0.3),
-            dither_enabled: false,
-            ..default()
-        }),
-        ..default()
-    });
+    // commands.spawn(MaterialMeshBundle {
+    //     mesh: meshes.add(shape::Plane::from_size(5.0).into()),
+    //     material: materials.add(PixelMaterial {
+    //         color: Color::rgb(0.3, 0.7, 0.3),
+    //         dither_enabled: false,
+    //         ..default()
+    //     }),
+    //     ..default()
+    // });
     // cube
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),

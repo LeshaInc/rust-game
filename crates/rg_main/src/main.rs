@@ -5,6 +5,7 @@ use std::time::Duration;
 use bevy::asset::ChangeWatcher;
 use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
@@ -37,6 +38,7 @@ fn main() {
         .add_plugins(CameraControllerPlugin)
         .add_plugins(TerrainPlugin)
         .insert_resource(Msaa::Off)
+        .insert_resource(DirectionalLightShadowMap { size: 8192 })
         .add_systems(Startup, setup)
         .add_systems(Update, handle_input)
         .run();
@@ -89,6 +91,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            num_cascades: 1,
+            minimum_distance: 10.0,
+            maximum_distance: 40.0,
+            ..default()
+        }
+        .build(),
         transform: Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
             rotation: Quat::from_rotation_x(-0.8) * Quat::from_rotation_y(0.3),

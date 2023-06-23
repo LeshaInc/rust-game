@@ -6,7 +6,8 @@ mod mesher;
 use bevy::prelude::*;
 use rg_pixel_material::PixelMaterial;
 
-pub use crate::chunks::Chunks;
+pub use crate::chunks::{Chunks, NEIGHBOR_DIRS};
+pub use crate::heightmap::ChunkHeightmap;
 pub use crate::map::{ChunkMap, ChunkMapRefMut};
 
 pub const CHUNK_SIZE: f32 = 32.0;

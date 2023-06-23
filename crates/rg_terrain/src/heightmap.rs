@@ -17,7 +17,7 @@ pub fn generate(_seed: u64, chunk_pos: IVec2) -> ChunkHeightmap {
         for sz in 0..CHUNK_RESOLUTION {
             let fx = ((sx as f32) / (CHUNK_RESOLUTION as f32) + chunk_pos.x as f32) * CHUNK_SIZE;
             let fz = ((sz as f32) / (CHUNK_RESOLUTION as f32) + chunk_pos.y as f32) * CHUNK_SIZE;
-            let y = (fx * 0.1).sin() * (fz * 0.1).cos() * 3.0;
+            let y = (fx * 0.1).sin() * (fz * 0.1).cos() * 5.0;
             data.set(UVec2::new(sx, sz), y);
         }
     }
@@ -43,8 +43,7 @@ pub fn schedule_system(
     let task_pool = AsyncComputeTaskPool::get();
     let seed = seed.0;
 
-    for (chunk_id, chunk_pos) in &q_chunks {
-        let chunk_pos = chunk_pos.0;
+    for (chunk_id, &ChunkPos(chunk_pos)) in &q_chunks {
         let task = task_pool.spawn(async move { generate(seed, chunk_pos) });
         commands.entity(chunk_id).insert(ChunkHeightmapTask(task));
     }

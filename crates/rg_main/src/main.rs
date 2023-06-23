@@ -18,7 +18,7 @@ fn main() {
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        present_mode: PresentMode::AutoNoVsync,
+                        present_mode: PresentMode::AutoVsync,
                         resolution: WindowResolution::new(800., 600.)
                             .with_scale_factor_override(1.0),
                         ..default()

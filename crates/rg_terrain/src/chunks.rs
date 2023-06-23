@@ -15,11 +15,8 @@ impl Chunks {
         self.map.get(&pos).copied()
     }
 
-    pub fn get_neighbors(&self, pos: IVec2) -> [Option<(IVec2, Entity)>; 8] {
-        NEIGHBOR_DIRS.map(|dir| {
-            let n_pos = pos + dir;
-            self.get(n_pos).map(|id| (n_pos, id))
-        })
+    pub fn get_neighbors(&self, pos: IVec2) -> [Option<Entity>; 8] {
+        NEIGHBOR_DIRS.map(|dir| self.get(pos + dir))
     }
 
     pub fn remove(&mut self, pos: IVec2) {

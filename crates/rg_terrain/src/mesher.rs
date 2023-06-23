@@ -1,17 +1,18 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
+use bevy::tasks::{AsyncComputeTaskPool, Task};
+use futures_lite::future;
 
-use crate::{heightmap, CHUNK_RESOLUTION, CHUNK_SIZE};
+use crate::heightmap::ChunkHeightmap;
+use crate::{Chunk, ChunkMap, ChunkPos, CHUNK_RESOLUTION, CHUNK_SIZE};
 
-pub fn generate(seed: u64, chunk_pos: IVec2) -> Mesh {
-    let _span = info_span!("chunk generator").entered();
-
-    let heightmap = heightmap::generate(seed, chunk_pos);
+pub fn generate(heightmap: ChunkMap<f32>) -> Mesh {
+    let _span = info_span!("chunk mesh generator").entered();
 
     let mut builder = MeshBuilder::default();
     for sx in 0..CHUNK_RESOLUTION {
         for sz in 0..CHUNK_RESOLUTION {
-            let y = heightmap.0.get(UVec2::new(sx, sz));
+            let y = heightmap.get(UVec2::new(sx, sz));
             let a = Vec3::new(sx as f32, y, sz as f32);
             let b = a + Vec3::new(0.0, 0.0, 1.0);
             let c = a + Vec3::new(1.0, 0.0, 1.0);
@@ -23,6 +24,44 @@ pub fn generate(seed: u64, chunk_pos: IVec2) -> Mesh {
     let scale = CHUNK_SIZE / (CHUNK_RESOLUTION as f32);
     builder.apply_scale(Vec3::new(scale, 1.0, scale));
     builder.build()
+}
+
+#[derive(Debug, Component)]
+pub struct ChunkMeshTask(Task<Mesh>);
+
+pub fn schedule_system(
+    q_chunks: Query<
+        (Entity, &ChunkPos, &ChunkHeightmap),
+        (With<Chunk>, Without<Handle<Mesh>>, Without<ChunkMeshTask>),
+    >,
+    mut commands: Commands,
+) {
+    let task_pool = AsyncComputeTaskPool::get();
+
+    for (chunk_id, _chunk_pos, heightmap) in &q_chunks {
+        let heightmap = heightmap.0.clone();
+        let task = task_pool.spawn(async move { generate(heightmap) });
+        commands.entity(chunk_id).insert(ChunkMeshTask(task));
+    }
+}
+
+pub fn update_system(
+    mut q_chunks: Query<(Entity, &mut ChunkMeshTask), With<Chunk>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    for (chunk_id, mut task) in &mut q_chunks {
+        let Some(mesh) = future::block_on(future::poll_once(&mut task.0)) else  {
+            continue;
+        };
+
+        let mesh_handle = meshes.add(mesh);
+
+        commands
+            .entity(chunk_id)
+            .remove::<ChunkMeshTask>()
+            .insert(mesh_handle);
+    }
 }
 
 #[derive(Default)]

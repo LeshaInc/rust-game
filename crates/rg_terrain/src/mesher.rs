@@ -2,19 +2,24 @@ use bevy::math::{ivec2, uvec2, vec2, vec3, Vec3Swizzles};
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
+use bevy::utils::HashMap;
 use futures_lite::future;
 
 use crate::{
-    Chunk, ChunkHeightmap, ChunkMap, ChunkPos, Chunks, CHUNK_RESOLUTION, CHUNK_SIZE, NEIGHBOR_DIRS,
+    Chunk, ChunkHeightmap, ChunkMap, ChunkPos, Chunks, CHUNK_RESOLUTION, CHUNK_SIZE,
+    MAX_UPDATES_PER_FRAME, NEIGHBOR_DIRS,
 };
 
-pub struct MeshGenerator {
-    builder: MeshBuilder,
-    height_step: f32,
-    neighbor_heightmaps: [ChunkMap<f32>; 8],
-    heightmap: ChunkMap<f32>,
+const VERTICES_CAP: usize = 128 * 1024;
+const INDICES_CAP: usize = 128 * 1024;
 
-    cell_builder: MeshBuilder,
+struct MeshGenerator {
+    heightmaps: Heightmaps,
+    positions: Vec<Vec3>,
+    normals: Vec<Vec3>,
+    indices: Vec<u32>,
+    height_step: f32,
+    cell_first_vertex_idx: usize,
     height: f32,
     up_height: f32,
     mask: u8,
@@ -26,14 +31,14 @@ pub struct MeshGenerator {
 }
 
 impl MeshGenerator {
-    pub fn new(neighbor_heightmaps: [ChunkMap<f32>; 8], heightmap: ChunkMap<f32>) -> MeshGenerator {
+    fn new(heightmaps: Heightmaps) -> MeshGenerator {
         MeshGenerator {
-            builder: MeshBuilder::default(),
+            heightmaps,
+            positions: Vec::with_capacity(VERTICES_CAP),
+            normals: Vec::with_capacity(VERTICES_CAP),
+            indices: Vec::with_capacity(INDICES_CAP),
             height_step: 0.1,
-            neighbor_heightmaps,
-            heightmap,
-
-            cell_builder: MeshBuilder::default(),
+            cell_first_vertex_idx: 0,
             height: 0.0,
             up_height: 0.0,
             mask: 0,
@@ -45,24 +50,36 @@ impl MeshGenerator {
         }
     }
 
-    pub fn generate(mut self) -> Mesh {
+    fn generate(mut self) -> Mesh {
         let _span = info_span!("chunk mesh generator").entered();
+
+        self.generate_cells();
+        self.snap_vertices();
+        self.cleanup_triangles();
+        self.compute_normals();
+        self.snap_normals();
+        self.deduplicate();
+        self.apply_scale();
+        self.create_mesh()
+    }
+
+    fn generate_cells(&mut self) {
+        let _span = info_span!("generate cells").entered();
 
         for x in 0..CHUNK_RESOLUTION {
             for y in 0..CHUNK_RESOLUTION {
+                let first_vertex_idx = self.positions.len();
+                self.cell_first_vertex_idx = first_vertex_idx;
+
                 let pos = uvec2(x, y).as_ivec2();
                 self.generate_cell(pos);
-                self.cell_builder
-                    .apply_translation(vec3(x as f32, 0.0, y as f32));
-                self.builder.append(&mut self.cell_builder);
+
+                for pos in &mut self.positions[first_vertex_idx..] {
+                    pos.x += x as f32;
+                    pos.z += y as f32;
+                }
             }
         }
-
-        self.compute_normals();
-
-        let scale = CHUNK_SIZE / (CHUNK_RESOLUTION as f32);
-        self.builder.apply_scale(vec3(scale, 1.0, scale));
-        self.builder.build()
     }
 
     fn generate_cell(&mut self, pos: IVec2) {
@@ -107,60 +124,173 @@ impl MeshGenerator {
         }
     }
 
+    fn snap_vertices(&mut self) {
+        let _span = info_span!("snap vertices").entered();
+
+        for pos in &mut self.positions {
+            let (height, grad) = self.heightmaps.sample_height_and_grad(pos.xz());
+            if (pos.y - height).abs().powi(2) < 0.0025 / grad.length_squared() {
+                pos.y = height;
+            }
+        }
+    }
+
+    fn cleanup_triangles(&mut self) {
+        let _span = info_span!("cleanup triangles").entered();
+
+        let mut idx = 0;
+        while idx < self.indices.len() {
+            let a = self.positions[self.indices[idx] as usize];
+            let b = self.positions[self.indices[idx + 1] as usize];
+            let c = self.positions[self.indices[idx + 2] as usize];
+
+            if (a - b).cross(a - c).length_squared() < 1e-10 {
+                self.indices.swap_remove(idx + 2);
+                self.indices.swap_remove(idx + 1);
+                self.indices.swap_remove(idx);
+            } else {
+                idx += 3;
+            }
+        }
+    }
+
+    fn compute_normals(&mut self) {
+        let _span = info_span!("compute normals").entered();
+
+        for indices in self.indices.chunks_exact(3) {
+            let pos_a = self.positions[indices[0] as usize];
+            let pos_b = self.positions[indices[1] as usize];
+            let pos_c = self.positions[indices[2] as usize];
+            let normal = (pos_b - pos_a).cross(pos_c - pos_a).normalize();
+            self.normals[indices[0] as usize] = normal;
+            self.normals[indices[1] as usize] = normal;
+            self.normals[indices[2] as usize] = normal;
+        }
+    }
+
+    fn snap_normals(&mut self) {
+        let _span = info_span!("snap normals").entered();
+
+        for (pos, normal) in self.positions.iter_mut().zip(&mut self.normals) {
+            let (_, grad) = self.heightmaps.sample_height_and_grad(pos.xz());
+            let target_normal = vec3(-grad.x, 2.0, -grad.y).normalize();
+            if normal.y.abs() > 0.1 && normal.dot(target_normal) > 0.9 {
+                *normal = target_normal;
+            }
+        }
+    }
+
+    fn deduplicate(&mut self) {
+        let _span = info_span!("deduplicate").entered();
+
+        let mut map = HashMap::with_capacity(self.positions.len());
+
+        let mut new_positions = Vec::with_capacity(self.positions.len());
+        let mut new_normals = Vec::with_capacity(self.positions.len());
+
+        for index in &mut self.indices {
+            let pos = self.positions[*index as usize];
+            let normal = self.normals[*index as usize];
+
+            let bit_pos = UVec3::new(pos.x.to_bits(), pos.y.to_bits(), pos.z.to_bits());
+            let bit_normal = UVec3::new(normal.x.to_bits(), normal.y.to_bits(), normal.z.to_bits());
+
+            *index = *map.entry((bit_pos, bit_normal)).or_insert_with(|| {
+                let new_index = new_positions.len() as u32;
+                new_positions.push(pos);
+                new_normals.push(normal);
+                new_index
+            });
+        }
+
+        self.positions = new_positions;
+        self.normals = new_normals;
+    }
+
+    fn apply_scale(&mut self) {
+        let _span = info_span!("apply scale").entered();
+
+        let scale = CHUNK_SIZE / (CHUNK_RESOLUTION as f32);
+        for pos in &mut self.positions {
+            pos.x *= scale;
+            pos.z *= scale;
+        }
+    }
+
+    fn create_mesh(self) -> Mesh {
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
+        mesh.set_indices(Some(bevy::render::mesh::Indices::U32(self.indices)));
+
+        mesh
+    }
+
     fn marching_squares(&mut self) {
         self.flip_x = false;
         self.flip_y = false;
         self.rotate = false;
 
-        let case = if self.mask == 1 {
-            Self::ms_case_1
+        let start_vertex = self.positions.len();
+        let start_index = self.indices.len();
+
+        if self.mask == 1 {
+            self.ms_case_1();
         } else if self.mask == 2 {
             self.flip_x = true;
-            Self::ms_case_1
+            self.ms_transform_masks();
+            self.ms_case_1();
         } else if self.mask == 3 {
-            Self::ms_case_3
+            self.ms_case_3();
         } else if self.mask == 4 {
             self.flip_x = true;
             self.flip_y = true;
-            Self::ms_case_1
+            self.ms_transform_masks();
+            self.ms_case_1();
         } else if self.mask == 5 {
-            Self::ms_case_5
+            self.ms_case_5();
         } else if self.mask == 6 {
             self.rotate = true;
-            Self::ms_case_3
+            self.ms_transform_masks();
+            self.ms_case_3();
         } else if self.mask == 7 {
-            Self::ms_case_7
+            self.ms_case_7();
         } else if self.mask == 8 {
             self.flip_y = true;
-            Self::ms_case_1
+            self.ms_transform_masks();
+            self.ms_case_1();
         } else if self.mask == 9 {
             self.flip_y = true;
             self.rotate = true;
-            Self::ms_case_3
+            self.ms_transform_masks();
+            self.ms_case_3();
         } else if self.mask == 10 {
             self.flip_y = true;
-            Self::ms_case_5
+            self.ms_transform_masks();
+            self.ms_case_5();
         } else if self.mask == 11 {
             self.flip_x = true;
-            Self::ms_case_7
+            self.ms_transform_masks();
+            self.ms_case_7();
         } else if self.mask == 12 {
             self.flip_y = true;
-            Self::ms_case_3
+            self.ms_transform_masks();
+            self.ms_case_3();
         } else if self.mask == 13 {
             self.flip_y = true;
             self.rotate = true;
-            Self::ms_case_7
+            self.ms_transform_masks();
+            self.ms_case_7();
         } else if self.mask == 14 {
             self.rotate = true;
-            Self::ms_case_7
+            self.ms_transform_masks();
+            self.ms_case_7();
         } else if self.mask == 15 {
-            Self::ms_case_15
-        } else {
-            return;
-        };
+            self.ms_case_15();
+        }
 
-        self.ms_transform_masks();
-        case(self);
+        self.ms_transform_points(start_vertex, start_index);
     }
 
     fn ms_transform_masks(&mut self) {
@@ -188,6 +318,34 @@ impl MeshGenerator {
         }
     }
 
+    fn ms_transform_points(&mut self, start_vertex: usize, start_index: usize) {
+        let positions = &mut self.positions[start_vertex..];
+
+        if self.flip_x {
+            for pos in &mut positions[..] {
+                *pos = vec3(1.0 - pos.x, pos.y, pos.z);
+            }
+        }
+
+        if self.flip_y {
+            for pos in &mut positions[..] {
+                *pos = vec3(pos.x, pos.y, 1.0 - pos.z);
+            }
+        }
+
+        if self.rotate {
+            for pos in &mut positions[..] {
+                *pos = vec3(1.0 - pos.z, pos.y, pos.x);
+            }
+        }
+
+        if !(self.flip_x ^ self.flip_y) {
+            for indices in self.indices[start_index..].chunks_exact_mut(3) {
+                indices.swap(1, 2);
+            }
+        }
+    }
+
     fn ms_transform_point(&self, mut pos: Vec3) -> Vec3 {
         if self.flip_x {
             pos = vec3(1.0 - pos.x, pos.y, pos.z);
@@ -204,21 +362,19 @@ impl MeshGenerator {
         pos
     }
 
-    fn ms_triangle_3d(&mut self, mut a: Vec3, mut b: Vec3, mut c: Vec3) {
-        a = self.ms_transform_point(a);
-        b = self.ms_transform_point(b);
-        c = self.ms_transform_point(c);
-
-        if !(self.flip_x ^ self.flip_y) {
-            std::mem::swap(&mut b, &mut c);
-        }
-
-        self.cell_builder.triangle(a, b, c);
+    fn ms_triangle_3d(&mut self, a: Vec3, b: Vec3, c: Vec3) {
+        let index = self.positions.len() as u32;
+        self.positions.extend([a, b, c]);
+        self.normals.extend([Vec3::ZERO; 3]);
+        self.indices.extend([index, index + 1, index + 2]);
     }
 
     fn ms_quad_3d(&mut self, a: Vec3, b: Vec3, c: Vec3, d: Vec3) {
-        self.ms_triangle_3d(a, b, c);
-        self.ms_triangle_3d(a, c, d);
+        let index = self.positions.len() as u32;
+        self.positions.extend([a, b, c, d]);
+        self.normals.extend([Vec3::ZERO; 4]);
+        self.indices.extend([index, index + 1, index + 2]);
+        self.indices.extend([index, index + 2, index + 3]);
     }
 
     fn ms_triangle(&mut self, a: Vec2, b: Vec2, c: Vec2) {
@@ -246,7 +402,7 @@ impl MeshGenerator {
         let a_tr = self.ms_transform_point(vec3(a.x, self.height, a.y));
 
         let mut up_height = 1000.0;
-        for pos in &self.cell_builder.positions {
+        for pos in &self.positions[self.cell_first_vertex_idx..] {
             if pos.xz() == a_tr.xz() && pos.y > self.height && pos.y < up_height {
                 up_height = pos.y;
             }
@@ -362,36 +518,50 @@ impl MeshGenerator {
         );
     }
 
-    fn compute_normals(&mut self) {
-        for index in self.builder.indices.iter().step_by(3) {
-            let index = *index as usize;
-            let pos_a = self.builder.positions[index + 0];
-            let pos_b = self.builder.positions[index + 1];
-            let pos_c = self.builder.positions[index + 2];
-            let normal = (pos_b - pos_a).cross(pos_c - pos_a).normalize();
-            self.builder.normals[index + 0] = normal;
-            self.builder.normals[index + 1] = normal;
-            self.builder.normals[index + 2] = normal;
-        }
+    fn get_quantized_height(&self, pos: IVec2) -> f32 {
+        (self.heightmaps.get_height(pos) / self.height_step).floor() * self.height_step
     }
+}
 
+struct Heightmaps {
+    center: ChunkMap<f32>,
+    neighbors: [ChunkMap<f32>; 8],
+}
+
+impl Heightmaps {
     fn get_height(&self, pos: IVec2) -> f32 {
         if inside_chunk(pos) {
-            return self.heightmap.get(pos.as_uvec2());
+            return self.center.get(pos.as_uvec2());
         }
 
         for (i, &dir) in NEIGHBOR_DIRS.iter().enumerate() {
             let pos = pos - dir * UVec2::splat(CHUNK_RESOLUTION).as_ivec2();
             if inside_chunk(pos) {
-                return self.neighbor_heightmaps[i].get(pos.as_uvec2());
+                return self.neighbors[i].get(pos.as_uvec2());
             }
         }
 
         return 0.0;
     }
 
-    fn get_quantized_height(&self, pos: IVec2) -> f32 {
-        (self.get_height(pos) / self.height_step).floor() * self.height_step
+    fn sample_height_and_grad(&self, pos: Vec2) -> (f32, Vec2) {
+        let ipos = pos.as_ivec2();
+        let fpos = pos - ipos.as_vec2();
+
+        let tl = self.get_height(ipos + ivec2(0, 0));
+        let tr = self.get_height(ipos + ivec2(1, 0));
+        let bl = self.get_height(ipos + ivec2(0, 1));
+        let br = self.get_height(ipos + ivec2(1, 1));
+
+        fn lerp(a: f32, b: f32, t: f32) -> f32 {
+            a * (1.0 - t) + b * t
+        }
+
+        let height = lerp(lerp(tl, tr, fpos.x), lerp(bl, br, fpos.x), fpos.y);
+        let grad_x = lerp(tr - tl, br - bl, fpos.y);
+        let grad_y = lerp(bl - tl, br - tr, fpos.x);
+
+        (height, vec2(grad_x, grad_y))
     }
 }
 
@@ -413,20 +583,27 @@ pub fn schedule_system(
 ) {
     let task_pool = AsyncComputeTaskPool::get();
 
-    for (chunk_id, &ChunkPos(chunk_pos), heightmap) in &q_chunks {
-        let neighbor_heightmaps = chunks
+    let mut count = 0;
+
+    for (chunk_id, &ChunkPos(chunk_pos), heightmap) in q_chunks.iter() {
+        let neighbors = chunks
             .get_neighbors(chunk_pos)
             .map(|neighbor_id| neighbor_id.and_then(|id| q_chunk_heightmaps.get(id).ok()));
 
-        if !neighbor_heightmaps.iter().all(|v| v.is_some()) {
+        if neighbors.iter().any(|v| v.is_none()) {
             continue;
         }
 
-        let neighbor_heightmaps = neighbor_heightmaps.map(|v| v.unwrap().0.clone());
-        let heightmap = heightmap.0.clone();
+        count += 1;
+        if count > MAX_UPDATES_PER_FRAME {
+            break;
+        }
+
+        let center = heightmap.0.clone();
+        let neighbors = neighbors.map(|v| v.unwrap().0.clone());
 
         let task = task_pool.spawn(async move {
-            let generator = MeshGenerator::new(neighbor_heightmaps, heightmap);
+            let generator = MeshGenerator::new(Heightmaps { center, neighbors });
             generator.generate()
         });
 
@@ -439,8 +616,8 @@ pub fn update_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (chunk_id, mut task) in &mut q_chunks {
-        let Some(mesh) = future::block_on(future::poll_once(&mut task.0)) else  {
+    for (chunk_id, mut task) in q_chunks.iter_mut().take(MAX_UPDATES_PER_FRAME) {
+        let Some(mesh) = future::block_on(future::poll_once(&mut task.0)) else {
             continue;
         };
 
@@ -450,64 +627,5 @@ pub fn update_system(
             .entity(chunk_id)
             .remove::<ChunkMeshTask>()
             .insert(mesh_handle);
-    }
-}
-
-#[derive(Default)]
-pub struct MeshBuilder {
-    positions: Vec<Vec3>,
-    normals: Vec<Vec3>,
-    indices: Vec<u32>,
-}
-
-impl MeshBuilder {
-    pub fn vertex(&mut self, pos: Vec3) -> u32 {
-        let index = self.positions.len() as u32;
-        self.positions.push(pos);
-        self.normals.push(Vec3::Y);
-        index
-    }
-
-    pub fn triangle_indices(&mut self, a: u32, b: u32, c: u32) {
-        self.indices.extend([a, b, c]);
-    }
-
-    pub fn triangle(&mut self, a: Vec3, b: Vec3, c: Vec3) {
-        let ai = self.vertex(a);
-        let bi = self.vertex(b);
-        let ci = self.vertex(c);
-        self.triangle_indices(ai, bi, ci);
-    }
-
-    pub fn map_positions(&mut self, mut mapper: impl FnMut(Vec3) -> Vec3) {
-        for pos in &mut self.positions {
-            *pos = mapper(*pos)
-        }
-    }
-
-    pub fn apply_translation(&mut self, translation: Vec3) {
-        self.map_positions(|pos| pos + translation);
-    }
-
-    pub fn apply_scale(&mut self, scale: Vec3) {
-        self.map_positions(|pos| pos * scale);
-    }
-
-    pub fn append(&mut self, other: &mut MeshBuilder) {
-        let base_index = self.positions.len() as u32;
-        self.positions.append(&mut other.positions);
-        self.normals.append(&mut other.normals);
-        self.indices
-            .extend(other.indices.drain(..).map(|idx| idx + base_index));
-    }
-
-    pub fn build(self) -> Mesh {
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
-        mesh.set_indices(Some(bevy::render::mesh::Indices::U32(self.indices)));
-
-        mesh
     }
 }

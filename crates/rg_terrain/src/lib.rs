@@ -13,6 +13,8 @@ pub use crate::map::{ChunkMap, ChunkMapRefMut};
 pub const CHUNK_SIZE: f32 = 32.0;
 pub const CHUNK_RESOLUTION: u32 = 64;
 
+pub const MAX_UPDATES_PER_FRAME: usize = 32;
+
 pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
@@ -56,7 +58,6 @@ fn startup(
 ) {
     let material = materials.add(PixelMaterial {
         color: Color::rgb(0.3, 0.7, 0.3),
-        dither_enabled: false,
         ..default()
     });
 

@@ -159,7 +159,9 @@ fn fragment(
     }
 
     var out_color = all_lights(frag_coord, world_position, world_normal, albedo);
-    return vec4<f32>(out_color, 1.0);
 
-    // return vec4<f32>(out_color, 1.0);
+    out_color = mix(out_color, vec3(1.0), 0.03 * smoothstep(2.0, 6.0, world_position.y));
+    out_color = mix(out_color, vec3(0.0), 0.5 * smoothstep(2.0, 6.0, -world_position.y));
+    
+    return vec4<f32>(out_color, 1.0);
 }

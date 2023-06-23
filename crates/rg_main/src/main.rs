@@ -35,7 +35,11 @@ fn main() {
         .add_plugins(CameraControllerPlugin)
         .add_plugins(TerrainPlugin)
         .insert_resource(Msaa::Off)
-        .insert_resource(DirectionalLightShadowMap { size: 8192 })
+        .insert_resource(DirectionalLightShadowMap { size: 4096 })
+        .insert_resource(AmbientLight {
+            color: Color::rgb(0.8, 0.85, 1.0),
+            brightness: 0.5,
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, handle_input)
         .run();
@@ -46,16 +50,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PixelMaterial>>,
 ) {
-    // plane
-    // commands.spawn(MaterialMeshBundle {
-    //     mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-    //     material: materials.add(PixelMaterial {
-    //         color: Color::rgb(0.3, 0.7, 0.3),
-    //         dither_enabled: false,
-    //         ..default()
-    //     }),
-    //     ..default()
-    // });
     // cube
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -91,7 +85,7 @@ fn setup(
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,
             minimum_distance: 10.0,
-            maximum_distance: 40.0,
+            maximum_distance: 60.0,
             ..default()
         }
         .build(),

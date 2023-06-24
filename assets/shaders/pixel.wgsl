@@ -16,6 +16,7 @@ fn single_light(
     frag_coord: vec2<f32>,
     mesh_normal: vec3<f32>,
     mesh_albedo: vec3<f32>,
+    is_edge: bool,
     light_incident: vec3<f32>,
     light_color: vec3<f32>,
     light_attenuation: f32,
@@ -33,7 +34,7 @@ fn single_light(
     );
     let idx = (vec2<u32>(frag_coord) + material.dither_offset) % 4u;
     let bayer = dither_matrix[idx.x][idx.y];
-    light = mix(floor(light), ceil(light), f32(fract(light) > bayer));
+    light = mix(mix(floor(light), ceil(light), f32(fract(light) > bayer)), round(light), f32(is_edge));
 #elseif
     light = round(light);
 #endif
@@ -48,6 +49,7 @@ fn all_lights(
     world_position: vec4<f32>,
     mesh_normal: vec3<f32>,
     mesh_albedo: vec3<f32>,
+    is_edge: bool,
 ) -> vec3<f32> {
     let view_z = dot(vec4<f32>(
         view.inverse_view[0].z,
@@ -63,7 +65,7 @@ fn all_lights(
         let light = &lights.directional_lights[i];
         let shadow = step(0.5, fetch_directional_shadow(i, world_position, mesh_normal, view_z));
         out_color += single_light(
-            frag_coord.xy, mesh_normal, mesh_albedo,
+            frag_coord.xy, mesh_normal, mesh_albedo, is_edge,
             (*light).direction_to_light, (*light).color.rgb, shadow
         );
     }
@@ -149,16 +151,13 @@ fn fragment(
     let normal_samples = get_normal_samples(frag_coord.xy);
 
     let is_depth_edge = check_depth_edge(depth_samples, 0.3);
-    let is_normal_edge = check_normal_edge(depth_samples, normal_samples, 1.0);
+    let is_normal_edge = check_normal_edge(depth_samples, normal_samples, 0.1);
+    let is_edge = is_depth_edge || is_normal_edge;
 
     var albedo = material.color.rgb;
-    if (is_depth_edge) {
-        albedo *= 0.5;
-    } else if (is_normal_edge) {
-        albedo *= 0.5;
-    }
+    albedo = mix(albedo, albedo * 0.5, f32(is_edge));
 
-    var out_color = all_lights(frag_coord, world_position, world_normal, albedo);
+    var out_color = all_lights(frag_coord, world_position, world_normal, albedo, is_edge);
 
     out_color = mix(out_color, vec3(1.0), 0.03 * smoothstep(2.0, 6.0, world_position.y));
     out_color = mix(out_color, vec3(0.0), 0.5 * smoothstep(2.0, 6.0, -world_position.y));

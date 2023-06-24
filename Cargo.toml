@@ -5,10 +5,12 @@ members = [
   "crates/rg_main",
   "crates/rg_pixel_material",
   "crates/rg_terrain",
+  "crates/rg_billboard",
 ]
 
 [workspace.dependencies]
 futures-lite = "1.13"
+bytemuck = "1.7"
 
 [workspace.dependencies.bevy]
 git = "https://github.com/bevyengine/bevy.git"

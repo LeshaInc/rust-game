@@ -7,6 +7,7 @@ use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
+use rg_billboard::{BillboardInstance, BillboardPlugin, MultiBillboard, MultiBillboardBundle};
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::TerrainPlugin;
 
@@ -32,8 +33,9 @@ fn main() {
                 }),
         )
         .add_plugins(PixelMaterialPlugin)
-        .add_plugins(CameraControllerPlugin)
+        .add_plugins(BillboardPlugin)
         .add_plugins(TerrainPlugin)
+        .add_plugins(CameraControllerPlugin)
         .insert_resource(Msaa::Off)
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .insert_resource(AmbientLight {
@@ -49,6 +51,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PixelMaterial>>,
+    mut multi_billboards: ResMut<Assets<MultiBillboard>>,
 ) {
     // cube
     commands.spawn(MaterialMeshBundle {
@@ -110,6 +113,29 @@ fn setup(
         DepthPrepass,
         NormalPrepass,
     ));
+
+    let mut instances = Vec::new();
+
+    for sx in -30..=30 {
+        for sz in -30..=30 {
+            instances.push(BillboardInstance {
+                pos: Vec3::new((sx as f32) / 3.0, 0.0, (sz as f32) / 3.0),
+                size: Vec2::new(0.1, 0.2),
+                color: Vec3::new(1.0, 1.0, 1.0),
+                uv_rect: Vec4::ZERO,
+            })
+        }
+    }
+
+    let multi_billboard = multi_billboards.add(MultiBillboard {
+        instances: instances.into(),
+        anchor: Vec2::new(0.5, 0.5),
+    });
+
+    commands.spawn(MultiBillboardBundle {
+        multi_billboard,
+        ..default()
+    });
 
     debug!("Spawned everything");
 }

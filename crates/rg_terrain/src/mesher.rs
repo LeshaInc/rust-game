@@ -4,9 +4,11 @@ use bevy::render::render_resource::PrimitiveTopology;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy::utils::HashMap;
 use futures_lite::future;
+use rg_billboard::{MultiBillboard, MultiBillboardBundle};
 
+use crate::grass::{self, GeneratedGrass};
 use crate::{
-    Chunk, ChunkHeightmap, ChunkMap, ChunkPos, Chunks, CHUNK_RESOLUTION, CHUNK_SIZE,
+    Chunk, ChunkHeightmap, ChunkMap, ChunkPos, Chunks, Seed, CHUNK_RESOLUTION, CHUNK_SIZE,
     MAX_UPDATES_PER_FRAME, NEIGHBOR_DIRS,
 };
 
@@ -14,6 +16,8 @@ const VERTICES_CAP: usize = 128 * 1024;
 const INDICES_CAP: usize = 128 * 1024;
 
 struct MeshGenerator {
+    seed: u64,
+    chunk_pos: IVec2,
     heightmaps: Heightmaps,
     positions: Vec<Vec3>,
     normals: Vec<Vec3>,
@@ -31,8 +35,10 @@ struct MeshGenerator {
 }
 
 impl MeshGenerator {
-    fn new(heightmaps: Heightmaps) -> MeshGenerator {
+    fn new(seed: u64, chunk_pos: IVec2, heightmaps: Heightmaps) -> MeshGenerator {
         MeshGenerator {
+            seed,
+            chunk_pos,
             heightmaps,
             positions: Vec::with_capacity(VERTICES_CAP),
             normals: Vec::with_capacity(VERTICES_CAP),
@@ -50,7 +56,7 @@ impl MeshGenerator {
         }
     }
 
-    fn generate(mut self) -> Mesh {
+    fn generate(mut self) -> (Mesh, GeneratedGrass) {
         let _span = info_span!("chunk mesh generator").entered();
 
         self.generate_cells();
@@ -60,7 +66,10 @@ impl MeshGenerator {
         self.snap_normals();
         self.deduplicate();
         self.apply_scale();
-        self.create_mesh()
+
+        let grass = grass::generate(self.seed, self.chunk_pos, &self.positions, &self.indices);
+
+        (self.create_mesh(), grass)
     }
 
     fn generate_cells(&mut self) {
@@ -570,7 +579,7 @@ fn inside_chunk(pos: IVec2) -> bool {
 }
 
 #[derive(Debug, Component)]
-pub struct ChunkMeshTask(Task<Mesh>);
+pub struct ChunkMeshTask(Task<(Mesh, GeneratedGrass)>);
 
 pub fn schedule_system(
     q_chunks: Query<
@@ -579,9 +588,11 @@ pub fn schedule_system(
     >,
     q_chunk_heightmaps: Query<&ChunkHeightmap, With<Chunk>>,
     chunks: Res<Chunks>,
+    seed: Res<Seed>,
     mut commands: Commands,
 ) {
     let task_pool = AsyncComputeTaskPool::get();
+    let seed = seed.0;
 
     let mut count = 0;
 
@@ -603,7 +614,7 @@ pub fn schedule_system(
         let neighbors = neighbors.map(|v| v.unwrap().0.clone());
 
         let task = task_pool.spawn(async move {
-            let generator = MeshGenerator::new(Heightmaps { center, neighbors });
+            let generator = MeshGenerator::new(seed, chunk_pos, Heightmaps { center, neighbors });
             generator.generate()
         });
 
@@ -615,17 +626,24 @@ pub fn update_system(
     mut q_chunks: Query<(Entity, &mut ChunkMeshTask), With<Chunk>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut multi_billboards: ResMut<Assets<MultiBillboard>>,
 ) {
     for (chunk_id, mut task) in q_chunks.iter_mut().take(MAX_UPDATES_PER_FRAME) {
-        let Some(mesh) = future::block_on(future::poll_once(&mut task.0)) else {
+        let Some((mesh, grass)) = future::block_on(future::poll_once(&mut task.0)) else {
             continue;
         };
 
-        let mesh_handle = meshes.add(mesh);
+        let grass_id = commands
+            .spawn(MultiBillboardBundle {
+                multi_billboard: multi_billboards.add(grass.multi_billboard),
+                ..default()
+            })
+            .id();
 
         commands
             .entity(chunk_id)
+            .add_child(grass_id)
             .remove::<ChunkMeshTask>()
-            .insert(mesh_handle);
+            .insert(meshes.add(mesh));
     }
 }

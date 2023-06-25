@@ -11,6 +11,7 @@ members = [
 [workspace.dependencies]
 futures-lite = "1.13"
 bytemuck = "1.7"
+turborand = "0.10"
 
 [workspace.dependencies.bevy]
 git = "https://github.com/bevyengine/bevy.git"

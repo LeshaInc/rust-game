@@ -27,7 +27,7 @@ var<uniform> uniforms: Uniforms;
 fn vertex(vertex: Vertex) -> VertexOutput {
     let position = vec3(vertex.pos * vertex.i_size, 0.0) + vertex.i_pos;
     var out: VertexOutput;
-    out.clip_position = view.view_proj * vec4<f32>(position, 1.0);
+    out.clip_position = view.view_proj * uniforms.transform * vec4<f32>(position, 1.0);
     out.color = vertex.i_color;
     return out;
 }

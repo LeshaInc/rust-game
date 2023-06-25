@@ -1,7 +1,9 @@
 mod chunks;
+mod grass;
 mod heightmap;
 mod map;
 mod mesher;
+mod poisson;
 
 use bevy::prelude::*;
 use rg_pixel_material::PixelMaterial;
@@ -63,8 +65,8 @@ fn startup(
 
     commands.insert_resource(TerrainMaterial(material.clone()));
 
-    for sx in -10..=10 {
-        for sz in -10..=10 {
+    for sx in -3..=3 {
+        for sz in -3..=3 {
             let pos = IVec2::new(sx, sz);
 
             let new_chunk = commands.spawn((

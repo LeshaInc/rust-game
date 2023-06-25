@@ -38,6 +38,7 @@ fn main() {
         .add_plugins(CameraControllerPlugin)
         .insert_resource(Msaa::Off)
         .insert_resource(GizmoConfig {
+            enabled: false,
             aabb: AabbGizmoConfig {
                 draw_all: true,
                 ..default()

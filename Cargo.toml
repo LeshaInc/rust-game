@@ -15,8 +15,15 @@ turborand = "0.10"
 
 [workspace.dependencies.bevy]
 git = "https://github.com/bevyengine/bevy.git"
-rev = "bb59509d44d2979e4b91bd0f998c047f16b89dd0"
+rev = "469a19c290861049ad121aa83d72f830d1ec9b40"
 features = ["dynamic_linking", "trace_tracy"]
+
+[workspace.dependencies.bevy_rapier3d]
+git = "https://github.com/LeshaInc/bevy_rapier.git"
+rev = "56f3060bbdb8ec626c99e6f6486e0ba286baa94d"
+
+[patch.crates-io]
+nalgebra = { git = "https://github.com/dimforge/nalgebra.git", rev = "5baf86b3111858cdecb6518f21ed3b2c579d04f5", version = "0.32.2" }
 
 [profile.dev]
 opt-level = 1

@@ -2,7 +2,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use bevy::asset::{AssetPath, HandleId};
-use bevy::core_pipeline::core_3d::Opaque3d;
+use bevy::core_pipeline::core_3d::AlphaMask3d;
 use bevy::ecs::query::ROQueryItem;
 use bevy::ecs::system::lifetimeless::{Read, SRes};
 use bevy::ecs::system::SystemParamItem;
@@ -27,7 +27,7 @@ use bevy::render::render_resource::{
 };
 use bevy::render::renderer::RenderDevice;
 use bevy::render::texture::FallbackImage;
-use bevy::render::view::ExtractedView;
+use bevy::render::view::{ExtractedView, VisibleEntities};
 use bevy::render::{Extract, Render, RenderApp, RenderSet};
 use bevy::utils::{HashMap, HashSet};
 
@@ -74,7 +74,7 @@ where
             .init_resource::<SpecializedMeshPipelines<BillboardMaterialPipeline<M>>>()
             .init_resource::<ExtractedBillboardMaterials<M>>()
             .init_resource::<PreparedBillboardMaterials<M>>()
-            .add_render_command::<Opaque3d, DrawMultiBillboard<M>>()
+            .add_render_command::<AlphaMask3d, DrawMultiBillboard<M>>()
             .add_systems(ExtractSchedule, extract_materials::<M>)
             .add_systems(
                 Render,
@@ -118,9 +118,13 @@ pub fn queue_billboard_uniform_bind_groups<M: BillboardMaterial>(
 }
 
 pub fn queue_billboard_batches<M>(
-    mut q_views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
+    mut q_views: Query<(
+        &ExtractedView,
+        &VisibleEntities,
+        &mut RenderPhase<AlphaMask3d>,
+    )>,
     q_multi_billboards: Query<(Entity, &MultiBillboardUniform, &Handle<M>)>,
-    draw_functions: Res<DrawFunctions<Opaque3d>>,
+    draw_functions: Res<DrawFunctions<AlphaMask3d>>,
     meshes: Res<RenderAssets<Mesh>>,
     materials: Res<PreparedBillboardMaterials<M>>,
     pipeline: Res<BillboardMaterialPipeline<M>>,
@@ -140,11 +144,12 @@ pub fn queue_billboard_batches<M>(
         return;
     };
 
-    for (view, mut opaque_phase) in &mut q_views {
+    for (view, visible_entities, mut opaque_phase) in &mut q_views {
         let mesh_key = MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
 
-        for (entity, uniform, material) in &q_multi_billboards {
+        for (entity, uniform, material) in q_multi_billboards.iter_many(&visible_entities.entities)
+        {
             let Some(material) = materials.map.get(material) else {
                 continue;
             };
@@ -159,7 +164,7 @@ pub fn queue_billboard_batches<M>(
                 .unwrap();
 
             let distance = rangefinder.distance(&uniform.transform);
-            opaque_phase.add(Opaque3d {
+            opaque_phase.add(AlphaMask3d {
                 distance,
                 pipeline,
                 entity,

@@ -37,6 +37,13 @@ fn main() {
         .add_plugins(TerrainPlugin)
         .add_plugins(CameraControllerPlugin)
         .insert_resource(Msaa::Off)
+        .insert_resource(GizmoConfig {
+            aabb: AabbGizmoConfig {
+                draw_all: true,
+                ..default()
+            },
+            ..default()
+        })
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .insert_resource(AmbientLight {
             color: Color::rgb(0.8, 0.85, 1.0),

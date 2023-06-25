@@ -11,7 +11,8 @@ pub struct PixelMaterialPlugin;
 impl Plugin for PixelMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(MaterialPlugin::<PixelMaterial>::default())
-            .add_systems(Startup, setup)
+            .insert_resource(GlobalDitherOffset::default())
+            .init_resource::<PixelMaterialShaders>()
             .add_systems(PostUpdate, update_globals);
     }
 }
@@ -82,16 +83,25 @@ impl From<&PixelMaterial> for PixelMaterialKey {
 #[derive(Debug, Default, Resource)]
 pub struct GlobalDitherOffset(pub UVec2);
 
-fn setup(mut commands: Commands) {
-    let dither_offset = GlobalDitherOffset::default();
-    commands.insert_resource(dither_offset);
-}
-
 fn update_globals(
     mut materials: ResMut<Assets<PixelMaterial>>,
     dither_offset: Res<GlobalDitherOffset>,
 ) {
     for (_, material) in materials.iter_mut() {
         material.dither_offset = dither_offset.0;
+    }
+}
+
+#[derive(Debug, Resource)]
+pub struct PixelMaterialShaders {
+    pub pixel_funcs: Handle<Shader>,
+}
+
+impl FromWorld for PixelMaterialShaders {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.resource::<AssetServer>();
+        Self {
+            pixel_funcs: asset_server.load("shaders/pixel_funcs.wgsl"),
+        }
     }
 }

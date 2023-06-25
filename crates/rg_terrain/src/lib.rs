@@ -63,15 +63,19 @@ pub struct TerrainGrassMaterial(pub Handle<GrassMaterial>);
 
 #[derive(Debug, Default, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
 #[uuid = "d36218ae-d090-4ef1-a660-a4579db53935"]
-pub struct GrassMaterial {}
+pub struct GrassMaterial {
+    #[texture(0)]
+    #[sampler(1)]
+    pub texture: Handle<Image>,
+}
 
 impl BillboardMaterial for GrassMaterial {
     fn vertex_shader() -> AssetPath<'static> {
-        "shaders/billboard.wgsl".into()
+        "shaders/grass.wgsl".into()
     }
 
     fn fragment_shader() -> AssetPath<'static> {
-        "shaders/billboard.wgsl".into()
+        "shaders/grass.wgsl".into()
     }
 }
 
@@ -80,15 +84,18 @@ fn startup(
     mut chunks: ResMut<Chunks>,
     mut materials: ResMut<Assets<PixelMaterial>>,
     mut grass_materials: ResMut<Assets<GrassMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     let material = materials.add(PixelMaterial {
-        color: Color::rgb(0.3, 0.7, 0.3),
+        color: Color::rgb_u8(105, 172, 73),
         ..default()
     });
 
     commands.insert_resource(TerrainMaterial(material.clone()));
 
-    commands.insert_resource(TerrainGrassMaterial(grass_materials.add(GrassMaterial {})));
+    commands.insert_resource(TerrainGrassMaterial(grass_materials.add(GrassMaterial {
+        texture: asset_server.load("images/grass.png"),
+    })));
 
     for sx in -3..=3 {
         for sz in -3..=3 {

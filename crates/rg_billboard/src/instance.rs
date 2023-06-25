@@ -21,7 +21,7 @@ pub struct BillboardInstance {
     pub pos: Vec3,
     pub size: Vec2,
     pub color: Vec3,
-    pub uv_rect: Vec4,
+    pub random: u32,
 }
 
 impl BillboardInstance {
@@ -32,13 +32,13 @@ impl BillboardInstance {
                 VertexFormat::Float32x3,
                 VertexFormat::Float32x2,
                 VertexFormat::Float32x3,
-                VertexFormat::Float32x4,
+                VertexFormat::Uint32,
             ],
         );
 
         // vertex buffer comes first
         for attr in &mut layout.attributes {
-            attr.shader_location += 2;
+            attr.shader_location += 1;
         }
 
         layout
@@ -49,15 +49,11 @@ impl BillboardInstance {
 #[repr(C)]
 pub struct BillboardVertex {
     pub pos: Vec2,
-    pub uv: Vec2,
 }
 
 impl BillboardVertex {
     pub fn vertex_buffer_layout() -> VertexBufferLayout {
-        VertexBufferLayout::from_vertex_formats(
-            VertexStepMode::Vertex,
-            [VertexFormat::Float32x2, VertexFormat::Float32x2],
-        )
+        VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, [VertexFormat::Float32x2])
     }
 }
 
@@ -124,7 +120,7 @@ impl RenderAsset for MultiBillboard {
         multi_billboard: Self::ExtractedAsset,
         render_device: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let vertex_buffer = create_vertex_buffer(&render_device, multi_billboard.anchor);
+        let vertex_buffer = create_vertex_buffer(&render_device);
         let index_buffer = create_index_buffer(&render_device);
         let instance_buffer = create_instance_buffer(&render_device, &multi_billboard.instances);
         Ok(GpuMultiBillboard {
@@ -136,7 +132,7 @@ impl RenderAsset for MultiBillboard {
     }
 }
 
-fn create_vertex_buffer(device: &RenderDevice, anchor: Vec2) -> Buffer {
+fn create_vertex_buffer(device: &RenderDevice) -> Buffer {
     let uvs = [
         Vec2::new(0.0, 0.0),
         Vec2::new(0.0, 1.0),
@@ -144,14 +140,9 @@ fn create_vertex_buffer(device: &RenderDevice, anchor: Vec2) -> Buffer {
         Vec2::new(1.0, 0.0),
     ];
 
-    let vertices = uvs.map(|uv| BillboardVertex {
-        pos: uv - anchor,
-        uv,
-    });
-
     device.create_buffer_with_data(&BufferInitDescriptor {
         label: Some("Billboard Vertex Buffer"),
-        contents: cast_slice(&vertices),
+        contents: cast_slice(&uvs),
         usage: BufferUsages::VERTEX,
     })
 }
@@ -177,6 +168,7 @@ fn create_instance_buffer(device: &RenderDevice, instances: &[BillboardInstance]
 #[derive(Debug, Clone, Copy, Component, ShaderType)]
 pub struct MultiBillboardUniform {
     pub transform: Mat4,
+    pub anchor: Vec2,
 }
 
 pub fn extract_multi_billboards(
@@ -188,17 +180,23 @@ pub fn extract_multi_billboards(
             &ComputedVisibility,
         )>,
     >,
+    multi_billboards: Extract<Res<Assets<MultiBillboard>>>,
     mut commands: Commands,
 ) {
-    for (entity, multi_billboard, transform, visibility) in &q_multi_billboards {
+    for (entity, multi_billboard_handle, transform, visibility) in &q_multi_billboards {
         if !visibility.is_visible() {
             continue;
         }
 
+        let Some(multi_billboard) = multi_billboards.get(multi_billboard_handle) else {
+            continue;
+        };
+
         commands.get_or_spawn(entity).insert((
-            multi_billboard.clone(),
+            multi_billboard_handle.clone(),
             MultiBillboardUniform {
                 transform: transform.compute_matrix(),
+                anchor: multi_billboard.anchor,
             },
         ));
     }

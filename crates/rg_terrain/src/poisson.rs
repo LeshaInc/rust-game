@@ -2,9 +2,9 @@ use std::f32::consts::SQRT_2;
 
 use bevy::prelude::*;
 use turborand::rng::Rng;
-use turborand::{SeededCore, TurboRand};
+use turborand::TurboRand;
 
-const MAX_TRIES: u32 = 4;
+const MAX_TRIES: u32 = 10;
 
 pub struct PoissonGrid {
     cell_size: f32,
@@ -81,17 +81,15 @@ impl PoissonGrid {
     }
 }
 
-pub fn poisson_disc_sampling(seed: u64, chunk_pos: IVec2, min_radius: f32) -> PoissonGrid {
+pub fn poisson_disc_sampling(rng: &mut Rng, min_radius: f32) -> PoissonGrid {
     let _span = info_span!("poisson disc sampling").entered();
-
-    let mut rng = get_rng(seed, chunk_pos);
 
     let cell_size = min_radius / SQRT_2;
     let mut grid = PoissonGrid::new(cell_size);
 
     let mut active_set = Vec::new();
 
-    let seed = sample_seed(&mut rng);
+    let seed = sample_seed(rng);
     active_set.push(seed);
     grid.add(seed);
 
@@ -100,7 +98,7 @@ pub fn poisson_disc_sampling(seed: u64, chunk_pos: IVec2, min_radius: f32) -> Po
         let active = active_set[active_idx];
 
         for _ in 0..MAX_TRIES {
-            let neighbor = active + sample_disc(&mut rng, min_radius);
+            let neighbor = active + sample_disc(rng, min_radius);
 
             if neighbor.x < 0.0
                 || neighbor.y < 0.0
@@ -121,12 +119,6 @@ pub fn poisson_disc_sampling(seed: u64, chunk_pos: IVec2, min_radius: f32) -> Po
     }
 
     grid
-}
-
-fn get_rng(mut seed: u64, chunk_pos: IVec2) -> Rng {
-    seed ^= chunk_pos.x as u64;
-    seed ^= (chunk_pos.y as u64) << 32;
-    Rng::with_seed(seed)
 }
 
 fn sample_seed(rng: &mut Rng) -> Vec2 {

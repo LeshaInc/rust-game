@@ -1,6 +1,8 @@
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use rg_billboard::{BillboardInstance, MultiBillboard};
+use turborand::rng::Rng;
+use turborand::{SeededCore, TurboRand};
 
 use crate::poisson::poisson_disc_sampling;
 use crate::CHUNK_SIZE;
@@ -21,9 +23,11 @@ pub fn generate(
 ) -> GeneratedGrass {
     let _span = info_span!("chunk grass generator").entered();
 
+    let mut rng = Rng::with_seed(seed ^ (chunk_pos.x as u64) ^ (chunk_pos.y as u64) << 32);
+
     let mut instances = Vec::with_capacity(32 * 1024);
 
-    let grid = poisson_disc_sampling(seed, chunk_pos, 0.005);
+    let grid = poisson_disc_sampling(&mut rng, 0.006);
     let grid_resolution = grid.resolution() as f32;
 
     for indices in indices.chunks_exact(3) {
@@ -53,9 +57,9 @@ pub fn generate(
 
             instances.push(BillboardInstance {
                 pos,
-                size: Vec2::new(0.05, 0.2),
-                color: Vec3::new(0.1, 0.4, 0.1),
-                uv_rect: Vec4::ZERO,
+                size: Vec2::new(8.0 / 48.0, 16.0 / 48.0),
+                color: Vec3::new(1.0, 1.0, 1.0),
+                random: rng.u32(0..u32::MAX),
             });
         }
     }
@@ -63,7 +67,7 @@ pub fn generate(
     GeneratedGrass {
         multi_billboard: MultiBillboard {
             instances: instances.into(),
-            anchor: Vec2::new(0.5, 0.0),
+            anchor: Vec2::new(0.5, 1.0),
         },
     }
 }

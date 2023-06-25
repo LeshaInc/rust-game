@@ -21,7 +21,7 @@ pub fn generate(
 ) -> GeneratedGrass {
     let _span = info_span!("chunk grass generator").entered();
 
-    let mut instances = Vec::new();
+    let mut instances = Vec::with_capacity(32 * 1024);
 
     let grid = poisson_disc_sampling(seed, chunk_pos, 0.005);
     let grid_resolution = grid.resolution() as f32;

@@ -1,10 +1,10 @@
-use std::f32::consts::{SQRT_2, TAU};
+use std::f32::consts::SQRT_2;
 
 use bevy::prelude::*;
 use turborand::rng::Rng;
 use turborand::{SeededCore, TurboRand};
 
-const MAX_TRIES: u32 = 10;
+const MAX_TRIES: u32 = 4;
 
 pub struct PoissonGrid {
     cell_size: f32,
@@ -82,6 +82,8 @@ impl PoissonGrid {
 }
 
 pub fn poisson_disc_sampling(seed: u64, chunk_pos: IVec2, min_radius: f32) -> PoissonGrid {
+    let _span = info_span!("poisson disc sampling").entered();
+
     let mut rng = get_rng(seed, chunk_pos);
 
     let cell_size = min_radius / SQRT_2;
@@ -132,7 +134,13 @@ fn sample_seed(rng: &mut Rng) -> Vec2 {
 }
 
 fn sample_disc(rng: &mut Rng, min_radius: f32) -> Vec2 {
-    let radius = (rng.f32() + 1.0) * min_radius;
-    let angle = rng.f32() * TAU;
-    Vec2::new(angle.cos() * radius, angle.sin() * radius)
+    let mut vector;
+    loop {
+        vector = Vec2::new(rng.f32_normalized(), rng.f32_normalized());
+        let length_sq = vector.length_squared();
+        if length_sq >= 0.5 && length_sq < 1.0 {
+            break;
+        }
+    }
+    vector * min_radius * 2.0
 }

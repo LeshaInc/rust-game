@@ -179,9 +179,6 @@ pub struct MultiBillboardUniform {
     pub transform: Mat4,
 }
 
-#[derive(Debug, Clone, Component)]
-pub struct MultiBillboardHandle(pub Handle<MultiBillboard>);
-
 pub fn extract_multi_billboards(
     q_multi_billboards: Extract<
         Query<(
@@ -199,7 +196,7 @@ pub fn extract_multi_billboards(
         }
 
         commands.get_or_spawn(entity).insert((
-            MultiBillboardHandle(multi_billboard.clone()),
+            multi_billboard.clone(),
             MultiBillboardUniform {
                 transform: transform.compute_matrix(),
             },

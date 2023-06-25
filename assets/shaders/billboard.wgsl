@@ -20,7 +20,7 @@ struct VertexOutput {
     @location(0) color: vec3<f32>,
 };
 
-@group(1) @binding(0)
+@group(2) @binding(0)
 var<uniform> uniforms: Uniforms;
 
 @vertex

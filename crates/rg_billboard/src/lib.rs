@@ -1,20 +1,18 @@
 mod instance;
-mod render;
+mod material;
 
-use bevy::core_pipeline::core_3d::Opaque3d;
 use bevy::prelude::*;
 use bevy::render::extract_component::UniformComponentPlugin;
 use bevy::render::render_asset::RenderAssetPlugin;
-use bevy::render::render_phase::AddRenderCommand;
-use bevy::render::render_resource::SpecializedMeshPipelines;
 use bevy::render::view::VisibilitySystems;
-use bevy::render::{Render, RenderApp, RenderSet};
-use instance::MultiBillboardUniform;
-use render::{DummyMesh, MultiBillboardPipeline};
+use bevy::render::RenderApp;
+use material::DummyMesh;
 
-use crate::instance::{compute_multi_billboard_bounds, extract_multi_billboards};
+use crate::instance::{
+    compute_multi_billboard_bounds, extract_multi_billboards, MultiBillboardUniform,
+};
 pub use crate::instance::{BillboardInstance, MultiBillboard};
-use crate::render::{queue_multi_billboard_bind_group, queue_multi_billboards, DrawMultiBillboard};
+pub use crate::material::{BillboardMaterial, BillboardMaterialKey, BillboardMaterialPlugin};
 
 pub struct BillboardPlugin;
 
@@ -30,21 +28,7 @@ impl Plugin for BillboardPlugin {
             );
 
         app.sub_app_mut(RenderApp)
-            .init_resource::<SpecializedMeshPipelines<MultiBillboardPipeline>>()
-            .add_render_command::<Opaque3d, DrawMultiBillboard>()
-            .add_systems(ExtractSchedule, extract_multi_billboards)
-            .add_systems(
-                Render,
-                (
-                    queue_multi_billboard_bind_group.in_set(RenderSet::Queue),
-                    queue_multi_billboards.in_set(RenderSet::Queue),
-                ),
-            );
-    }
-
-    fn finish(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp)
-            .init_resource::<MultiBillboardPipeline>();
+            .add_systems(ExtractSchedule, extract_multi_billboards);
     }
 }
 

@@ -5,7 +5,11 @@ mod map;
 mod mesher;
 mod poisson;
 
+use bevy::asset::AssetPath;
 use bevy::prelude::*;
+use bevy::reflect::{TypePath, TypeUuid};
+use bevy::render::render_resource::AsBindGroup;
+use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin};
 use rg_pixel_material::PixelMaterial;
 
 pub use crate::chunks::{Chunks, NEIGHBOR_DIRS};
@@ -22,6 +26,7 @@ pub struct TerrainPlugin;
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Seed(0))
+            .add_plugins(BillboardMaterialPlugin::<GrassMaterial>::default())
             .insert_resource(Chunks::default())
             .add_systems(Startup, startup)
             .add_systems(
@@ -53,10 +58,28 @@ pub struct Seed(pub u64);
 #[derive(Debug, Clone, Resource)]
 pub struct TerrainMaterial(pub Handle<PixelMaterial>);
 
+#[derive(Debug, Clone, Resource)]
+pub struct TerrainGrassMaterial(pub Handle<GrassMaterial>);
+
+#[derive(Debug, Default, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
+#[uuid = "d36218ae-d090-4ef1-a660-a4579db53935"]
+pub struct GrassMaterial {}
+
+impl BillboardMaterial for GrassMaterial {
+    fn vertex_shader() -> AssetPath<'static> {
+        "shaders/billboard.wgsl".into()
+    }
+
+    fn fragment_shader() -> AssetPath<'static> {
+        "shaders/billboard.wgsl".into()
+    }
+}
+
 fn startup(
     mut commands: Commands,
     mut chunks: ResMut<Chunks>,
     mut materials: ResMut<Assets<PixelMaterial>>,
+    mut grass_materials: ResMut<Assets<GrassMaterial>>,
 ) {
     let material = materials.add(PixelMaterial {
         color: Color::rgb(0.3, 0.7, 0.3),
@@ -64,6 +87,8 @@ fn startup(
     });
 
     commands.insert_resource(TerrainMaterial(material.clone()));
+
+    commands.insert_resource(TerrainGrassMaterial(grass_materials.add(GrassMaterial {})));
 
     for sx in -3..=3 {
         for sz in -3..=3 {

@@ -8,8 +8,8 @@ use rg_billboard::{MultiBillboard, MultiBillboardBundle};
 
 use crate::grass::{self, GeneratedGrass};
 use crate::{
-    Chunk, ChunkHeightmap, ChunkMap, ChunkPos, Chunks, Seed, CHUNK_RESOLUTION, CHUNK_SIZE,
-    MAX_UPDATES_PER_FRAME, NEIGHBOR_DIRS,
+    Chunk, ChunkHeightmap, ChunkMap, ChunkPos, Chunks, Seed, TerrainGrassMaterial,
+    CHUNK_RESOLUTION, CHUNK_SIZE, MAX_UPDATES_PER_FRAME, NEIGHBOR_DIRS,
 };
 
 const VERTICES_CAP: usize = 128 * 1024;
@@ -627,6 +627,7 @@ pub fn update_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut multi_billboards: ResMut<Assets<MultiBillboard>>,
+    grass_material: Res<TerrainGrassMaterial>,
 ) {
     for (chunk_id, mut task) in q_chunks.iter_mut().take(MAX_UPDATES_PER_FRAME) {
         let Some((mesh, grass)) = future::block_on(future::poll_once(&mut task.0)) else {
@@ -634,10 +635,13 @@ pub fn update_system(
         };
 
         let grass_id = commands
-            .spawn(MultiBillboardBundle {
-                multi_billboard: multi_billboards.add(grass.multi_billboard),
-                ..default()
-            })
+            .spawn((
+                grass_material.0.clone(),
+                MultiBillboardBundle {
+                    multi_billboard: multi_billboards.add(grass.multi_billboard),
+                    ..default()
+                },
+            ))
             .id();
 
         commands

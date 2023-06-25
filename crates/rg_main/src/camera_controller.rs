@@ -24,7 +24,9 @@ pub struct CameraController {
     pub target_translation: Vec3,
     pub target_rotation: Quat,
     pub translation_smoothing: f32,
+    pub translation_snap: f32,
     pub rotation_smoothing: f32,
+    pub rotation_snap: f32,
     /// Screen pixels per camera pixels
     pub pixel_scale: f32,
     /// Camera meters per pixel
@@ -43,7 +45,9 @@ impl Default for CameraController {
             target_translation: Vec3::ZERO,
             target_rotation: Quat::IDENTITY,
             translation_smoothing: 0.01,
-            rotation_smoothing: 0.001,
+            translation_snap: 0.0001,
+            rotation_smoothing: 0.0001,
+            rotation_snap: 0.003,
             pixel_scale: 2.0,
             camera_scale: 1.0 / 48.0,
             camera_pitch: 30f32.to_radians(),
@@ -102,13 +106,29 @@ fn create_blit_target(
 fn update_transform(mut q_controller: Query<&mut CameraController>, time: Res<Time>) {
     let Ok(mut controller) = q_controller.get_single_mut() else { return };
 
-    let alpha = 1.0 - controller.translation_smoothing.powf(time.delta_seconds());
-    controller.translation = controller
+    if controller
         .translation
-        .lerp(controller.target_translation, alpha);
+        .distance_squared(controller.target_translation)
+        < controller.translation_snap
+    {
+        controller.translation = controller.target_translation;
+    } else {
+        let alpha = 1.0 - controller.translation_smoothing.powf(time.delta_seconds());
+        controller.translation = controller
+            .translation
+            .lerp(controller.target_translation, alpha);
+    }
 
-    let alpha = 1.0 - controller.rotation_smoothing.powf(time.delta_seconds());
-    controller.rotation = controller.rotation.slerp(controller.target_rotation, alpha);
+    if controller
+        .rotation
+        .angle_between(controller.target_rotation)
+        < controller.rotation_snap
+    {
+        controller.rotation = controller.target_rotation;
+    } else {
+        let alpha = 1.0 - controller.rotation_smoothing.powf(time.delta_seconds());
+        controller.rotation = controller.rotation.slerp(controller.target_rotation, alpha);
+    }
 }
 
 fn update_camera(

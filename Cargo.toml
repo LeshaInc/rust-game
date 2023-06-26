@@ -6,6 +6,7 @@ members = [
   "crates/rg_pixel_material",
   "crates/rg_terrain",
   "crates/rg_billboard",
+  "crates/rg_ai",
 ]
 
 [workspace.dependencies]

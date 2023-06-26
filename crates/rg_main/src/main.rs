@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
 use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
+use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
@@ -16,6 +17,12 @@ use crate::camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {
     App::new()
+        .edit_schedule(Main, |schedule| {
+            schedule.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Warn,
+                ..default()
+            });
+        })
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {

@@ -7,6 +7,7 @@ use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
+use bevy_rapier3d::prelude::*;
 use rg_billboard::BillboardPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::TerrainPlugin;
@@ -32,6 +33,7 @@ fn main() {
                     ..default()
                 }),
         )
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(BillboardPlugin)
         .add_plugins(TerrainPlugin)
@@ -60,30 +62,26 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PixelMaterial>>,
 ) {
-    // cube
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: materials.add(PixelMaterial {
-            color: Color::rgb(0.3, 0.3, 0.7),
-            ..default()
-        }),
-        ..default()
-    });
     // sphere
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::UVSphere {
-            radius: 0.5,
-            sectors: 32,
-            stacks: 16,
-        })),
-        transform: Transform::from_xyz(-1.2, 0.5, 1.2),
-        material: materials.add(PixelMaterial {
-            color: Color::rgb(0.7, 0.3, 0.3),
+    commands.spawn((
+        MaterialMeshBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: 0.5,
+                sectors: 32,
+                stacks: 16,
+            })),
+            transform: Transform::from_xyz(-1.2, 0.5, 1.2),
+            material: materials.add(PixelMaterial {
+                color: Color::rgb(0.7, 0.3, 0.3),
+                dither_enabled: false,
+                bands: 10,
+                ..default()
+            }),
             ..default()
-        }),
-        ..default()
-    });
+        },
+        RigidBody::Dynamic,
+        Collider::ball(0.5),
+    ));
     // light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -126,11 +124,34 @@ fn setup(
 
 fn handle_input(
     mut q_controller: Query<&mut CameraController>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<PixelMaterial>>,
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
     let mut controller = q_controller.single_mut();
     let mut direction = Vec3::ZERO;
+
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        commands.spawn((
+            MaterialMeshBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                transform: Transform::from_translation(
+                    controller.translation + Vec3::new(0.0, 5.0, 0.0),
+                ),
+                material: materials.add(PixelMaterial {
+                    color: Color::rgb(0.3, 0.3, 0.7),
+                    dither_enabled: true,
+                    bands: 10,
+                    ..default()
+                }),
+                ..default()
+            },
+            RigidBody::Dynamic,
+            Collider::cuboid(0.5, 0.5, 0.5),
+        ));
+    }
 
     if keyboard_input.pressed(KeyCode::A) {
         direction.x -= 1.0;

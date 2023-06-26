@@ -9,3 +9,4 @@ rg_pixel_material = { path = "../rg_pixel_material" }
 rg_terrain = { path = "../rg_terrain" }
 
 bevy = { workspace = true }
+bevy_rapier3d = { workspace = true }

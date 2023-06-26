@@ -2825,6 +2825,7 @@ name = "rg_main"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_rapier3d",
  "rg_billboard",
  "rg_pixel_material",
  "rg_terrain",

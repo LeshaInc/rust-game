@@ -97,8 +97,8 @@ fn startup(
         texture: asset_server.load("images/grass.png"),
     })));
 
-    for sx in -10..=10 {
-        for sz in -10..=10 {
+    for sx in -3..=3 {
+        for sz in -3..=3 {
             let pos = IVec2::new(sx, sz);
 
             let new_chunk = commands.spawn((

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy::utils::HashMap;
+use bevy_rapier3d::prelude::*;
 use futures_lite::future;
 use rg_billboard::{MultiBillboard, MultiBillboardBundle};
 
@@ -34,6 +35,13 @@ struct MeshGenerator {
     rotate: bool,
 }
 
+#[derive(Debug)]
+struct MeshResult {
+    mesh: Mesh,
+    grass: GeneratedGrass,
+    collider: Collider,
+}
+
 impl MeshGenerator {
     fn new(seed: u64, chunk_pos: IVec2, heightmaps: Heightmaps) -> MeshGenerator {
         MeshGenerator {
@@ -56,7 +64,7 @@ impl MeshGenerator {
         }
     }
 
-    fn generate(mut self) -> (Mesh, GeneratedGrass) {
+    fn generate(mut self) -> MeshResult {
         let _span = info_span!("chunk mesh generator").entered();
 
         self.generate_cells();
@@ -67,9 +75,15 @@ impl MeshGenerator {
         self.deduplicate();
         self.apply_scale();
 
+        let collider = self.create_collider();
         let grass = grass::generate(self.seed, self.chunk_pos, &self.positions, &self.indices);
+        let mesh = self.create_mesh();
 
-        (self.create_mesh(), grass)
+        MeshResult {
+            mesh,
+            grass,
+            collider,
+        }
     }
 
     fn generate_cells(&mut self) {
@@ -224,6 +238,20 @@ impl MeshGenerator {
             pos.x *= scale;
             pos.z *= scale;
         }
+    }
+
+    fn create_collider(&self) -> Collider {
+        let _span = info_span!("create collider").entered();
+
+        let mut indices = Vec::with_capacity(self.indices.len() / 3);
+        for triangle in self.indices.chunks_exact(3) {
+            indices.push([triangle[0], triangle[1], triangle[2]]);
+        }
+        Collider::trimesh_with_flags(
+            self.positions.clone(),
+            indices,
+            TriMeshFlags::HALF_EDGE_TOPOLOGY | TriMeshFlags::CONNECTED_COMPONENTS,
+        )
     }
 
     fn create_mesh(self) -> Mesh {
@@ -579,7 +607,7 @@ fn inside_chunk(pos: IVec2) -> bool {
 }
 
 #[derive(Debug, Component)]
-pub struct ChunkMeshTask(Task<(Mesh, GeneratedGrass)>);
+pub struct ChunkMeshTask(Task<MeshResult>);
 
 pub fn schedule_system(
     q_chunks: Query<
@@ -630,7 +658,7 @@ pub fn update_system(
     grass_material: Res<TerrainGrassMaterial>,
 ) {
     for (chunk_id, mut task) in q_chunks.iter_mut().take(MAX_UPDATES_PER_FRAME) {
-        let Some((mesh, grass)) = future::block_on(future::poll_once(&mut task.0)) else {
+        let Some(res) = future::block_on(future::poll_once(&mut task.0)) else {
             continue;
         };
 
@@ -638,7 +666,7 @@ pub fn update_system(
             .spawn((
                 grass_material.0.clone(),
                 MultiBillboardBundle {
-                    multi_billboard: multi_billboards.add(grass.multi_billboard),
+                    multi_billboard: multi_billboards.add(res.grass.multi_billboard),
                     ..default()
                 },
             ))
@@ -648,6 +676,7 @@ pub fn update_system(
             .entity(chunk_id)
             .add_child(grass_id)
             .remove::<ChunkMeshTask>()
-            .insert(meshes.add(mesh));
+            .insert(meshes.add(res.mesh))
+            .insert(res.collider);
     }
 }

@@ -9,6 +9,7 @@ use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
 use bevy_rapier3d::prelude::*;
+use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::TerrainPlugin;
@@ -45,6 +46,7 @@ fn main() {
         .add_plugins(BillboardPlugin)
         .add_plugins(TerrainPlugin)
         .add_plugins(CameraControllerPlugin)
+        .add_plugins(AiPlugin)
         .insert_resource(Msaa::Off)
         .insert_resource(GizmoConfig {
             enabled: false,
@@ -68,6 +70,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PixelMaterial>>,
+    mut behavior_trees: ResMut<Assets<BehaviorTree>>,
 ) {
     // sphere
     commands.spawn((
@@ -125,6 +128,31 @@ fn setup(
         DepthPrepass,
         NormalPrepass,
     ));
+
+    // test AI
+    let mut behavior_tree = BehaviorTree::new();
+
+    let sequence = behavior_tree.add_node(actions::SequenceUntilFailure::default());
+
+    let sleep_1 = behavior_tree.add_node(actions::Sleep {
+        duration: Duration::from_secs(1),
+    });
+    let message_1 = behavior_tree.add_node(actions::LogMessage {
+        message: "Hello!".into(),
+    });
+    let sleep_2 = behavior_tree.add_node(actions::Sleep {
+        duration: Duration::from_secs(2),
+    });
+    let message_2 = behavior_tree.add_node(actions::LogMessage {
+        message: "World!".into(),
+    });
+
+    behavior_tree.add_child(sequence, sleep_1);
+    behavior_tree.add_child(sequence, message_1);
+    behavior_tree.add_child(sequence, sleep_2);
+    behavior_tree.add_child(sequence, message_2);
+
+    commands.spawn(behavior_trees.add(behavior_tree));
 
     debug!("Spawned everything");
 }

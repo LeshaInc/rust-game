@@ -1,14 +1,18 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+pub mod actions;
+pub mod behavior_tree;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+use actions::DefaultActionsPlugin;
+use bevy::prelude::*;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+pub use crate::behavior_tree::{
+    Action, AddAction, Behavior, BehaviorTree, BehaviorTreePlugin, BehaviorTreeSystem,
+};
+
+#[derive(Default)]
+pub struct AiPlugin;
+
+impl Plugin for AiPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((BehaviorTreePlugin, DefaultActionsPlugin));
     }
 }

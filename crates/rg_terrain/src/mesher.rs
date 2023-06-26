@@ -124,17 +124,17 @@ impl MeshGenerator {
                 height_i += 1;
             }
 
-            self.mask = u8::from(height_tl == height) << 0
+            self.mask = u8::from(height_tl == height)
                 | u8::from(height_tr == height) << 1
                 | u8::from(height_br == height) << 2
                 | u8::from(height_bl == height) << 3;
 
-            self.up_mask = u8::from(height_tl > height) << 0
+            self.up_mask = u8::from(height_tl > height)
                 | u8::from(height_tr > height) << 1
                 | u8::from(height_br > height) << 2
                 | u8::from(height_bl > height) << 3;
 
-            self.down_mask = u8::from(height_tl < height) << 0
+            self.down_mask = u8::from(height_tl < height)
                 | u8::from(height_tr < height) << 1
                 | u8::from(height_br < height) << 2
                 | u8::from(height_bl < height) << 3;
@@ -330,6 +330,7 @@ impl MeshGenerator {
         self.ms_transform_points(start_vertex, start_index);
     }
 
+    #[allow(clippy::identity_op)]
     fn ms_transform_masks(&mut self) {
         for mask in [&mut self.mask, &mut self.up_mask, &mut self.down_mask] {
             if self.rotate {
@@ -578,7 +579,7 @@ impl Heightmaps {
             }
         }
 
-        return 0.0;
+        0.0
     }
 
     fn sample_height_and_grad(&self, pos: Vec2) -> (f32, Vec2) {

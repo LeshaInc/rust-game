@@ -209,7 +209,7 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        return self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data;
+        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data
     }
 }
 

@@ -61,9 +61,9 @@ impl BehaviorTree {
     }
 
     pub fn add_child(&mut self, parent_id: NodeId, child_id: NodeId) {
-        assert!(self.nodes[child_id.0 as usize].parent.is_none());
-        self.nodes[parent_id.0 as usize].children.push(child_id);
-        self.nodes[child_id.0 as usize].parent = Some(parent_id);
+        assert!(self.nodes[child_id.0].parent.is_none());
+        self.nodes[parent_id.0].children.push(child_id);
+        self.nodes[child_id.0].parent = Some(parent_id);
     }
 
     pub fn get_node(&self, node_id: NodeId) -> &Node {

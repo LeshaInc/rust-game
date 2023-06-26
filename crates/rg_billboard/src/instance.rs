@@ -120,9 +120,9 @@ impl RenderAsset for MultiBillboard {
         multi_billboard: Self::ExtractedAsset,
         render_device: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let vertex_buffer = create_vertex_buffer(&render_device);
-        let index_buffer = create_index_buffer(&render_device);
-        let instance_buffer = create_instance_buffer(&render_device, &multi_billboard.instances);
+        let vertex_buffer = create_vertex_buffer(render_device);
+        let index_buffer = create_index_buffer(render_device);
+        let instance_buffer = create_instance_buffer(render_device, &multi_billboard.instances);
         Ok(GpuMultiBillboard {
             num_instances: multi_billboard.instances.len() as u32,
             vertex_buffer,

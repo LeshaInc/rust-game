@@ -130,7 +130,7 @@ fn sample_disc(rng: &mut Rng, min_radius: f32) -> Vec2 {
     loop {
         vector = Vec2::new(rng.f32_normalized(), rng.f32_normalized());
         let length_sq = vector.length_squared();
-        if length_sq >= 0.5 && length_sq < 1.0 {
+        if (0.5..1.0).contains(&length_sq) {
             break;
         }
     }

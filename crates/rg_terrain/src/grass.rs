@@ -5,6 +5,7 @@ use turborand::rng::Rng;
 use turborand::{SeededCore, TurboRand};
 
 use crate::poisson::poisson_disc_sampling;
+use crate::utils::{get_barycentric, is_inside_barycentric};
 use crate::CHUNK_SIZE;
 
 #[derive(Debug)]
@@ -70,19 +71,4 @@ pub fn generate(
             anchor: Vec2::new(0.5, 1.0),
         },
     }
-}
-
-fn get_barycentric(a: Vec3, b: Vec3, c: Vec3, p: Vec3) -> Vec3 {
-    let area_abc = ((b - a).cross(c - a)).y;
-    let area_pbc = ((b - p).cross(c - p)).y;
-    let area_pca = ((c - p).cross(a - p)).y;
-    let bary_x = area_pbc / area_abc;
-    let bary_y = area_pca / area_abc;
-    Vec3::new(bary_x, bary_y, 1.0 - bary_x - bary_y)
-}
-
-fn is_inside_barycentric(bary: Vec3) -> bool {
-    (0.0 <= bary.x && bary.x <= 1.0)
-        && (0.0 <= bary.y && bary.y <= 1.0)
-        && (0.0 <= bary.z && bary.z <= 1.0)
 }

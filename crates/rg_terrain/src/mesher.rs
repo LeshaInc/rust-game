@@ -8,6 +8,7 @@ use futures_lite::future;
 use rg_billboard::{MultiBillboard, MultiBillboardBundle};
 
 use crate::grass::{self, GeneratedGrass};
+use crate::navigation::ChunkNavGrid;
 use crate::{
     Chunk, ChunkHeightmap, ChunkMap, ChunkPos, Chunks, Seed, TerrainGrassMaterial,
     CHUNK_RESOLUTION, CHUNK_SIZE, MAX_UPDATES_PER_FRAME, NEIGHBOR_DIRS,
@@ -40,6 +41,7 @@ struct MeshResult {
     mesh: Mesh,
     grass: GeneratedGrass,
     collider: Collider,
+    nav_grid: ChunkNavGrid,
 }
 
 impl MeshGenerator {
@@ -77,12 +79,14 @@ impl MeshGenerator {
 
         let collider = self.create_collider();
         let grass = grass::generate(self.seed, self.chunk_pos, &self.positions, &self.indices);
+        let nav_grid = self.create_nav_grid();
         let mesh = self.create_mesh();
 
         MeshResult {
             mesh,
             grass,
             collider,
+            nav_grid,
         }
     }
 
@@ -252,6 +256,10 @@ impl MeshGenerator {
             indices,
             TriMeshFlags::HALF_EDGE_TOPOLOGY | TriMeshFlags::CONNECTED_COMPONENTS,
         )
+    }
+
+    fn create_nav_grid(&self) -> ChunkNavGrid {
+        ChunkNavGrid::generate(&self.positions, &self.indices)
     }
 
     fn create_mesh(self) -> Mesh {
@@ -678,6 +686,7 @@ pub fn update_system(
             .add_child(grass_id)
             .remove::<ChunkMeshTask>()
             .insert(meshes.add(res.mesh))
-            .insert(res.collider);
+            .insert(res.collider)
+            .insert(res.nav_grid);
     }
 }

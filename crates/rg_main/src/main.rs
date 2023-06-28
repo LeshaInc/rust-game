@@ -53,7 +53,7 @@ fn main() {
         .add_plugins(DevOverlayPlugin)
         .insert_resource(Msaa::Off)
         .insert_resource(GizmoConfig {
-            enabled: false,
+            enabled: true,
             aabb: AabbGizmoConfig {
                 draw_all: true,
                 ..default()

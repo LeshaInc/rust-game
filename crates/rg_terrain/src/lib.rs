@@ -6,7 +6,9 @@ mod grass;
 mod heightmap;
 mod map;
 mod mesher;
+mod navigation;
 mod poisson;
+mod utils;
 
 use bevy::asset::AssetPath;
 use bevy::prelude::*;
@@ -21,6 +23,7 @@ pub use crate::map::{ChunkMap, ChunkMapRefMut};
 
 pub const CHUNK_SIZE: f32 = 32.0;
 pub const CHUNK_RESOLUTION: u32 = 64;
+pub const NAVGRID_RESOLUTION: u32 = 128;
 
 pub const MAX_UPDATES_PER_FRAME: usize = 32;
 

@@ -1,4 +1,5 @@
-#import rg::pixel_funcs
+#import bevy_pbr::mesh_view_bindings as bindings
+#import rg::pixel_funcs as pixel
 
 struct Vertex {
     @location(0) uv: vec2<f32>,
@@ -33,7 +34,7 @@ struct VertexOutput {
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let camera_dir = (view.view * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
+    let camera_dir = (bindings::view.view * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
     let facing = normalize(camera_dir * vec3(1.0, 0.0, 1.0));
 
     let instance_transform = mat3x3(
@@ -52,7 +53,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let world_normal = vec3(0.0, 1.0, 0.0);
 
     var out: VertexOutput;
-    out.position = view.view_proj * vec4(world_pos, 1.0);
+    out.position = bindings::view.view_proj * vec4(world_pos, 1.0);
     out.uv = vertex.uv;
     out.world_position = vec4(world_origin_pos, 1.0);
     out.world_normal = world_normal;
@@ -76,7 +77,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let albedo = color.rgb;
 
-    var pixel_input: PixelInput;
+    var pixel_input: pixel::PixelInput;
     pixel_input.frag_coord = in.position;
     pixel_input.mesh_position = in.world_position;
     pixel_input.mesh_normal = in.world_normal;
@@ -85,6 +86,6 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     pixel_input.dither = true;
     pixel_input.dither_offset = vec2(0u, 0u); //material.dither_offset;
 
-    var out_color = process_all_lights(pixel_input);
+    var out_color = pixel::process_all_lights(pixel_input);
     return vec4(out_color, 1.0);
 }

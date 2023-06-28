@@ -1,9 +1,9 @@
 #define_import_path rg::pixel_funcs
 
 #import bevy_pbr::utils
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::prepass_utils
-#import bevy_pbr::shadows
+#import bevy_pbr::mesh_view_bindings as bindings
+#import bevy_pbr::prepass_utils prepass_depth, prepass_normal
+#import bevy_pbr::shadows fetch_directional_shadow
 
 struct PixelInput {
     frag_coord: vec4<f32>,
@@ -46,17 +46,17 @@ fn process_single_light(
 
 fn process_all_lights(in: PixelInput) -> vec3<f32> {
     let view_z = dot(vec4<f32>(
-        view.inverse_view[0].z,
-        view.inverse_view[1].z,
-        view.inverse_view[2].z,
-        view.inverse_view[3].z
+        bindings::view.inverse_view[0].z,
+        bindings::view.inverse_view[1].z,
+        bindings::view.inverse_view[2].z,
+        bindings::view.inverse_view[3].z
     ), in.mesh_position);
 
-    var out_color = in.mesh_albedo * lights.ambient_color.rgb;
+    var out_color = in.mesh_albedo * bindings::lights.ambient_color.rgb;
 
-    let n_directional_lights = lights.n_directional_lights;
+    let n_directional_lights = bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i++) {
-        let light = &lights.directional_lights[i];
+        let light = &bindings::lights.directional_lights[i];
         let shadow = step(0.5, fetch_directional_shadow(i, in.mesh_position, in.mesh_normal, view_z));
         out_color += process_single_light(in, (*light).direction_to_light, (*light).color.rgb, shadow);
     }
@@ -86,7 +86,7 @@ struct NormalSamples {
 fn get_linear_depth(frag_coord: vec2<f32>) -> f32 {
     let raw_depth = prepass_depth(vec4(frag_coord, 0.0, 1.0), 0u);
     let clip_pos = vec4(vec2(0.0, 0.0), raw_depth, 1.0);
-    let view_space = view.inverse_projection * clip_pos;
+    let view_space = bindings::view.inverse_projection * clip_pos;
     return -view_space.z / view_space.w;
 }
 
@@ -107,7 +107,7 @@ fn check_depth_edge(s: DepthSamples, treshold: f32) -> bool {
 
 
 fn get_view_normal(frag_coord: vec2<f32>) -> vec3<f32> {
-    let view_mat = mat3x3(view.view[0].xyz, view.view[1].xyz, view.view[2].xyz);
+    let view_mat = mat3x3(bindings::view.view[0].xyz, bindings::view.view[1].xyz, bindings::view.view[2].xyz);
     return view_mat * prepass_normal(vec4(frag_coord, 0.0, 1.0), 0u);
 }
 

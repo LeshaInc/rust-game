@@ -8,11 +8,46 @@ pub struct DevOverlayPlugin;
 
 impl Plugin for DevOverlayPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(FrameTimePoints::default()).add_systems(
-            Update,
-            (record_frame_time.before(ui_left_side), ui_left_side),
-        );
+        app.insert_resource(DevOverlaySettings::default())
+            .insert_resource(GizmoConfig {
+                enabled: false,
+                aabb: AabbGizmoConfig {
+                    draw_all: true,
+                    ..default()
+                },
+                ..default()
+            })
+            .insert_resource(FrameTimePoints::default())
+            .add_systems(
+                Update,
+                (
+                    handle_input,
+                    record_frame_time.before(ui_left_side),
+                    ui_left_side.run_if(is_enabled),
+                ),
+            );
     }
+}
+
+#[derive(Default, Resource)]
+pub struct DevOverlaySettings {
+    pub enabled: bool,
+}
+
+fn is_enabled(settings: Res<DevOverlaySettings>) -> bool {
+    settings.enabled
+}
+
+fn handle_input(
+    input: Res<Input<KeyCode>>,
+    mut settings: ResMut<DevOverlaySettings>,
+    mut gizmo_config: ResMut<GizmoConfig>,
+) {
+    if input.just_pressed(KeyCode::F3) {
+        settings.enabled = !settings.enabled;
+    }
+
+    gizmo_config.enabled = settings.enabled;
 }
 
 #[derive(Default, Resource)]

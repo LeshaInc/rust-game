@@ -54,14 +54,6 @@ fn main() {
         .add_plugins(AiPlugin)
         .add_plugins(DevOverlayPlugin)
         .insert_resource(Msaa::Off)
-        .insert_resource(GizmoConfig {
-            enabled: true,
-            aabb: AabbGizmoConfig {
-                draw_all: true,
-                ..default()
-            },
-            ..default()
-        })
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .insert_resource(AmbientLight {
             color: Color::rgb(0.8, 0.85, 1.0),

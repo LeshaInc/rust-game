@@ -18,6 +18,7 @@ bevy_rapier3d = "0.21"
 bytemuck = "1.7"
 futures-lite = "1.13"
 turborand = "0.10"
+tracing-tracy = { version = "0.10", features = ["ondemand"]}
 
 [patch.crates-io]
 bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }

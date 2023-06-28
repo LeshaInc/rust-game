@@ -3123,6 +3123,7 @@ dependencies = [
  "rg_navigation",
  "rg_pixel_material",
  "rg_terrain",
+ "tracing-tracy",
 ]
 
 [[package]]

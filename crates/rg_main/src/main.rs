@@ -8,9 +8,11 @@ use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
+use bevy_egui::EguiPlugin;
 use bevy_rapier3d::prelude::*;
 use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
+use rg_dev_overlay::DevOverlayPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::TerrainPlugin;
 
@@ -41,12 +43,14 @@ fn main() {
                     ..default()
                 }),
         )
+        .add_plugins(EguiPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(BillboardPlugin)
         .add_plugins(TerrainPlugin)
         .add_plugins(CameraControllerPlugin)
         .add_plugins(AiPlugin)
+        .add_plugins(DevOverlayPlugin)
         .insert_resource(Msaa::Off)
         .insert_resource(GizmoConfig {
             enabled: false,

@@ -2,24 +2,27 @@
 resolver = "2"
 
 members = [
+  "crates/rg_ai",
+  "crates/rg_billboard",
+  "crates/rg_dev_overlay",
   "crates/rg_main",
   "crates/rg_pixel_material",
   "crates/rg_terrain",
-  "crates/rg_billboard",
-  "crates/rg_ai",
 ]
 
 [workspace.dependencies]
 bevy = { version = "0.11.0-dev", features = ["dynamic_linking", "trace_tracy"] }
+bevy_egui = "0.20"
 bevy_rapier3d = "0.21"
 bytemuck = "1.7"
 futures-lite = "1.13"
 turborand = "0.10"
 
 [patch.crates-io]
-bevy = { git = "https://github.com/bevyengine/bevy" }
-nalgebra = { git = "https://github.com/Dig-Doug/nalgebra", branch = "glam-024" }
+bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_egui = { git = "https://github.com/Vrixyz/bevy_egui", branch = "bevy-main" }
 bevy_rapier3d = { git = "https://github.com/devil-ira/bevy_rapier", branch = "bevy-0.11" }
+nalgebra = { git = "https://github.com/Dig-Doug/nalgebra", branch = "glam-024" }
 
 [profile.dev]
 opt-level = 1

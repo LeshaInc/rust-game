@@ -13,6 +13,7 @@ use bevy_rapier3d::prelude::*;
 use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
 use rg_dev_overlay::DevOverlayPlugin;
+use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::TerrainPlugin;
 
@@ -48,6 +49,7 @@ fn main() {
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(BillboardPlugin)
         .add_plugins(TerrainPlugin)
+        .add_plugins(NavigationPlugin)
         .add_plugins(CameraControllerPlugin)
         .add_plugins(AiPlugin)
         .add_plugins(DevOverlayPlugin)

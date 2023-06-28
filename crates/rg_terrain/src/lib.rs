@@ -6,7 +6,6 @@ mod grass;
 mod heightmap;
 mod map;
 mod mesher;
-mod navigation;
 mod poisson;
 mod utils;
 

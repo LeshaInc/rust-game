@@ -3120,7 +3120,18 @@ dependencies = [
  "rg_ai",
  "rg_billboard",
  "rg_dev_overlay",
+ "rg_navigation",
  "rg_pixel_material",
+ "rg_terrain",
+]
+
+[[package]]
+name = "rg_navigation"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_rapier3d",
+ "futures-lite",
  "rg_terrain",
 ]
 

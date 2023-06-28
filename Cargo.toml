@@ -6,6 +6,7 @@ members = [
   "crates/rg_billboard",
   "crates/rg_dev_overlay",
   "crates/rg_main",
+  "crates/rg_navigation",
   "crates/rg_pixel_material",
   "crates/rg_terrain",
 ]

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rg_agent = { path = "../rg_agent" }
 rg_ai = { path = "../rg_ai" }
 rg_billboard = { path = "../rg_billboard" }
 rg_dev_overlay = { path = "../rg_dev_overlay" }

@@ -3,6 +3,7 @@ use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
+use bevy::render::view::NoFrustumCulling;
 use bevy::sprite::Anchor;
 use rg_pixel_material::GlobalDitherOffset;
 
@@ -12,7 +13,7 @@ impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (create_blit_target, update_transform, update_camera),
+            (create_blit_target, update_transform, update_camera).chain(),
         );
     }
 }
@@ -88,14 +89,18 @@ fn create_blit_target(
     });
 
     let sprite = commands
-        .spawn(SpriteBundle {
-            sprite: Sprite {
-                anchor: Anchor::TopLeft,
+        .spawn((
+            SpriteBundle {
+                sprite: Sprite {
+                    anchor: Anchor::TopLeft,
+                    ..default()
+                },
+                texture: image.clone(),
                 ..default()
             },
-            texture: image.clone(),
-            ..default()
-        })
+            // apparently it's broken
+            NoFrustumCulling,
+        ))
         .id();
 
     commands
@@ -154,7 +159,7 @@ fn update_camera(
 
     let scale = Vec3::new(
         controller.camera_scale.recip(),
-        controller.camera_scale.recip(),
+        controller.camera_scale.recip() * controller.camera_pitch.cos(),
         controller.camera_scale.recip() * controller.camera_pitch.sin(),
     );
 
@@ -164,7 +169,7 @@ fn update_camera(
 
     dither_offset.0 = UVec2::new(
         ((pos.x * scale.x).round() as i32).rem_euclid(4) as u32,
-        ((pos.z * scale.z).round() as i32).rem_euclid(4) as u32,
+        ((pos.z * scale.z).round() as i32 - (pos.y * scale.y).round() as i32).rem_euclid(4) as u32,
     );
 
     camera_transform.rotation =
@@ -202,8 +207,9 @@ fn update_camera(
 
     sprite_transform.scale = Vec3::splat(controller.pixel_scale);
     sprite_transform.translation = Vec3::new(
-        -window.width() / 2.0 + (offset.x * scale.x - 0.5) * controller.pixel_scale,
-        window.height() / 2.0 - (offset.z * scale.z - 0.5) * controller.pixel_scale,
+        -window.width() / 2.0 + ((offset.x * scale.x - 0.5) * controller.pixel_scale).round(),
+        window.height() / 2.0
+            - ((offset.z * scale.z - offset.y * scale.y - 0.5) * controller.pixel_scale).round(),
         0.0,
     );
 }

@@ -10,6 +10,7 @@ use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
 use bevy_egui::EguiPlugin;
 use bevy_rapier3d::prelude::*;
+use rg_agent::{AgentPlugin, ControlledCharacter, SpawnCharacter};
 use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
 use rg_dev_overlay::DevOverlayPlugin;
@@ -52,6 +53,7 @@ fn main() {
         .add_plugins(NavigationPlugin)
         .add_plugins(CameraControllerPlugin)
         .add_plugins(AiPlugin)
+        .add_plugins(AgentPlugin)
         .add_plugins(DevOverlayPlugin)
         .insert_resource(Msaa::Off)
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
@@ -152,19 +154,33 @@ fn setup(
 
     commands.spawn(behavior_trees.add(behavior_tree));
 
+    commands.spawn((SpawnCharacter, Transform::from_xyz(0.0, 10.0, 0.0)));
+
     debug!("Spawned everything");
 }
 
 fn handle_input(
+    q_character: Query<&Transform, With<ControlledCharacter>>,
     mut q_controller: Query<&mut CameraController>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PixelMaterial>>,
     keyboard_input: Res<Input<KeyCode>>,
-    time: Res<Time>,
 ) {
+    let Ok(character_transform) = q_character.get_single() else {
+        return;
+    };
+
     let mut controller = q_controller.single_mut();
-    let mut direction = Vec3::ZERO;
+    controller.target_translation = character_transform.translation;
+
+    if keyboard_input.just_pressed(KeyCode::Q) {
+        controller.target_rotation *= Quat::from_rotation_y(45f32.to_radians());
+    }
+
+    if keyboard_input.just_pressed(KeyCode::E) {
+        controller.target_rotation *= Quat::from_rotation_y(-45f32.to_radians());
+    }
 
     if keyboard_input.just_pressed(KeyCode::Space) {
         commands.spawn((
@@ -184,29 +200,5 @@ fn handle_input(
             RigidBody::Dynamic,
             Collider::cuboid(0.5, 0.5, 0.5),
         ));
-    }
-
-    if keyboard_input.pressed(KeyCode::A) {
-        direction.x -= 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::D) {
-        direction.x += 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::W) {
-        direction.z -= 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::S) {
-        direction.z += 1.0;
-    }
-
-    direction = controller.rotation * direction.normalize_or_zero();
-    controller.target_translation += direction * 6.0 * time.delta_seconds();
-
-    if keyboard_input.just_pressed(KeyCode::Q) {
-        controller.target_rotation *= Quat::from_rotation_y(45f32.to_radians());
-    }
-
-    if keyboard_input.just_pressed(KeyCode::E) {
-        controller.target_rotation *= Quat::from_rotation_y(-45f32.to_radians());
     }
 }

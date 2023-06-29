@@ -8,6 +8,8 @@ use crate::poisson::poisson_disc_sampling;
 use crate::utils::{get_barycentric, is_inside_barycentric};
 use crate::CHUNK_SIZE;
 
+pub const MIN_RADIUS: f32 = 0.2 / CHUNK_SIZE.x;
+
 #[derive(Debug)]
 pub struct GeneratedGrass {
     pub multi_billboard: MultiBillboard,
@@ -28,7 +30,7 @@ pub fn generate(
 
     let mut instances = Vec::with_capacity(32 * 1024);
 
-    let grid = poisson_disc_sampling(&mut rng, 0.006);
+    let grid = poisson_disc_sampling(&mut rng, MIN_RADIUS);
     let grid_resolution = grid.resolution() as f32;
 
     for indices in indices.chunks_exact(3) {

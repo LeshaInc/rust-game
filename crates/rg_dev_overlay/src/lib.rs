@@ -34,7 +34,7 @@ pub struct DevOverlaySettings {
     pub enabled: bool,
 }
 
-fn is_enabled(settings: Res<DevOverlaySettings>) -> bool {
+pub fn is_enabled(settings: Res<DevOverlaySettings>) -> bool {
     settings.enabled
 }
 

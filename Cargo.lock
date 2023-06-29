@@ -3143,6 +3143,7 @@ dependencies = [
  "bevy",
  "bevy_rapier3d",
  "futures-lite",
+ "rg_dev_overlay",
  "rg_terrain",
 ]
 

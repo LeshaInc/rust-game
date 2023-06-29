@@ -98,12 +98,14 @@ fn setup(
             color: Color::WHITE,
             illuminance: 4800.0,
             shadows_enabled: true,
+            shadow_depth_bias: 0.01,
+            shadow_normal_bias: 0.3,
             ..default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,
             minimum_distance: 10.0,
-            maximum_distance: 60.0,
+            maximum_distance: 50.0,
             ..default()
         }
         .build(),

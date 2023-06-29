@@ -16,9 +16,9 @@ pub fn generate(_seed: u64, chunk_pos: IVec2) -> ChunkHeightmap {
     for (cell, height) in grid.entries_mut() {
         let pos = chunk_cell_to_world(chunk_pos, cell);
 
-        *height = (pos.x * 0.1).sin() * (pos.y * 0.1).cos() * 5.0;
-        *height += (pos.x * 0.2).sin() * (pos.y * 0.2).cos() * 2.5;
-        *height += (pos.x * 0.4).sin() * (pos.y * 0.4).cos() * 1.25;
+        *height = (pos.x * 0.1).sin() * (pos.y * 0.1).cos() * 3.0;
+        *height += (pos.x * 0.2).sin() * (pos.y * 0.2).cos() * 2.0;
+        *height += (pos.x * 0.4).sin() * (pos.y * 0.4).cos() * 1.0;
     }
 
     ChunkHeightmap(grid.into())

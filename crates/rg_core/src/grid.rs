@@ -69,18 +69,24 @@ impl<T> Grid<T> {
         self.cells().zip(self.data.iter_mut())
     }
 
-    pub fn neighborhood_4(&self, center: IVec2) -> impl Iterator<Item = IVec2> {
-        NEIGHBORHOOD_4
-            .map(|pt| self.contains_cell(center + pt).then_some(center + pt))
+    fn neighborhood<const N: usize>(
+        &self,
+        neighbors: [IVec2; N],
+        center: IVec2,
+    ) -> impl Iterator<Item = (usize, IVec2)> {
+        neighbors
+            .map(|dir| self.contains_cell(center + dir).then_some(center + dir))
             .into_iter()
-            .flatten()
+            .enumerate()
+            .flat_map(|(i, pt)| pt.map(|pt| (i, pt)))
     }
 
-    pub fn neighborhood_8(&self, center: IVec2) -> impl Iterator<Item = IVec2> {
-        NEIGHBORHOOD_8
-            .map(|pt| self.contains_cell(center + pt).then_some(center + pt))
-            .into_iter()
-            .flatten()
+    pub fn neighborhood_4(&self, center: IVec2) -> impl Iterator<Item = (usize, IVec2)> {
+        self.neighborhood(NEIGHBORHOOD_4, center)
+    }
+
+    pub fn neighborhood_8(&self, center: IVec2) -> impl Iterator<Item = (usize, IVec2)> {
+        self.neighborhood(NEIGHBORHOOD_8, center)
     }
 
     pub fn get(&self, cell: IVec2) -> Option<&T> {
@@ -160,11 +166,11 @@ impl<T> SharedGrid<T> {
         self.0.entries()
     }
 
-    pub fn neighborhood_4(&self, center: IVec2) -> impl Iterator<Item = IVec2> {
+    pub fn neighborhood_4(&self, center: IVec2) -> impl Iterator<Item = (usize, IVec2)> {
         self.0.neighborhood_4(center)
     }
 
-    pub fn neighborhood_8(&self, center: IVec2) -> impl Iterator<Item = IVec2> {
+    pub fn neighborhood_8(&self, center: IVec2) -> impl Iterator<Item = (usize, IVec2)> {
         self.0.neighborhood_8(center)
     }
 

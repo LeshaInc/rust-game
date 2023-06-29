@@ -12,6 +12,7 @@ use rg_terrain::{chunk_cell_to_world, Chunk, ChunkPos, CHUNK_RESOLUTION, MAX_UPD
 
 pub const MIN_Y: f32 = -200.0;
 pub const MAX_Y: f32 = 200.0;
+pub const CLIMB_HEIGHT: f32 = 0.5;
 
 pub struct NavigationPlugin;
 
@@ -103,12 +104,14 @@ fn update_tasks(
 #[derive(Debug, Component)]
 pub struct ChunkNavMesh {
     heightmap: Grid<f32>,
+    connections: Grid<u8>,
 }
 
 pub struct NavMeshGenerator {
     chunk_pos: IVec2,
     colliders: ColliderSet,
     heightmap: Grid<f32>,
+    connections: Grid<u8>,
 }
 
 impl NavMeshGenerator {
@@ -117,6 +120,7 @@ impl NavMeshGenerator {
             chunk_pos,
             colliders,
             heightmap: Grid::new(CHUNK_RESOLUTION, f32::NAN),
+            connections: Grid::new(CHUNK_RESOLUTION, 0),
         }
     }
 
@@ -124,9 +128,11 @@ impl NavMeshGenerator {
         let _span = info_span!("nav mesh generator").entered();
 
         self.generate_heightmap();
+        self.generate_connections();
 
         ChunkNavMesh {
             heightmap: self.heightmap,
+            connections: self.connections,
         }
     }
 
@@ -166,15 +172,40 @@ impl NavMeshGenerator {
             }
         }
     }
+
+    fn generate_connections(&mut self) {
+        for cell in self.heightmap.cells() {
+            let cell_height = self.heightmap[cell];
+            for (i, neighbor) in self.heightmap.neighborhood_8(cell) {
+                let neighbor_height = self.heightmap[neighbor];
+                if (cell_height - neighbor_height).abs() <= CLIMB_HEIGHT {
+                    self.connections[cell] |= (1 << i) as u8;
+                }
+            }
+        }
+    }
 }
 
 fn draw_nav_mesh_gizmos(q_chunks: Query<(&ChunkPos, &ChunkNavMesh)>, mut gizmos: Gizmos) {
     for (&ChunkPos(chunk_pos), nav_grid) in &q_chunks {
         for (cell, height) in nav_grid.heightmap.entries() {
             let pos = chunk_cell_to_world(chunk_pos, cell)
-                .extend(height + 0.01)
+                .extend(height + 0.1)
                 .xzy();
-            gizmos.rect(pos, Quat::IDENTITY, Vec2::splat(0.05), Color::RED);
+
+            for (i, neighbor) in nav_grid.heightmap.neighborhood_8(cell) {
+                if nav_grid.connections[cell] & (1 << i) as u8 == 0 {
+                    continue;
+                }
+
+                let neighbor_height = nav_grid.heightmap[neighbor];
+
+                let neighbor_pos = chunk_cell_to_world(chunk_pos, neighbor)
+                    .extend(neighbor_height + 0.1)
+                    .xzy();
+
+                gizmos.line(pos, neighbor_pos, Color::GREEN);
+            }
         }
     }
 }

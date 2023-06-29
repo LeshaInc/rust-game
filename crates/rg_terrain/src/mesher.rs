@@ -52,7 +52,7 @@ impl MeshGenerator {
             positions: Vec::with_capacity(VERTICES_CAP),
             normals: Vec::with_capacity(VERTICES_CAP),
             indices: Vec::with_capacity(INDICES_CAP),
-            height_step: 0.1,
+            height_step: 0.2,
             cell_first_vertex_idx: 0,
             height: 0.0,
             up_height: 0.0,

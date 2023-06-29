@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rg_pixel_material = { path = "../rg_pixel_material" }
 rg_billboard = { path = "../rg_billboard" }
+rg_core = { path = "../rg_core" }
+rg_pixel_material = { path = "../rg_pixel_material" }
 
 bevy = { workspace = true }
 bevy_rapier3d = { workspace = true }

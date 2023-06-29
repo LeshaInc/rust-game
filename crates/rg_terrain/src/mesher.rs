@@ -1,4 +1,4 @@
-use bevy::math::{ivec2, uvec2, vec2, vec3, Vec3Swizzles};
+use bevy::math::{ivec2, vec2, vec3, Vec3Swizzles};
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
@@ -6,11 +6,12 @@ use bevy::utils::HashMap;
 use bevy_rapier3d::prelude::*;
 use futures_lite::future;
 use rg_billboard::{MultiBillboard, MultiBillboardBundle};
+use rg_core::{SharedGrid, NEIGHBORHOOD_8};
 
 use crate::grass::{self, GeneratedGrass};
 use crate::{
-    Chunk, ChunkHeightmap, ChunkMap, ChunkPos, Chunks, Seed, TerrainGrassMaterial,
-    CHUNK_RESOLUTION, CHUNK_SIZE, MAX_UPDATES_PER_FRAME, NEIGHBOR_DIRS,
+    Chunk, ChunkHeightmap, ChunkPos, Chunks, Seed, TerrainGrassMaterial, CHUNK_RESOLUTION,
+    CHUNK_SIZE, MAX_UPDATES_PER_FRAME,
 };
 
 const VERTICES_CAP: usize = 128 * 1024;
@@ -89,13 +90,12 @@ impl MeshGenerator {
     fn generate_cells(&mut self) {
         let _span = info_span!("generate cells").entered();
 
-        for x in 0..CHUNK_RESOLUTION {
-            for y in 0..CHUNK_RESOLUTION {
+        for y in 0..CHUNK_RESOLUTION.y {
+            for x in 0..CHUNK_RESOLUTION.x {
                 let first_vertex_idx = self.positions.len();
                 self.cell_first_vertex_idx = first_vertex_idx;
 
-                let pos = uvec2(x, y).as_ivec2();
-                self.generate_cell(pos);
+                self.generate_cell(ivec2(x, y));
 
                 for pos in &mut self.positions[first_vertex_idx..] {
                     pos.x += x as f32;
@@ -233,10 +233,10 @@ impl MeshGenerator {
     fn apply_scale(&mut self) {
         let _span = info_span!("apply scale").entered();
 
-        let scale = CHUNK_SIZE / (CHUNK_RESOLUTION as f32);
+        let scale = CHUNK_SIZE / CHUNK_RESOLUTION.as_vec2();
         for pos in &mut self.positions {
-            pos.x *= scale;
-            pos.z *= scale;
+            pos.x *= scale.x;
+            pos.z *= scale.y;
         }
     }
 
@@ -562,20 +562,20 @@ impl MeshGenerator {
 }
 
 struct Heightmaps {
-    center: ChunkMap<f32>,
-    neighbors: [ChunkMap<f32>; 8],
+    center: SharedGrid<f32>,
+    neighbors: [SharedGrid<f32>; 8],
 }
 
 impl Heightmaps {
     fn get_height(&self, pos: IVec2) -> f32 {
-        if inside_chunk(pos) {
-            return self.center.get(pos.as_uvec2());
+        if let Some(&height) = self.center.get(pos) {
+            return height;
         }
 
-        for (i, &dir) in NEIGHBOR_DIRS.iter().enumerate() {
-            let pos = pos - dir * UVec2::splat(CHUNK_RESOLUTION).as_ivec2();
-            if inside_chunk(pos) {
-                return self.neighbors[i].get(pos.as_uvec2());
+        for (i, &dir) in NEIGHBORHOOD_8.iter().enumerate() {
+            let pos = pos - dir * CHUNK_RESOLUTION;
+            if let Some(&height) = self.neighbors[i].get(pos) {
+                return height;
             }
         }
 
@@ -601,10 +601,6 @@ impl Heightmaps {
 
         (height, vec2(grad_x, grad_y))
     }
-}
-
-fn inside_chunk(pos: IVec2) -> bool {
-    pos.x >= 0 && pos.y >= 0 && pos.x < CHUNK_RESOLUTION as i32 && pos.y < CHUNK_RESOLUTION as i32
 }
 
 #[derive(Debug, Component)]

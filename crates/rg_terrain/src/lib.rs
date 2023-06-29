@@ -4,25 +4,23 @@
 mod chunks;
 mod grass;
 mod heightmap;
-mod map;
 mod mesher;
 mod poisson;
 mod utils;
 
 use bevy::asset::AssetPath;
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::AsBindGroup;
 use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin};
 use rg_pixel_material::PixelMaterial;
 
-pub use crate::chunks::{Chunks, NEIGHBOR_DIRS};
+pub use crate::chunks::Chunks;
 pub use crate::heightmap::ChunkHeightmap;
-pub use crate::map::{ChunkMap, ChunkMapRefMut};
 
-pub const CHUNK_SIZE: f32 = 32.0;
-pub const CHUNK_RESOLUTION: u32 = 64;
-pub const NAVGRID_RESOLUTION: u32 = 128;
+pub const CHUNK_SIZE: Vec2 = Vec2::splat(32.0);
+pub const CHUNK_RESOLUTION: IVec2 = IVec2::splat(64);
 
 pub const MAX_UPDATES_PER_FRAME: usize = 32;
 
@@ -49,6 +47,10 @@ impl Plugin for TerrainPlugin {
                 ),
             );
     }
+}
+
+pub fn chunk_cell_to_world(chunk_pos: IVec2, cell: IVec2) -> Vec2 {
+    (cell.as_vec2() / CHUNK_RESOLUTION.as_vec2() + chunk_pos.as_vec2()) * CHUNK_SIZE
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Component)]
@@ -110,7 +112,9 @@ fn startup(
                 Chunk,
                 ChunkPos(pos),
                 material.clone(),
-                Transform::from_xyz(CHUNK_SIZE * sx as f32, 0.0, CHUNK_SIZE * sz as f32),
+                Transform::from_translation(
+                    chunk_cell_to_world(pos, IVec2::ZERO).extend(0.0).xzy(),
+                ),
                 GlobalTransform::default(),
                 Visibility::Visible,
                 ComputedVisibility::default(),

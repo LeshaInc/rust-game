@@ -7,11 +7,8 @@ use bevy_rapier3d::rapier::prelude::{
     RayIntersection, RigidBodySet,
 };
 use futures_lite::future;
-use rg_terrain::{Chunk, ChunkPos, CHUNK_SIZE, MAX_UPDATES_PER_FRAME};
-
-pub const NAV_MESH_RESOLUTION: u32 = 64;
-pub const NAV_MESH_CELL_SIZE: f32 = CHUNK_SIZE / (NAV_MESH_RESOLUTION as f32);
-pub const NAV_MESH_MAX_SLOPE: f32 = 0.5 / NAV_MESH_CELL_SIZE;
+use rg_core::Grid;
+use rg_terrain::{chunk_cell_to_world, Chunk, ChunkPos, CHUNK_RESOLUTION, MAX_UPDATES_PER_FRAME};
 
 pub const MIN_Y: f32 = -200.0;
 pub const MAX_Y: f32 = 200.0;
@@ -53,10 +50,10 @@ fn schedule_tasks(
     for (chunk_id, &ChunkPos(chunk_pos)) in q_chunks.iter().take(MAX_UPDATES_PER_FRAME) {
         let task_pool = AsyncComputeTaskPool::get();
 
-        let min = (chunk_pos.as_vec2() * (CHUNK_SIZE as f32))
+        let min = chunk_cell_to_world(chunk_pos, IVec2::ZERO)
             .extend(MIN_Y)
             .xzy();
-        let max = ((chunk_pos + IVec2::splat(1)).as_vec2() * (CHUNK_SIZE as f32))
+        let max = chunk_cell_to_world(chunk_pos + IVec2::ONE, IVec2::ZERO)
             .extend(MAX_Y)
             .xzy();
         let aabb = Aabb::new(min.into(), max.into());
@@ -105,13 +102,13 @@ fn update_tasks(
 
 #[derive(Debug, Component)]
 pub struct ChunkNavMesh {
-    heights: Vec<f32>,
+    heightmap: Grid<f32>,
 }
 
 pub struct NavMeshGenerator {
     chunk_pos: IVec2,
     colliders: ColliderSet,
-    heightmap: Vec<f32>,
+    heightmap: Grid<f32>,
 }
 
 impl NavMeshGenerator {
@@ -119,7 +116,7 @@ impl NavMeshGenerator {
         NavMeshGenerator {
             chunk_pos,
             colliders,
-            heightmap: Vec::new(),
+            heightmap: Grid::new(CHUNK_RESOLUTION, f32::NAN),
         }
     }
 
@@ -129,7 +126,7 @@ impl NavMeshGenerator {
         self.generate_heightmap();
 
         ChunkNavMesh {
-            heights: self.heightmap,
+            heightmap: self.heightmap,
         }
     }
 
@@ -138,18 +135,10 @@ impl NavMeshGenerator {
         let mut query_pipeline = QueryPipeline::new();
         query_pipeline.update(&rigid_bodies, &self.colliders);
 
-        self.heightmap = vec![f32::NAN; (NAV_MESH_RESOLUTION as usize).pow(2)];
+        for cell in self.heightmap.cells() {
+            let pos = chunk_cell_to_world(self.chunk_pos, cell);
 
-        let cells = (0..NAV_MESH_RESOLUTION)
-            .flat_map(|x| (0..NAV_MESH_RESOLUTION).map(move |y| UVec2::new(x, y)));
-
-        for cell in cells.clone() {
-            let cell_idx = (cell.x as usize) * (NAV_MESH_RESOLUTION as usize) + (cell.y as usize);
-
-            let pos = ((cell.as_vec2()) / (NAV_MESH_RESOLUTION as f32) + self.chunk_pos.as_vec2())
-                * CHUNK_SIZE;
-
-            let origin = pos.extend(MIN_Y).xzy();
+            let ray_origin = pos.extend(MIN_Y).xzy();
             let max_toi = MAX_Y - MIN_Y;
             let solid = false;
 
@@ -157,7 +146,7 @@ impl NavMeshGenerator {
 
             let mut max_height = f32::NEG_INFINITY;
             let callback = |_, intersection: RayIntersection| {
-                let height = origin.y + intersection.toi;
+                let height = ray_origin.y + intersection.toi;
                 max_height = max_height.max(height);
                 true // continue search
             };
@@ -165,7 +154,7 @@ impl NavMeshGenerator {
             query_pipeline.intersections_with_ray(
                 &rigid_bodies,
                 &self.colliders,
-                &Ray::new(origin.into(), Vec3::Y.into()),
+                &Ray::new(ray_origin.into(), Vec3::Y.into()),
                 max_toi,
                 solid,
                 filter,
@@ -173,24 +162,19 @@ impl NavMeshGenerator {
             );
 
             if max_height.is_finite() {
-                self.heightmap[cell_idx] = max_height;
+                self.heightmap.set(cell, max_height);
             }
         }
     }
 }
 
 fn draw_nav_mesh_gizmos(q_chunks: Query<(&ChunkPos, &ChunkNavMesh)>, mut gizmos: Gizmos) {
-    for (chunk_pos, nav_grid) in &q_chunks {
-        for x in 0..NAV_MESH_RESOLUTION {
-            for y in 0..NAV_MESH_RESOLUTION {
-                let index = (x as usize) * (NAV_MESH_RESOLUTION as usize) + (y as usize);
-                let height = nav_grid.heights[index];
-                let pos_2d = (UVec2::new(x, y).as_vec2() / (NAV_MESH_RESOLUTION as f32)
-                    + chunk_pos.0.as_vec2())
-                    * CHUNK_SIZE;
-                let pos = pos_2d.extend(height + 0.01).xzy();
-                gizmos.rect(pos, Quat::IDENTITY, Vec2::splat(0.05), Color::RED);
-            }
+    for (&ChunkPos(chunk_pos), nav_grid) in &q_chunks {
+        for (cell, height) in nav_grid.heightmap.entries() {
+            let pos = chunk_cell_to_world(chunk_pos, cell)
+                .extend(height + 0.01)
+                .xzy();
+            gizmos.rect(pos, Quat::IDENTITY, Vec2::splat(0.05), Color::RED);
         }
     }
 }

@@ -3112,6 +3112,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rg_core"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "rg_dev_overlay"
 version = "0.1.0"
 dependencies = [
@@ -3143,6 +3150,7 @@ dependencies = [
  "bevy",
  "bevy_rapier3d",
  "futures-lite",
+ "rg_core",
  "rg_dev_overlay",
  "rg_terrain",
 ]
@@ -3162,6 +3170,7 @@ dependencies = [
  "bevy_rapier3d",
  "futures-lite",
  "rg_billboard",
+ "rg_core",
  "rg_pixel_material",
  "turborand",
 ]

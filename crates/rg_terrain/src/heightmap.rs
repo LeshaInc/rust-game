@@ -1,30 +1,27 @@
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
+use rg_core::{Grid, SharedGrid};
 
-use crate::{Chunk, ChunkMap, ChunkPos, Seed, CHUNK_RESOLUTION, CHUNK_SIZE, MAX_UPDATES_PER_FRAME};
+use crate::{chunk_cell_to_world, Chunk, ChunkPos, Seed, CHUNK_RESOLUTION, MAX_UPDATES_PER_FRAME};
 
-#[derive(Debug, Default, Clone, Component)]
-pub struct ChunkHeightmap(pub ChunkMap<f32>);
+#[derive(Debug, Clone, Component)]
+pub struct ChunkHeightmap(pub SharedGrid<f32>);
 
 pub fn generate(_seed: u64, chunk_pos: IVec2) -> ChunkHeightmap {
     let _span = info_span!("chunk heightmap generator").entered();
 
-    let mut heightmap = ChunkMap::default();
-    let mut data = heightmap.make_mut();
+    let mut grid = Grid::new_default(CHUNK_RESOLUTION.into());
 
-    for sx in 0..CHUNK_RESOLUTION {
-        for sz in 0..CHUNK_RESOLUTION {
-            let fx = ((sx as f32) / (CHUNK_RESOLUTION as f32) + chunk_pos.x as f32) * CHUNK_SIZE;
-            let fz = ((sz as f32) / (CHUNK_RESOLUTION as f32) + chunk_pos.y as f32) * CHUNK_SIZE;
-            let mut y = (fx * 0.1).sin() * (fz * 0.1).cos() * 5.0;
-            y += (fx * 0.2).sin() * (fz * 0.2).cos() * 2.5;
-            y += (fx * 0.4).sin() * (fz * 0.4).cos() * 1.25;
-            data.set(UVec2::new(sx, sz), y);
-        }
+    for (cell, height) in grid.entries_mut() {
+        let pos = chunk_cell_to_world(chunk_pos, cell);
+
+        *height = (pos.x * 0.1).sin() * (pos.y * 0.1).cos() * 5.0;
+        *height += (pos.x * 0.2).sin() * (pos.y * 0.2).cos() * 2.5;
+        *height += (pos.x * 0.4).sin() * (pos.y * 0.4).cos() * 1.25;
     }
 
-    ChunkHeightmap(heightmap)
+    ChunkHeightmap(grid.into())
 }
 
 #[derive(Debug, Component)]

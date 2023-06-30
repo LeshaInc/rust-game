@@ -22,6 +22,7 @@ pub const NEIGHBORHOOD_8: [IVec2; 8] = [
 
 #[derive(Debug, Clone)]
 pub struct Grid<T> {
+    origin: IVec2,
     size: IVec2,
     data: Box<[T]>,
 }
@@ -32,6 +33,7 @@ impl<T> Grid<T> {
         T: Clone,
     {
         Grid {
+            origin: IVec2::ZERO,
             size,
             data: vec![fill; (size.x as usize) * (size.y as usize)].into(),
         }
@@ -44,21 +46,33 @@ impl<T> Grid<T> {
         Grid::new(size, T::default())
     }
 
+    pub fn with_origin(mut self, origin: IVec2) -> Grid<T> {
+        self.origin = origin;
+        self
+    }
+
+    pub fn origin(&self) -> IVec2 {
+        self.origin
+    }
+
     pub fn size(&self) -> IVec2 {
         self.size
     }
 
-    fn index(&self, cell: IVec2) -> usize {
+    fn index(&self, mut cell: IVec2) -> usize {
+        cell -= self.origin;
         (cell.y as usize) * (self.size.x as usize) + (cell.x as usize)
     }
 
-    pub fn contains_cell(&self, cell: IVec2) -> bool {
+    pub fn contains_cell(&self, mut cell: IVec2) -> bool {
+        cell -= self.origin;
         (cell.x >= 0 && cell.x < self.size.x) && (cell.y >= 0 && cell.y < self.size.y)
     }
 
     pub fn cells(&self) -> impl Iterator<Item = IVec2> {
         let size = self.size;
-        (0..size.y).flat_map(move |y| (0..size.x).map(move |x| IVec2::new(x, y)))
+        let origin = self.origin;
+        (0..size.y).flat_map(move |y| (0..size.x).map(move |x| origin + IVec2::new(x, y)))
     }
 
     pub fn entries(&self) -> impl Iterator<Item = (IVec2, &T)> {

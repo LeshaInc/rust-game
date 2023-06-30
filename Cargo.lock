@@ -3093,6 +3093,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_rapier3d",
+ "rg_core",
  "rg_pixel_material",
 ]
 
@@ -3116,6 +3117,8 @@ name = "rg_core"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_rapier3d",
+ "bitflags 2.3.3",
 ]
 
 [[package]]
@@ -3136,6 +3139,7 @@ dependencies = [
  "rg_agent",
  "rg_ai",
  "rg_billboard",
+ "rg_core",
  "rg_dev_overlay",
  "rg_navigation",
  "rg_pixel_material",

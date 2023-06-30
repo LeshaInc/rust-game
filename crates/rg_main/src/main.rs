@@ -13,6 +13,7 @@ use bevy_rapier3d::prelude::*;
 use rg_agent::{AgentPlugin, ControlledCharacter, SpawnCharacter};
 use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
+use rg_core::CollisionLayers;
 use rg_dev_overlay::DevOverlayPlugin;
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
@@ -91,6 +92,10 @@ fn setup(
         },
         RigidBody::Dynamic,
         Collider::ball(0.5),
+        CollisionGroups::new(
+            CollisionLayers::DYNAMIC_GEOMETRY.into(),
+            (CollisionLayers::STATIC_GEOMETRY | CollisionLayers::DYNAMIC_GEOMETRY).into(),
+        ),
     ));
     // light
     commands.spawn(DirectionalLightBundle {
@@ -201,6 +206,13 @@ fn handle_input(
             },
             RigidBody::Dynamic,
             Collider::cuboid(0.5, 0.5, 0.5),
+            CollisionGroups::new(
+                CollisionLayers::DYNAMIC_GEOMETRY.into(),
+                (CollisionLayers::STATIC_GEOMETRY
+                    | CollisionLayers::DYNAMIC_GEOMETRY
+                    | CollisionLayers::CHARACTER)
+                    .into(),
+            ),
         ));
     }
 }

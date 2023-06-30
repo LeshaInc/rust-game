@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::{KinematicCharacterController, KinematicCharacterControllerOutput};
 
@@ -5,7 +7,7 @@ pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, handle_movement_input);
+        app.add_systems(FixedUpdate, handle_movement_input);
     }
 }
 
@@ -21,10 +23,10 @@ fn handle_movement_input(
         &mut KinematicCharacterController,
         &KinematicCharacterControllerOutput,
     )>,
-    time: Res<Time>,
+    time: Res<FixedTime>,
 ) {
     for (movement, mut controller, controller_output) in &mut q_agents {
-        let mut translation = movement.direction * 6.0 * time.delta_seconds();
+        let mut translation = movement.direction * 6.0 * time.period.as_secs_f32();
 
         if !controller_output.grounded {
             translation.y -= 0.1;

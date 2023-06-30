@@ -6,7 +6,7 @@ use bevy::utils::HashMap;
 use bevy_rapier3d::prelude::*;
 use futures_lite::future;
 use rg_billboard::{MultiBillboard, MultiBillboardBundle};
-use rg_core::{SharedGrid, NEIGHBORHOOD_8};
+use rg_core::{CollisionLayers, SharedGrid, NEIGHBORHOOD_8};
 
 use crate::grass::{self, GeneratedGrass};
 use crate::{
@@ -673,7 +673,13 @@ pub fn update_system(
             .entity(chunk_id)
             .add_child(grass_id)
             .remove::<ChunkMeshTask>()
-            .insert(meshes.add(res.mesh))
-            .insert(res.collider);
+            .insert((
+                meshes.add(res.mesh),
+                res.collider,
+                CollisionGroups::new(
+                    (CollisionLayers::STATIC_GEOMETRY | CollisionLayers::NAVMESH).into(),
+                    (CollisionLayers::DYNAMIC_GEOMETRY | CollisionLayers::CHARACTER).into(),
+                ),
+            ));
     }
 }

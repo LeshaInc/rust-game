@@ -1,18 +1,22 @@
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
+use bevy_rapier3d::na::Isometry3;
+use bevy_rapier3d::parry::shape::Cuboid;
 use bevy_rapier3d::prelude::*;
 use bevy_rapier3d::rapier::prelude::{
     Aabb, ColliderBuilder, ColliderHandle, ColliderSet, QueryFilter, QueryPipeline, Ray,
     RayIntersection, RigidBodySet,
 };
 use futures_lite::future;
-use rg_core::Grid;
+use rg_core::{CollisionLayers, Grid};
 use rg_terrain::{chunk_cell_to_world, Chunk, ChunkPos, CHUNK_RESOLUTION, MAX_UPDATES_PER_FRAME};
 
 pub const MIN_Y: f32 = -200.0;
 pub const MAX_Y: f32 = 200.0;
 pub const CLIMB_HEIGHT: f32 = 0.5;
+pub const AGENT_HEIGHT: f32 = 1.8;
+pub const AGENT_RADIUS: f32 = 0.1;
 
 pub struct NavigationPlugin;
 
@@ -62,6 +66,14 @@ fn schedule_tasks(
         let mut colliders = ColliderSet::new();
         let callback = |&handle: &ColliderHandle| {
             if let Some(collider) = physics_context.colliders.get(handle) {
+                let affects_navmesh = collider
+                    .collision_groups()
+                    .memberships
+                    .contains(CollisionLayers::NAVMESH.into());
+                if !affects_navmesh {
+                    return true; // continue search
+                }
+
                 colliders.insert(
                     ColliderBuilder::new(collider.shared_shape().clone())
                         .position(*collider.position())
@@ -141,19 +153,21 @@ impl NavMeshGenerator {
         let mut query_pipeline = QueryPipeline::new();
         query_pipeline.update(&rigid_bodies, &self.colliders);
 
+        let mut cell_heights = Vec::new();
+
         for cell in self.heightmap.cells() {
             let pos = chunk_cell_to_world(self.chunk_pos, cell);
 
             let ray_origin = pos.extend(MIN_Y).xzy();
             let max_toi = MAX_Y - MIN_Y;
             let solid = false;
-
             let filter = QueryFilter::new();
 
-            let mut max_height = f32::NEG_INFINITY;
+            cell_heights.clear();
+
             let callback = |_, intersection: RayIntersection| {
                 let height = ray_origin.y + intersection.toi;
-                max_height = max_height.max(height);
+                cell_heights.push(height);
                 true // continue search
             };
 
@@ -167,8 +181,27 @@ impl NavMeshGenerator {
                 callback,
             );
 
-            if max_height.is_finite() {
-                self.heightmap.set(cell, max_height);
+            cell_heights.sort_by(f32::total_cmp);
+
+            for &height in &cell_heights {
+                let cuboid =
+                    Cuboid::new(Vec3::new(AGENT_RADIUS, AGENT_HEIGHT * 0.5, AGENT_RADIUS).into());
+                let cuboid_pos = Isometry3::translation(pos.x, height + AGENT_HEIGHT, pos.y);
+
+                let is_collided = query_pipeline
+                    .intersection_with_shape(
+                        &rigid_bodies,
+                        &self.colliders,
+                        &cuboid_pos,
+                        &cuboid,
+                        filter,
+                    )
+                    .is_some();
+
+                if !is_collided {
+                    self.heightmap.set(cell, height);
+                    break;
+                }
             }
         }
     }
@@ -176,8 +209,16 @@ impl NavMeshGenerator {
     fn generate_connections(&mut self) {
         for cell in self.heightmap.cells() {
             let cell_height = self.heightmap[cell];
+            if cell_height.is_nan() {
+                continue;
+            }
+
             for (i, neighbor) in self.heightmap.neighborhood_8(cell) {
                 let neighbor_height = self.heightmap[neighbor];
+                if neighbor_height.is_nan() {
+                    continue;
+                }
+
                 if (cell_height - neighbor_height).abs() <= CLIMB_HEIGHT {
                     self.connections[cell] |= (1 << i) as u8;
                 }
@@ -189,6 +230,10 @@ impl NavMeshGenerator {
 fn draw_nav_mesh_gizmos(q_chunks: Query<(&ChunkPos, &ChunkNavMesh)>, mut gizmos: Gizmos) {
     for (&ChunkPos(chunk_pos), nav_grid) in &q_chunks {
         for (cell, height) in nav_grid.heightmap.entries() {
+            if height.is_nan() {
+                continue;
+            }
+
             let pos = chunk_cell_to_world(chunk_pos, cell)
                 .extend(height + 0.1)
                 .xzy();
@@ -199,6 +244,9 @@ fn draw_nav_mesh_gizmos(q_chunks: Query<(&ChunkPos, &ChunkNavMesh)>, mut gizmos:
                 }
 
                 let neighbor_height = nav_grid.heightmap[neighbor];
+                if neighbor_height.is_nan() {
+                    continue;
+                }
 
                 let neighbor_pos = chunk_cell_to_world(chunk_pos, neighbor)
                     .extend(neighbor_height + 0.1)

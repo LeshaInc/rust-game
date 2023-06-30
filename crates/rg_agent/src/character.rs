@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::{
-    CharacterAutostep, CharacterLength, Collider, KinematicCharacterController,
+    CharacterAutostep, CharacterLength, Collider, CollisionGroups, KinematicCharacterController,
     KinematicCharacterControllerOutput, RigidBody,
 };
+use rg_core::CollisionLayers;
 use rg_pixel_material::PixelMaterial;
 
 use crate::MovementInput;
@@ -11,7 +12,7 @@ pub struct CharacterPlugin;
 
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (spawn_character, control_character));
+        app.add_systems(FixedUpdate, (spawn_character, control_character));
     }
 }
 
@@ -38,30 +39,33 @@ fn spawn_character(
             .into(),
         );
 
-        commands
-            .entity(entity)
-            .insert(RigidBody::KinematicPositionBased)
-            .insert(MaterialMeshBundle {
+        commands.entity(entity).remove::<SpawnCharacter>().insert((
+            RigidBody::KinematicPositionBased,
+            MaterialMeshBundle {
                 transform,
                 mesh,
                 material,
                 ..default()
-            })
-            .insert(Collider::capsule_y(0.9, 0.3))
-            .insert(KinematicCharacterController {
+            },
+            Collider::capsule_y(0.9, 0.3),
+            KinematicCharacterController {
                 autostep: Some(CharacterAutostep {
-                    max_height: CharacterLength::Absolute(0.7),
-                    min_width: CharacterLength::Absolute(0.2),
+                    max_height: CharacterLength::Absolute(0.5),
+                    min_width: CharacterLength::Absolute(0.1),
                     include_dynamic_bodies: false,
                 }),
                 snap_to_ground: Some(CharacterLength::Absolute(0.1)),
                 offset: CharacterLength::Absolute(0.01),
                 ..default()
-            })
-            .insert(KinematicCharacterControllerOutput::default())
-            .insert(MovementInput::default())
-            .insert(ControlledCharacter)
-            .remove::<SpawnCharacter>();
+            },
+            CollisionGroups::new(
+                CollisionLayers::CHARACTER.into(),
+                (CollisionLayers::STATIC_GEOMETRY | CollisionLayers::DYNAMIC_GEOMETRY).into(),
+            ),
+            KinematicCharacterControllerOutput::default(),
+            MovementInput::default(),
+            ControlledCharacter,
+        ));
     }
 }
 

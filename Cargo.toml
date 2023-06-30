@@ -16,6 +16,7 @@ members = [
 bevy = { version = "0.11.0-dev", features = ["dynamic_linking", "trace_tracy"] }
 bevy_egui = "0.20"
 bevy_rapier3d = "0.21"
+bitflags = "2.3"
 bytemuck = "1.7"
 futures-lite = "1.13"
 turborand = "0.10"

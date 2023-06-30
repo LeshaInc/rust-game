@@ -3095,6 +3095,7 @@ dependencies = [
  "bevy_rapier3d",
  "rg_core",
  "rg_pixel_material",
+ "rg_terrain",
 ]
 
 [[package]]

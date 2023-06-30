@@ -1,3 +1,4 @@
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::{
     CharacterAutostep, CharacterLength, Collider, CollisionGroups, KinematicCharacterController,
@@ -5,6 +6,7 @@ use bevy_rapier3d::prelude::{
 };
 use rg_core::CollisionLayers;
 use rg_pixel_material::PixelMaterial;
+use rg_terrain::ChunkSpawnCenter;
 
 use crate::MovementInput;
 
@@ -12,7 +14,14 @@ pub struct CharacterPlugin;
 
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, (spawn_character, control_character));
+        app.add_systems(
+            FixedUpdate,
+            (
+                spawn_character,
+                control_character,
+                update_chunk_spawning_center,
+            ),
+        );
     }
 }
 
@@ -73,6 +82,10 @@ fn control_character(
     mut q_character: Query<&mut MovementInput, With<ControlledCharacter>>,
     input: Res<Input<KeyCode>>,
 ) {
+    let Ok(mut movement) = q_character.get_single_mut() else {
+        return;
+    };
+
     let mut dir = Vec3::ZERO;
 
     if input.pressed(KeyCode::A) {
@@ -89,8 +102,16 @@ fn control_character(
     }
 
     dir = dir.normalize_or_zero();
+    movement.direction = dir;
+}
 
-    for mut movement in &mut q_character {
-        movement.direction = dir;
-    }
+fn update_chunk_spawning_center(
+    q_character: Query<&Transform, With<ControlledCharacter>>,
+    mut center: ResMut<ChunkSpawnCenter>,
+) {
+    let Ok(transform) = q_character.get_single() else {
+        return;
+    };
+
+    center.0 = transform.translation.xz();
 }

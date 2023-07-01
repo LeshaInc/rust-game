@@ -1,24 +1,40 @@
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
-use rg_core::{Grid, SharedGrid};
+use rg_core::{Grid, SharedGrid, SimplexNoise2};
 
 use crate::{chunk_cell_to_world, Chunk, ChunkPos, Seed, CHUNK_RESOLUTION, MAX_UPDATES_PER_FRAME};
 
 #[derive(Debug, Clone, Component)]
 pub struct ChunkHeightmap(pub SharedGrid<f32>);
 
-pub fn generate(_seed: u64, chunk_pos: IVec2) -> ChunkHeightmap {
+pub fn generate(seed: u64, chunk_pos: IVec2) -> ChunkHeightmap {
     let _span = info_span!("chunk heightmap generator").entered();
 
     let mut grid = Grid::new_default(CHUNK_RESOLUTION.into());
+    let noise = SimplexNoise2::new(seed);
 
     for (cell, height) in grid.entries_mut() {
         let pos = chunk_cell_to_world(chunk_pos, cell);
 
-        *height = (pos.x * 0.1).sin() * (pos.y * 0.1).cos() * 3.0;
-        *height += (pos.x * 0.2).sin() * (pos.y * 0.2).cos() * 2.0;
-        *height += (pos.x * 0.4).sin() * (pos.y * 0.4).cos() * 1.0;
+        *height = noise.get(pos / 200.0) * 5.0;
+        *height += noise.get(pos / 100.0) * 2.5;
+        *height += noise.get(pos / 50.0) * 1.25;
+        *height += noise.get(pos / 25.0) * 0.625;
+        *height += noise.get(pos / 12.5) * 0.3125;
+
+        let floored = (*height / 3.0).floor() * 3.0;
+
+        let mut alpha = noise.get(pos / 10.0);
+        alpha += noise.get(pos / 20.0) * 0.5;
+        alpha += noise.get(pos / 40.0) * 0.25;
+        alpha = (alpha * 0.3 + 0.7).clamp(0.0, 1.0);
+
+        *height = *height * alpha + floored * (1.0 - alpha);
+
+        *height += noise.get(pos / 20.0) * 1.0;
+        *height += noise.get(pos / 10.0) * 0.5;
+        *height += noise.get(pos / 5.0) * 0.25;
     }
 
     ChunkHeightmap(grid.into())

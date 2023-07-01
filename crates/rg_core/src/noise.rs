@@ -11,6 +11,7 @@ const HASH_PRIME: Wrapping<i64> = Wrapping(0x53A3F72DEEC546F5);
 const RSQUARED_2D: f32 = 2.0 / 3.0;
 const SKEW_2D: f32 = 0.366025403784439;
 const UNSKEW_2D: f32 = -0.21132486540518713;
+const NORMALIZER_2D: f32 = 0.05481866495625118;
 
 pub struct SimplexNoise2 {
     grads: [[f32; 2]; 256],
@@ -23,8 +24,8 @@ impl SimplexNoise2 {
         let grads = std::array::from_fn(|_| {
             let x = rng.gen_range(-1.0..=1.0);
             let y = rng.gen_range(-1.0..=1.0);
-            let len = f32::hypot(x, y);
-            [x / len, y / len]
+            let s = NORMALIZER_2D * f32::hypot(x, y);
+            [x / s, y / s]
         });
 
         SimplexNoise2 { grads }

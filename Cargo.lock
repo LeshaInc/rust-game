@@ -3138,6 +3138,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_rapier3d",
+ "rg_camera_controller",
  "rg_core",
  "rg_pixel_material",
  "rg_terrain",
@@ -3156,6 +3157,14 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bytemuck",
+]
+
+[[package]]
+name = "rg_camera_controller"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "rg_pixel_material",
 ]
 
 [[package]]
@@ -3188,6 +3197,7 @@ dependencies = [
  "rg_agent",
  "rg_ai",
  "rg_billboard",
+ "rg_camera_controller",
  "rg_core",
  "rg_dev_overlay",
  "rg_navigation",

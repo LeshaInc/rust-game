@@ -1,5 +1,3 @@
-mod camera_controller;
-
 use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
@@ -13,13 +11,12 @@ use bevy_rapier3d::prelude::*;
 use rg_agent::{AgentPlugin, ControlledCharacter, SpawnCharacter};
 use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
+use rg_camera_controller::{CameraController, CameraControllerPlugin};
 use rg_core::CollisionLayers;
 use rg_dev_overlay::DevOverlayPlugin;
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::TerrainPlugin;
-
-use crate::camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {
     App::new()

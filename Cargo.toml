@@ -5,6 +5,7 @@ members = [
   "crates/rg_agent",
   "crates/rg_ai",
   "crates/rg_billboard",
+  "crates/rg_camera_controller",
   "crates/rg_dev_overlay",
   "crates/rg_main",
   "crates/rg_navigation",

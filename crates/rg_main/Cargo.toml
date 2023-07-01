@@ -7,6 +7,7 @@ edition = "2021"
 rg_agent = { path = "../rg_agent" }
 rg_ai = { path = "../rg_ai" }
 rg_billboard = { path = "../rg_billboard" }
+rg_camera_controller = { path = "../rg_camera_controller" }
 rg_core = { path = "../rg_core" }
 rg_dev_overlay = { path = "../rg_dev_overlay" }
 rg_navigation = { path = "../rg_navigation" }

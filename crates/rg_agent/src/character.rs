@@ -4,6 +4,7 @@ use bevy_rapier3d::prelude::{
     CharacterAutostep, CharacterLength, Collider, CollisionGroups, KinematicCharacterController,
     KinematicCharacterControllerOutput, RigidBody,
 };
+use rg_camera_controller::CameraController;
 use rg_core::CollisionLayers;
 use rg_pixel_material::PixelMaterial;
 use rg_terrain::ChunkSpawnCenter;
@@ -22,6 +23,8 @@ impl Plugin for CharacterPlugin {
                 update_chunk_spawning_center,
             ),
         );
+
+        app.add_systems(Update, update_camera);
     }
 }
 
@@ -80,9 +83,14 @@ fn spawn_character(
 
 fn control_character(
     mut q_character: Query<&mut MovementInput, With<ControlledCharacter>>,
+    q_camera: Query<&CameraController>,
     input: Res<Input<KeyCode>>,
 ) {
     let Ok(mut movement) = q_character.get_single_mut() else {
+        return;
+    };
+
+    let Ok(camera) = q_camera.get_single() else {
         return;
     };
 
@@ -101,7 +109,7 @@ fn control_character(
         dir.z += 1.0;
     }
 
-    dir = dir.normalize_or_zero();
+    dir = camera.rotation * dir.normalize_or_zero();
     movement.direction = dir;
 }
 
@@ -114,4 +122,19 @@ fn update_chunk_spawning_center(
     };
 
     center.0 = transform.translation.xz();
+}
+
+fn update_camera(
+    q_character: Query<&Transform, With<ControlledCharacter>>,
+    mut q_camera: Query<&mut CameraController>,
+) {
+    let Ok(character_transform) = q_character.get_single() else {
+        return;
+    };
+
+    let Ok(mut camera) = q_camera.get_single_mut() else {
+        return;
+    };
+
+    camera.target_translation = character_transform.translation;
 }

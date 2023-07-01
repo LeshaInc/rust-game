@@ -1,4 +1,3 @@
-use bevy::core_pipeline::fxaa::Sensitivity;
 use bevy::input::mouse::{MouseWheel, MouseScrollUnit};
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;

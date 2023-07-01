@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
 use bevy_egui::EguiPlugin;
 use bevy_rapier3d::prelude::*;
-use rg_agent::{AgentPlugin, ControlledCharacter, SpawnCharacter};
+use rg_agent::{AgentPlugin, SpawnCharacter};
 use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
 use rg_camera_controller::{CameraController, CameraControllerPlugin};

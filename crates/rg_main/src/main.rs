@@ -19,6 +19,12 @@ use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::TerrainPlugin;
 
 fn main() {
+    // for seed in 0..10 {
+    //     rg_worldgen::worldgen(seed, UVec2::new(512, 1024));
+    // }
+
+    // return;
+    
     App::new()
         .edit_schedule(Main, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {

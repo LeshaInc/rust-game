@@ -33,7 +33,7 @@ impl SimplexNoise2 {
 
     pub fn get(&self, pos: Vec2) -> f32 {
         let s = SKEW_2D * (pos.x + pos.y);
-        self.base(pos.x + s, pos.y + s)
+        self.base(pos.x + s, pos.y + s) * 0.5 + 0.5
     }
 
     fn base(&self, xs: f32, ys: f32) -> f32 {

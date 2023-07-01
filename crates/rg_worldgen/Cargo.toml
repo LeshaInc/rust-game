@@ -1,13 +1,12 @@
 [package]
-name = "rg_core"
+name = "rg_worldgen"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rg_core = { path = "../rg_core" }
+
 bevy = { workspace = true }
-bevy_rapier3d = { workspace = true }
-bitflags = { workspace = true }
 image = { workspace = true }
-parking_lot = { workspace = true }
 rand = { workspace = true }
 rand_pcg = { workspace = true }

@@ -1,6 +1,11 @@
+use std::f32::consts::TAU;
 use std::sync::Arc;
 
-use bevy::prelude::{IVec2, UVec2};
+use bevy::core::cast_slice;
+use bevy::prelude::{IVec2, UVec2, Vec2};
+use rand::Rng;
+
+use crate::SimplexNoise2;
 
 pub const NEIGHBORHOOD_4: [IVec2; 4] = [
     IVec2::new(0, -1),
@@ -147,6 +152,115 @@ impl<T> std::ops::IndexMut<IVec2> for Grid<T> {
     fn index_mut(&mut self, cell: IVec2) -> &mut Self::Output {
         let size = self.size;
         self.get_mut(cell).unwrap_or_else(|| panic_oob(cell, size))
+    }
+}
+
+impl Grid<f32> {
+    pub fn add_noise(&mut self, noise: &SimplexNoise2, rotation: f32, scale: f32, amplitude: f32) {
+        for (cell, value) in self.entries_mut() {
+            let pos = Vec2::from_angle(rotation).rotate(cell.as_vec2());
+            *value += noise.get(pos * scale) * amplitude;
+        }
+    }
+
+    pub fn add_fbm_noise<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        mut scale: f32,
+        mut amplitude: f32,
+        octaves: usize,
+    ) {
+        let mut total_amplitude = 0.0;
+
+        for _ in 0..octaves {
+            let noise_seed = rng.gen::<u64>();
+            let noise = SimplexNoise2::new(noise_seed);
+            let angle = rng.gen_range(0.0..TAU);
+            self.add_noise(&noise, angle, scale, amplitude);
+            total_amplitude += amplitude;
+            scale *= 2.0;
+            amplitude /= 2.0;
+        }
+
+        for (_, value) in self.entries_mut() {
+            *value /= total_amplitude;
+        }
+    }
+
+    pub fn min_value(&self) -> f32 {
+        self.data.iter().copied().fold(f32::INFINITY, f32::min)
+    }
+
+    pub fn max_value(&self) -> f32 {
+        self.data.iter().copied().fold(f32::NEG_INFINITY, f32::max)
+    }
+
+    pub fn to_binary(&self, cutoff: f32) -> Grid<bool> {
+        let mut binary = Grid::new(self.size, false).with_origin(self.origin);
+
+        for (cell, &value) in self.entries() {
+            if value > cutoff {
+                binary[cell] = true;
+            }
+        }
+
+        binary
+    }
+
+    pub fn debug_save(&self, path: &str) {
+        let min = self.min_value();
+        let max = self.max_value();
+        let data = self.data.iter();
+        let scaled_data = data
+            .map(|v| ((v - min) / (max - min) * 65535.0) as u16)
+            .collect::<Vec<_>>();
+
+        image::save_buffer(
+            path,
+            cast_slice(&scaled_data),
+            self.size.x,
+            self.size.y,
+            image::ColorType::L16,
+        )
+        .unwrap();
+    }
+}
+
+impl Grid<bool> {
+    pub fn debug_save(&self, path: &str) {
+        let data = self.data.iter();
+        let scaled_data = data.map(|&v| if v { 255 } else { 0 }).collect::<Vec<u8>>();
+
+        image::save_buffer(
+            path,
+            &scaled_data,
+            self.size.x,
+            self.size.y,
+            image::ColorType::L8,
+        )
+        .unwrap();
+    }
+
+    pub fn dilate(&mut self) {
+        for cell in self.cells() {
+            let mut val = self[cell];
+            for (_, neighbor) in self.neighborhood_8(cell) {
+                val |= self[neighbor];
+            }
+            self[cell] = val;
+        }
+    }
+
+    pub fn erode(&mut self) {
+        let mut target = self.clone();
+        for cell in self.cells() {
+            let mut val = self[cell];
+            for (_, neighbor) in self.neighborhood_8(cell) {
+                val &= self[neighbor];
+            }
+            target[cell] = val;
+        }
+        *self = target;
     }
 }
 

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bevy::prelude::IVec2;
+use bevy::prelude::{IVec2, UVec2};
 
 pub const NEIGHBORHOOD_4: [IVec2; 4] = [
     IVec2::new(0, -1),
@@ -23,15 +23,18 @@ pub const NEIGHBORHOOD_8: [IVec2; 8] = [
 #[derive(Debug, Clone)]
 pub struct Grid<T> {
     origin: IVec2,
-    size: IVec2,
+    size: UVec2,
     data: Box<[T]>,
 }
 
 impl<T> Grid<T> {
-    pub fn new(size: IVec2, fill: T) -> Grid<T>
+    pub fn new(size: UVec2, fill: T) -> Grid<T>
     where
         T: Clone,
     {
+        assert!(size.x < i32::MAX as u32);
+        assert!(size.y < i32::MAX as u32);
+
         Grid {
             origin: IVec2::ZERO,
             size,
@@ -39,7 +42,7 @@ impl<T> Grid<T> {
         }
     }
 
-    pub fn new_default(size: IVec2) -> Grid<T>
+    pub fn new_default(size: UVec2) -> Grid<T>
     where
         T: Default + Clone,
     {
@@ -55,24 +58,30 @@ impl<T> Grid<T> {
         self.origin
     }
 
-    pub fn size(&self) -> IVec2 {
+    pub fn size(&self) -> UVec2 {
         self.size
     }
 
-    fn index(&self, mut cell: IVec2) -> usize {
+    pub fn data(&self) -> &[T] {
+        &self.data
+    }
+
+    pub fn index(&self, mut cell: IVec2) -> usize {
         cell -= self.origin;
         (cell.y as usize) * (self.size.x as usize) + (cell.x as usize)
     }
 
     pub fn contains_cell(&self, mut cell: IVec2) -> bool {
         cell -= self.origin;
-        (cell.x >= 0 && cell.x < self.size.x) && (cell.y >= 0 && cell.y < self.size.y)
+        (cell.x >= 0 && (cell.x as u32) < self.size.x)
+            && (cell.y >= 0 && (cell.y as u32) < self.size.y)
     }
 
     pub fn cells(&self) -> impl Iterator<Item = IVec2> {
         let size = self.size;
         let origin = self.origin;
-        (0..size.y).flat_map(move |y| (0..size.x).map(move |x| origin + IVec2::new(x, y)))
+        (0..size.y as i32)
+            .flat_map(move |y| (0..size.x as i32).map(move |x| origin + IVec2::new(x, y)))
     }
 
     pub fn entries(&self) -> impl Iterator<Item = (IVec2, &T)> {
@@ -142,7 +151,7 @@ impl<T> std::ops::IndexMut<IVec2> for Grid<T> {
 }
 
 #[inline(never)]
-fn panic_oob(cell: IVec2, size: IVec2) -> ! {
+fn panic_oob(cell: IVec2, size: UVec2) -> ! {
     panic!("{} is outside grid of size {}", cell, size)
 }
 
@@ -150,21 +159,21 @@ fn panic_oob(cell: IVec2, size: IVec2) -> ! {
 pub struct SharedGrid<T>(pub Arc<Grid<T>>);
 
 impl<T> SharedGrid<T> {
-    pub fn new(size: IVec2, fill: T) -> SharedGrid<T>
+    pub fn new(size: UVec2, fill: T) -> SharedGrid<T>
     where
         T: Clone,
     {
         SharedGrid(Arc::new(Grid::new(size, fill)))
     }
 
-    pub fn new_default(size: IVec2) -> SharedGrid<T>
+    pub fn new_default(size: UVec2) -> SharedGrid<T>
     where
         T: Default + Clone,
     {
         SharedGrid(Arc::new(Grid::new_default(size)))
     }
 
-    pub fn size(&self) -> IVec2 {
+    pub fn size(&self) -> UVec2 {
         self.0.size()
     }
 

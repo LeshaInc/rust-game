@@ -90,8 +90,8 @@ impl MeshGenerator {
     fn generate_cells(&mut self) {
         let _span = info_span!("generate cells").entered();
 
-        for y in 0..CHUNK_RESOLUTION.y {
-            for x in 0..CHUNK_RESOLUTION.x {
+        for y in 0..CHUNK_RESOLUTION.y as i32 {
+            for x in 0..CHUNK_RESOLUTION.x as i32 {
                 let first_vertex_idx = self.positions.len();
                 self.cell_first_vertex_idx = first_vertex_idx;
 
@@ -573,7 +573,7 @@ impl Heightmaps {
         }
 
         for (i, &dir) in NEIGHBORHOOD_8.iter().enumerate() {
-            let pos = pos - dir * CHUNK_RESOLUTION;
+            let pos = pos - dir * CHUNK_RESOLUTION.as_ivec2();
             if let Some(&height) = self.neighbors[i].get(pos) {
                 return height;
             }

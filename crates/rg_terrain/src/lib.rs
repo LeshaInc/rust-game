@@ -22,7 +22,7 @@ pub use crate::chunks::Chunks;
 pub use crate::heightmap::ChunkHeightmap;
 
 pub const CHUNK_SIZE: Vec2 = Vec2::splat(16.0);
-pub const CHUNK_RESOLUTION: IVec2 = IVec2::splat(32);
+pub const CHUNK_RESOLUTION: UVec2 = UVec2::splat(32);
 
 pub const MAX_UPDATES_PER_FRAME: usize = 32;
 

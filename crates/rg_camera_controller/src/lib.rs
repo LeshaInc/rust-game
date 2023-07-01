@@ -1,3 +1,5 @@
+use bevy::core_pipeline::fxaa::Sensitivity;
+use bevy::input::mouse::{MouseWheel, MouseScrollUnit};
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::{
@@ -13,7 +15,7 @@ impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (create_blit_target, update_transform, update_camera).chain(),
+            (create_blit_target, handle_input, update_transform, update_camera).chain(),
         );
     }
 }
@@ -22,12 +24,20 @@ impl Plugin for CameraControllerPlugin {
 pub struct CameraController {
     pub translation: Vec3,
     pub rotation: Quat,
+    pub zoom: f32,
+
     pub target_translation: Vec3,
     pub target_rotation: Quat,
+    pub target_zoom: f32,
+
     pub translation_smoothing: f32,
-    pub translation_snap: f32,
     pub rotation_smoothing: f32,
+    pub zoom_smoothing: f32,
+
+    pub translation_snap: f32,
     pub rotation_snap: f32,
+    pub zoom_snap: f32,
+
     /// Screen pixels per camera pixels
     pub pixel_scale: f32,
     /// Camera meters per pixel
@@ -43,12 +53,16 @@ impl Default for CameraController {
         CameraController {
             translation: Vec3::ZERO,
             rotation: Quat::IDENTITY,
+            zoom: 1.0,
             target_translation: Vec3::ZERO,
             target_rotation: Quat::IDENTITY,
+            target_zoom: 1.0,
             translation_smoothing: 0.01,
-            translation_snap: 0.0001,
             rotation_smoothing: 0.0001,
+            zoom_smoothing: 0.001,
+            translation_snap: 0.0001,
             rotation_snap: 0.003,
+            zoom_snap: 0.001,
             pixel_scale: 2.0,
             camera_scale: 1.0 / 48.0,
             camera_pitch: 30f32.to_radians(),
@@ -134,6 +148,13 @@ fn update_transform(mut q_controller: Query<&mut CameraController>, time: Res<Ti
         let alpha = 1.0 - controller.rotation_smoothing.powf(time.delta_seconds());
         controller.rotation = controller.rotation.slerp(controller.target_rotation, alpha);
     }
+
+    if (controller.zoom - controller.target_zoom).abs() < controller.zoom_snap {
+        controller.zoom = controller.target_zoom;
+    } else {
+        let alpha = 1.0 - controller.zoom_smoothing.powf(time.delta_seconds());
+        controller.zoom = controller.zoom * (1.0 - alpha) + controller.target_zoom * alpha;
+    }
 }
 
 fn update_camera(
@@ -157,10 +178,13 @@ fn update_camera(
         return;
     };
 
+    let camera_scale = controller.camera_scale / controller.zoom;
+    let camera_distance = controller.camera_distance / controller.zoom;
+
     let scale = Vec3::new(
-        controller.camera_scale.recip(),
-        controller.camera_scale.recip() * controller.camera_pitch.cos(),
-        controller.camera_scale.recip() * controller.camera_pitch.sin(),
+        camera_scale.recip(),
+        camera_scale.recip() * controller.camera_pitch.cos(),
+        camera_scale.recip() * controller.camera_pitch.sin(),
     );
 
     let pos = controller.rotation.inverse() * controller.translation;
@@ -176,12 +200,12 @@ fn update_camera(
         controller.rotation * Quat::from_rotation_x(-controller.camera_pitch);
     camera_transform.translation = controller.translation
         + controller.rotation * offset
-        + camera_transform.rotation * Vec3::Z * controller.camera_distance;
+        + camera_transform.rotation * Vec3::Z * camera_distance;
 
     *camera_projection = Projection::Orthographic(OrthographicProjection {
         near: controller.camera_near,
-        far: controller.camera_far,
-        scale: controller.camera_scale,
+        far: controller.camera_far / controller.zoom,
+        scale: camera_scale,
         ..default()
     });
 
@@ -212,4 +236,45 @@ fn update_camera(
             - ((offset.z * scale.z - offset.y * scale.y - 0.5) * controller.pixel_scale).round(),
         0.0,
     );
+}
+
+fn handle_input(
+    mut q_camera: Query<&mut CameraController>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut scroll_events: EventReader<MouseWheel>,
+) {
+    let Ok(mut camera) = q_camera.get_single_mut() else {
+        return;  
+    };
+
+    if keyboard_input.just_pressed(KeyCode::Q) {
+        camera.target_rotation *= Quat::from_rotation_y(45f32.to_radians());
+    }
+
+    if keyboard_input.just_pressed(KeyCode::E) {
+        camera.target_rotation *= Quat::from_rotation_y(-45f32.to_radians());
+    }
+
+    for scroll_event in scroll_events.iter() {
+        let delta = match scroll_event.unit {
+            MouseScrollUnit::Line => scroll_event.y,
+            MouseScrollUnit::Pixel => scroll_event.y / 16.0,
+        };
+
+        let sensitivity = 0.1;
+        let min_zoom = 0.125;
+        let max_zoom = 2.0;
+
+        if delta > 0.0 {
+            camera.target_zoom *= 1.0 + delta * sensitivity;
+        } else {
+            camera.target_zoom /= 1.0 - delta * sensitivity;
+        }
+
+        camera.target_zoom = camera.target_zoom.clamp(min_zoom, max_zoom);
+    }
+
+    if keyboard_input.just_pressed(KeyCode::F1) {
+        camera.target_zoom = 1.0;
+    }
 }

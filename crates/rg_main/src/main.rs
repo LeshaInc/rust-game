@@ -164,34 +164,22 @@ fn setup(
 }
 
 fn handle_input(
-    q_character: Query<&Transform, With<ControlledCharacter>>,
-    mut q_controller: Query<&mut CameraController>,
+    q_camera: Query<&CameraController>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PixelMaterial>>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
-    let Ok(character_transform) = q_character.get_single() else {
-        return;
+    let Ok(camera) = q_camera.get_single() else {
+        return;  
     };
-
-    let mut controller = q_controller.single_mut();
-    controller.target_translation = character_transform.translation;
-
-    if keyboard_input.just_pressed(KeyCode::Q) {
-        controller.target_rotation *= Quat::from_rotation_y(45f32.to_radians());
-    }
-
-    if keyboard_input.just_pressed(KeyCode::E) {
-        controller.target_rotation *= Quat::from_rotation_y(-45f32.to_radians());
-    }
 
     if keyboard_input.just_pressed(KeyCode::Space) {
         commands.spawn((
             MaterialMeshBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                 transform: Transform::from_translation(
-                    controller.translation + Vec3::new(0.0, 5.0, 0.0),
+                    camera.translation + Vec3::new(0.0, 5.0, 0.0),
                 ),
                 material: materials.add(PixelMaterial {
                     color: Color::rgb(0.3, 0.3, 0.7),

@@ -19,8 +19,10 @@ use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::TerrainPlugin;
 
 fn main() {
-    // for seed in 0..10 {
-    //     rg_worldgen::worldgen(seed, UVec2::new(512, 1024));
+    // for seed in 0..1000 {
+    //     let t = std::time::Instant::now();
+    //     rg_worldgen::worldgen(seed, UVec2::new(128, 256));
+    //     println!("{:?}", t.elapsed());
     // }
 
     // return;

@@ -35,11 +35,11 @@ struct VertexOutput {
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     let camera_dir = (bindings::view.view * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
-    let facing = normalize(camera_dir * vec3(1.0, 0.0, 1.0));
+    let facing = normalize(camera_dir * vec3(1.0, 1.0, 0.0));
 
     let instance_transform = mat3x3(
-        cross(facing, vec3(0.0, 1.0, 0.0)),
-        vec3(0.0, 1.0, 0.0),
+        cross(facing, vec3(0.0, 0.0, 1.0)),
+        vec3(0.0, 0.0, 1.0),
         facing
     );
 
@@ -47,7 +47,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let world_pos = world_origin_pos + instance_transform * vec3(
         (vertex.uv.x - uniforms.anchor.x) * vertex.i_size.x,
         (-vertex.uv.y + uniforms.anchor.y) * vertex.i_size.y * 16.0 / 14.0,
-        0.0
+        0.0,
     );
 
     let world_normal = vec3(0.0, 1.0, 0.0);
@@ -55,7 +55,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     out.position = bindings::view.view_proj * vec4(world_pos, 1.0);
     out.uv = vertex.uv;
-    out.world_position = vec4(world_origin_pos, 1.0);
+    out.world_position = vec4(world_origin_pos + vec3(0.0, 0.0, 0.01), 1.0);
     out.world_normal = world_normal;
     out.color = vertex.i_color;
     out.random = vertex.i_random;

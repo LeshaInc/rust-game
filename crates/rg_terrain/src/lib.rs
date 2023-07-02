@@ -9,7 +9,6 @@ mod poisson;
 mod utils;
 
 use bevy::asset::AssetPath;
-use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::AsBindGroup;
@@ -150,9 +149,7 @@ fn spawn_chunks(
                 Chunk,
                 ChunkPos(chunk_pos),
                 Transform::from_translation(
-                    chunk_cell_to_world(chunk_pos, IVec2::ZERO)
-                        .extend(0.0)
-                        .xzy(),
+                    chunk_cell_to_world(chunk_pos, IVec2::ZERO).extend(0.0),
                 ),
                 GlobalTransform::default(),
                 CollisionGroups::new(

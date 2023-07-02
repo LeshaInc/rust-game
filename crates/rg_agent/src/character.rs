@@ -51,33 +51,43 @@ fn spawn_character(
             .into(),
         );
 
-        commands.entity(entity).remove::<SpawnCharacter>().insert((
-            RigidBody::KinematicPositionBased,
-            MaterialMeshBundle {
+        commands
+            .entity(entity)
+            .remove::<SpawnCharacter>()
+            .insert((
                 transform,
-                mesh,
-                material,
-                ..default()
-            },
-            Collider::capsule_y(0.9, 0.3),
-            KinematicCharacterController {
-                autostep: Some(CharacterAutostep {
-                    max_height: CharacterLength::Absolute(0.5),
-                    min_width: CharacterLength::Absolute(0.1),
-                    include_dynamic_bodies: false,
-                }),
-                snap_to_ground: Some(CharacterLength::Absolute(0.1)),
-                offset: CharacterLength::Absolute(0.01),
-                ..default()
-            },
-            CollisionGroups::new(
-                CollisionLayers::CHARACTER.into(),
-                (CollisionLayers::STATIC_GEOMETRY | CollisionLayers::DYNAMIC_GEOMETRY).into(),
-            ),
-            KinematicCharacterControllerOutput::default(),
-            MovementInput::default(),
-            ControlledCharacter,
-        ));
+                GlobalTransform::default(),
+                RigidBody::KinematicPositionBased,
+                Collider::capsule_z(0.9, 0.3),
+                KinematicCharacterController {
+                    up: Vec3::Z,
+                    autostep: Some(CharacterAutostep {
+                        max_height: CharacterLength::Absolute(0.5),
+                        min_width: CharacterLength::Absolute(0.1),
+                        include_dynamic_bodies: false,
+                    }),
+                    snap_to_ground: Some(CharacterLength::Absolute(0.1)),
+                    offset: CharacterLength::Absolute(0.01),
+                    ..default()
+                },
+                CollisionGroups::new(
+                    CollisionLayers::CHARACTER.into(),
+                    (CollisionLayers::STATIC_GEOMETRY | CollisionLayers::DYNAMIC_GEOMETRY).into(),
+                ),
+                KinematicCharacterControllerOutput::default(),
+                MovementInput::default(),
+                ControlledCharacter,
+                Visibility::Visible,
+                ComputedVisibility::default(),
+            ))
+            .with_children(|parent| {
+                parent.spawn(MaterialMeshBundle {
+                    transform: Transform::from_rotation(Quat::from_rotation_x(-90f32.to_radians())),
+                    mesh,
+                    material,
+                    ..default()
+                });
+            });
     }
 }
 
@@ -103,10 +113,10 @@ fn control_character(
         dir.x += 1.0;
     }
     if input.pressed(KeyCode::W) {
-        dir.z -= 1.0;
+        dir.y += 1.0;
     }
     if input.pressed(KeyCode::S) {
-        dir.z += 1.0;
+        dir.y -= 1.0;
     }
 
     dir = camera.rotation * dir.normalize_or_zero();
@@ -121,7 +131,7 @@ fn update_chunk_spawning_center(
         return;
     };
 
-    center.0 = transform.translation.xz();
+    center.0 = transform.translation.xy();
 }
 
 fn update_camera(

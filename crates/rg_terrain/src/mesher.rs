@@ -99,7 +99,7 @@ impl MeshGenerator {
 
                 for pos in &mut self.positions[first_vertex_idx..] {
                     pos.x += x as f32;
-                    pos.z += y as f32;
+                    pos.y += y as f32;
                 }
             }
         }
@@ -151,9 +151,9 @@ impl MeshGenerator {
         let _span = info_span!("snap vertices").entered();
 
         for pos in &mut self.positions {
-            let (height, grad) = self.heightmaps.sample_height_and_grad(pos.xz());
-            if (pos.y - height).abs().powi(2) < 0.0025 / grad.length_squared() {
-                pos.y = height;
+            let (height, grad) = self.heightmaps.sample_height_and_grad(pos.xy());
+            if (pos.z - height).abs().powi(2) < 0.0025 / grad.length_squared() {
+                pos.z = height;
             }
         }
     }
@@ -195,9 +195,9 @@ impl MeshGenerator {
         let _span = info_span!("snap normals").entered();
 
         for (pos, normal) in self.positions.iter_mut().zip(&mut self.normals) {
-            let (_, grad) = self.heightmaps.sample_height_and_grad(pos.xz());
-            let target_normal = vec3(-grad.x, 2.0, -grad.y).normalize();
-            if normal.y.abs() > 0.1 && normal.dot(target_normal) > 0.9 {
+            let (_, grad) = self.heightmaps.sample_height_and_grad(pos.xy());
+            let target_normal = vec3(-grad.x, -grad.y, 2.0).normalize();
+            if normal.z.abs() > 0.1 && normal.dot(target_normal) > 0.9 {
                 *normal = target_normal;
             }
         }
@@ -236,7 +236,7 @@ impl MeshGenerator {
         let scale = CHUNK_SIZE / CHUNK_RESOLUTION.as_vec2();
         for pos in &mut self.positions {
             pos.x *= scale.x;
-            pos.z *= scale.y;
+            pos.y *= scale.y;
         }
     }
 
@@ -367,17 +367,17 @@ impl MeshGenerator {
 
         if self.flip_y {
             for pos in &mut positions[..] {
-                *pos = vec3(pos.x, pos.y, 1.0 - pos.z);
+                *pos = vec3(pos.x, 1.0 - pos.y, pos.z);
             }
         }
 
         if self.rotate {
             for pos in &mut positions[..] {
-                *pos = vec3(1.0 - pos.z, pos.y, pos.x);
+                *pos = vec3(1.0 - pos.y, pos.x, pos.z);
             }
         }
 
-        if !(self.flip_x ^ self.flip_y) {
+        if self.flip_x ^ self.flip_y {
             for indices in self.indices[start_index..].chunks_exact_mut(3) {
                 indices.swap(1, 2);
             }
@@ -390,11 +390,11 @@ impl MeshGenerator {
         }
 
         if self.flip_y {
-            pos = vec3(pos.x, pos.y, 1.0 - pos.z);
+            pos = vec3(pos.x, 1.0 - pos.y, pos.z);
         }
 
         if self.rotate {
-            pos = vec3(1.0 - pos.z, pos.y, pos.x);
+            pos = vec3(1.0 - pos.y, pos.x, pos.z);
         }
 
         pos
@@ -417,18 +417,18 @@ impl MeshGenerator {
 
     fn ms_triangle(&mut self, a: Vec2, b: Vec2, c: Vec2) {
         self.ms_triangle_3d(
-            vec3(a.x, self.height, a.y),
-            vec3(b.x, self.height, b.y),
-            vec3(c.x, self.height, c.y),
+            a.extend(self.height),
+            b.extend(self.height),
+            c.extend(self.height),
         );
     }
 
     fn ms_quad(&mut self, a: Vec2, b: Vec2, c: Vec2, d: Vec2) {
         self.ms_quad_3d(
-            vec3(a.x, self.height, a.y),
-            vec3(b.x, self.height, b.y),
-            vec3(c.x, self.height, c.y),
-            vec3(d.x, self.height, d.y),
+            a.extend(self.height),
+            b.extend(self.height),
+            c.extend(self.height),
+            d.extend(self.height),
         );
     }
 
@@ -437,20 +437,20 @@ impl MeshGenerator {
             return;
         }
 
-        let a_tr = self.ms_transform_point(vec3(a.x, self.height, a.y));
+        let a_tr = self.ms_transform_point(a.extend(self.height));
 
         let mut up_height = 1000.0;
         for pos in &self.positions[self.cell_first_vertex_idx..] {
-            if pos.xz() == a_tr.xz() && pos.y > self.height && pos.y < up_height {
-                up_height = pos.y;
+            if pos.xy() == a_tr.xy() && pos.z > self.height && pos.z < up_height {
+                up_height = pos.z;
             }
         }
 
         self.ms_quad_3d(
-            vec3(b.x, self.height, b.y),
-            vec3(a.x, self.height, a.y),
-            vec3(a.x, up_height, a.y),
-            vec3(b.x, up_height, b.y),
+            b.extend(self.height),
+            a.extend(self.height),
+            a.extend(up_height),
+            b.extend(up_height),
         );
     }
 

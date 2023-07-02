@@ -38,9 +38,9 @@ pub fn generate(
         let pos_b = positions[indices[1] as usize];
         let pos_c = positions[indices[2] as usize];
 
-        let cell_a = pos_a.xz() / CHUNK_SIZE * grid_resolution;
-        let cell_b = pos_b.xz() / CHUNK_SIZE * grid_resolution;
-        let cell_c = pos_c.xz() / CHUNK_SIZE * grid_resolution;
+        let cell_a = pos_a.xy() / CHUNK_SIZE * grid_resolution;
+        let cell_b = pos_b.xy() / CHUNK_SIZE * grid_resolution;
+        let cell_c = pos_c.xy() / CHUNK_SIZE * grid_resolution;
 
         let min_cell = cell_a.min(cell_b).min(cell_c).floor().as_ivec2();
         let max_cell = cell_a.max(cell_b).max(cell_c).ceil().as_ivec2();
@@ -50,13 +50,13 @@ pub fn generate(
 
         let points = cells.flat_map(|cell| grid.get(cell));
         for pos in points {
-            let mut pos = (pos * CHUNK_SIZE).extend(0.0).xzy();
+            let mut pos = (pos * CHUNK_SIZE).extend(0.0);
             let bary = get_barycentric(pos_a, pos_b, pos_c, pos);
             if !is_inside_barycentric(bary) {
                 continue;
             }
 
-            pos.y = bary.dot(Vec3::new(pos_a.y, pos_b.y, pos_c.y));
+            pos.z = bary.dot(Vec3::new(pos_a.z, pos_b.z, pos_c.z));
 
             instances.push(BillboardInstance {
                 pos,

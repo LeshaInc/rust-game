@@ -29,7 +29,7 @@ fn handle_movement_input(
         let mut translation = movement.direction * 16.0 * time.period.as_secs_f32();
 
         if !controller_output.grounded {
-            translation.y -= 0.1;
+            translation.z -= 0.1;
         }
 
         controller.translation = Some(translation);

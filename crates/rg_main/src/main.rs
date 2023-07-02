@@ -24,7 +24,7 @@ fn main() {
     // }
 
     // return;
-    
+
     App::new()
         .edit_schedule(Main, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
@@ -59,6 +59,10 @@ fn main() {
         .add_plugins(AiPlugin)
         .add_plugins(AgentPlugin)
         .add_plugins(DevOverlayPlugin)
+        .insert_resource(RapierConfiguration {
+            gravity: Vec3::Z * -9.81,
+            ..default()
+        })
         .insert_resource(Msaa::Off)
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .insert_resource(AmbientLight {
@@ -70,36 +74,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<PixelMaterial>>,
-    mut behavior_trees: ResMut<Assets<BehaviorTree>>,
-) {
-    // sphere
-    commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                radius: 0.5,
-                sectors: 32,
-                stacks: 16,
-            })),
-            transform: Transform::from_xyz(-1.2, 0.5, 1.2),
-            material: materials.add(PixelMaterial {
-                color: Color::rgb(0.7, 0.3, 0.3),
-                dither_enabled: false,
-                bands: 10,
-                ..default()
-            }),
-            ..default()
-        },
-        RigidBody::Dynamic,
-        Collider::ball(0.5),
-        CollisionGroups::new(
-            CollisionLayers::DYNAMIC_GEOMETRY.into(),
-            (CollisionLayers::STATIC_GEOMETRY | CollisionLayers::DYNAMIC_GEOMETRY).into(),
-        ),
-    ));
+fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>>) {
     // light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -118,8 +93,8 @@ fn setup(
         }
         .build(),
         transform: Transform {
-            translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-0.8) * Quat::from_rotation_y(0.3),
+            translation: Vec3::new(0.0, 0.0, 0.0),
+            rotation: Quat::from_rotation_x(-0.8) * Quat::from_rotation_z(0.3),
             ..default()
         },
         ..default()
@@ -164,7 +139,7 @@ fn setup(
 
     commands.spawn(behavior_trees.add(behavior_tree));
 
-    commands.spawn((SpawnCharacter, Transform::from_xyz(0.0, 10.0, 0.0)));
+    commands.spawn((SpawnCharacter, Transform::from_xyz(0.0, 0.0, 20.0)));
 
     debug!("Spawned everything");
 }
@@ -177,7 +152,7 @@ fn handle_input(
     keyboard_input: Res<Input<KeyCode>>,
 ) {
     let Ok(camera) = q_camera.get_single() else {
-        return;  
+        return;
     };
 
     if keyboard_input.just_pressed(KeyCode::Space) {
@@ -185,7 +160,7 @@ fn handle_input(
             MaterialMeshBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                 transform: Transform::from_translation(
-                    camera.translation + Vec3::new(0.0, 5.0, 0.0),
+                    camera.translation + Vec3::new(0.0, 0.0, 5.0),
                 ),
                 material: materials.add(PixelMaterial {
                     color: Color::rgb(0.3, 0.3, 0.7),

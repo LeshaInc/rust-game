@@ -1,4 +1,4 @@
-use bevy::input::mouse::{MouseWheel, MouseScrollUnit};
+use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::{
@@ -14,7 +14,13 @@ impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (create_blit_target, handle_input, update_transform, update_camera).chain(),
+            (
+                create_blit_target,
+                handle_input,
+                update_transform,
+                update_camera,
+            )
+                .chain(),
         );
     }
 }
@@ -182,8 +188,8 @@ fn update_camera(
 
     let scale = Vec3::new(
         camera_scale.recip(),
-        camera_scale.recip() * controller.camera_pitch.cos(),
-        camera_scale.recip() * controller.camera_pitch.sin(),
+        camera_scale.recip() * controller.camera_pitch.sin().abs(),
+        camera_scale.recip() * controller.camera_pitch.cos().abs(),
     );
 
     let pos = controller.rotation.inverse() * controller.translation;
@@ -192,14 +198,16 @@ fn update_camera(
 
     dither_offset.0 = UVec2::new(
         ((pos.x * scale.x).round() as i32).rem_euclid(4) as u32,
-        ((pos.z * scale.z).round() as i32 - (pos.y * scale.y).round() as i32).rem_euclid(4) as u32,
+        ((-pos.z * scale.z).round() as i32 - (pos.y * scale.y).round() as i32).rem_euclid(4) as u32,
     );
 
     camera_transform.rotation =
         controller.rotation * Quat::from_rotation_x(-controller.camera_pitch);
     camera_transform.translation = controller.translation
         + controller.rotation * offset
-        + camera_transform.rotation * Vec3::Z * camera_distance;
+        + camera_transform.rotation * Vec3::Y * -camera_distance;
+
+    camera_transform.rotate_local_x(90f32.to_radians());
 
     *camera_projection = Projection::Orthographic(OrthographicProjection {
         near: controller.camera_near,
@@ -232,7 +240,7 @@ fn update_camera(
     sprite_transform.translation = Vec3::new(
         -window.width() / 2.0 + ((offset.x * scale.x - 0.5) * controller.pixel_scale).round(),
         window.height() / 2.0
-            - ((offset.z * scale.z - offset.y * scale.y - 0.5) * controller.pixel_scale).round(),
+            + ((offset.z * scale.z + offset.y * scale.y - 0.5) * controller.pixel_scale).round(),
         0.0,
     );
 }
@@ -243,15 +251,15 @@ fn handle_input(
     mut scroll_events: EventReader<MouseWheel>,
 ) {
     let Ok(mut camera) = q_camera.get_single_mut() else {
-        return;  
+        return;
     };
 
     if keyboard_input.just_pressed(KeyCode::Q) {
-        camera.target_rotation *= Quat::from_rotation_y(45f32.to_radians());
+        camera.target_rotation *= Quat::from_rotation_z(45f32.to_radians());
     }
 
     if keyboard_input.just_pressed(KeyCode::E) {
-        camera.target_rotation *= Quat::from_rotation_y(-45f32.to_radians());
+        camera.target_rotation *= Quat::from_rotation_z(-45f32.to_radians());
     }
 
     for scroll_event in scroll_events.iter() {

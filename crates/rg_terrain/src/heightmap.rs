@@ -35,6 +35,8 @@ pub fn generate(seed: u64, chunk_pos: IVec2) -> ChunkHeightmap {
         *height += noise.get(pos / 20.0) * 1.0;
         *height += noise.get(pos / 10.0) * 0.5;
         *height += noise.get(pos / 5.0) * 0.25;
+
+        *height *= 2.0;
     }
 
     ChunkHeightmap(grid.into())

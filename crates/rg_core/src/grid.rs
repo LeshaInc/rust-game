@@ -54,6 +54,17 @@ impl<T> Grid<T> {
         Grid::new(size, T::default())
     }
 
+    pub fn from_data(size: UVec2, data: &[T]) -> Grid<T>
+    where
+        T: Clone,
+    {
+        Grid {
+            origin: IVec2::ZERO,
+            size,
+            data: data.into(),
+        }
+    }
+
     pub fn with_origin(mut self, origin: IVec2) -> Grid<T> {
         self.origin = origin;
         self
@@ -239,28 +250,6 @@ impl Grid<bool> {
             image::ColorType::L8,
         )
         .unwrap();
-    }
-
-    pub fn dilate(&mut self) {
-        for cell in self.cells() {
-            let mut val = self[cell];
-            for (_, neighbor) in self.neighborhood_8(cell) {
-                val |= self[neighbor];
-            }
-            self[cell] = val;
-        }
-    }
-
-    pub fn erode(&mut self) {
-        let mut target = self.clone();
-        for cell in self.cells() {
-            let mut val = self[cell];
-            for (_, neighbor) in self.neighborhood_8(cell) {
-                val &= self[neighbor];
-            }
-            target[cell] = val;
-        }
-        *self = target;
     }
 }
 

@@ -1,4 +1,4 @@
-use bevy::prelude::{UVec2, Vec2};
+use bevy::prelude::{IVec2, UVec2, Vec2};
 use rand::Rng;
 use rg_core::Grid;
 
@@ -12,9 +12,19 @@ pub fn shape_island<R: Rng>(rng: &mut R, size: UVec2) -> Grid<bool> {
         let mut grid = grid.to_binary(0.4);
         keep_one_island(&mut grid);
 
-        if is_valid(&grid) {
-            return grid;
+        if !is_isalnd_area_good(&grid) {
+            continue;
         }
+
+        random_zoom(rng, &mut grid);
+        random_zoom(rng, &mut grid);
+        erode(&mut grid);
+        erode(&mut grid);
+        smooth(&mut grid);
+        smooth(&mut grid);
+        keep_one_island(&mut grid);
+
+        return grid;
     }
 }
 
@@ -90,7 +100,7 @@ fn connected_components(grid: &Grid<bool>) -> (Vec<(u16, bool, u16)>, Grid<u16>)
             frequency += 1;
             labels[cell] = label;
 
-            for (_, neighbor) in grid.neighborhood_8(cell) {
+            for (_, neighbor) in grid.neighborhood_4(cell) {
                 if grid[cell] == grid[neighbor] {
                     stack.push(neighbor);
                 }
@@ -103,10 +113,67 @@ fn connected_components(grid: &Grid<bool>) -> (Vec<(u16, bool, u16)>, Grid<u16>)
     (frequencies, labels)
 }
 
-fn is_valid(grid: &Grid<bool>) -> bool {
+fn is_isalnd_area_good(grid: &Grid<bool>) -> bool {
     let size = grid.size().as_vec2();
     let area = grid.data().iter().filter(|v| **v).count();
     let percentage = area as f32 / (size.x * size.y);
 
     0.4 <= percentage && percentage <= 0.6
+}
+
+fn random_zoom<R: Rng>(rng: &mut R, grid: &mut Grid<bool>) {
+    let mut res = Grid::new(grid.size() * 2, false);
+
+    for cell in grid.cells() {
+        let mut sum = grid[cell] as u8;
+        let mut count = 1.0;
+
+        for (_, neighbor) in grid.neighborhood_4(cell) {
+            sum += grid[neighbor] as u8;
+            count += 1.0;
+        }
+
+        let p = (sum as f64) / count;
+        res[2 * cell + IVec2::new(0, 0)] = rng.gen_bool(p);
+        res[2 * cell + IVec2::new(0, 1)] = rng.gen_bool(p);
+        res[2 * cell + IVec2::new(1, 0)] = rng.gen_bool(p);
+        res[2 * cell + IVec2::new(1, 1)] = rng.gen_bool(p);
+    }
+
+    *grid = res;
+}
+
+fn erode(grid: &mut Grid<bool>) {
+    let mut res = grid.clone();
+
+    for cell in grid.cells() {
+        let mut val = grid[cell];
+        for (_, neighbor) in grid.neighborhood_4(cell) {
+            val &= grid[neighbor];
+        }
+        res[cell] = val;
+    }
+
+    *grid = res;
+}
+
+fn smooth(grid: &mut Grid<bool>) {
+    let mut res = grid.clone();
+
+    for cell in grid.cells() {
+        let mut num_true = 0;
+        let mut num_false = 0;
+
+        for (_, neighbor) in grid.neighborhood_8(cell) {
+            if grid[neighbor] {
+                num_true += 1;
+            } else {
+                num_false += 1;
+            }
+        }
+
+        res[cell] = num_true > num_false;
+    }
+
+    *grid = res;
 }

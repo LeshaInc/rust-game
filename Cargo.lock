@@ -1495,6 +1495,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "edt"
+version = "0.2.1"
+source = "git+https://github.com/LeshaInc/rust-edt#7cccef3453933188efa046ff2d70f438a9b5ddeb"
+
+[[package]]
 name = "egui"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3403,6 +3408,7 @@ name = "rg_worldgen"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "edt",
  "image",
  "rand",
  "rand_pcg",

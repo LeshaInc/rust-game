@@ -8,14 +8,30 @@ pub fn compute_elevation(island: &Grid<bool>) -> Grid<f32> {
         false,
     );
 
-    let data = data.into_iter().map(|v| v as f32).collect::<Vec<_>>();
+    let max = data.iter().copied().fold(0.0, f64::max);
 
-    let mut grid = Grid::from_data(island.size(), &data);
+    let data = data
+        .into_iter()
+        .map(|v| (v / max) as f32)
+        .collect::<Vec<_>>();
 
-    blur(&mut grid, 10);
-    blur(&mut grid, 10);
+    let mut elevation = Grid::from_data(island.size(), &data);
 
-    grid
+    blur(&mut elevation, 4);
+    blur(&mut elevation, 4);
+    reshape(&mut elevation, island);
+
+    elevation
+}
+
+fn reshape(elevation: &mut Grid<f32>, island: &Grid<bool>) {
+    for (cell, height) in elevation.entries_mut() {
+        if island[cell] {
+            *height = height.min(0.15) * 2.0 + height.powi(3);
+        } else {
+            *height = 0.0;
+        }
+    }
 }
 
 fn blur(grid: &mut Grid<f32>, kernel_size: i32) {

@@ -7,6 +7,7 @@ edition = "2021"
 rg_core = { path = "../rg_core" }
 
 bevy = { workspace = true }
+delaunator = { workspace = true }
 edt = { workspace = true }
 image = { workspace = true }
 rand = { workspace = true }

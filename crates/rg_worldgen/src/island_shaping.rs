@@ -5,7 +5,7 @@ use rg_core::Grid;
 pub fn shape_island<R: Rng>(rng: &mut R, size: UVec2) -> Grid<bool> {
     loop {
         let mut grid = Grid::new(size, 0.0);
-        let scale = size.x.min(size.y) as f32 / 6000.0;
+        let scale = size.x.min(size.y) as f32 / 5000.0;
         grid.add_fbm_noise(rng, scale, 1.0, 8);
         voronoi_reshape(rng, &mut grid);
 
@@ -23,6 +23,10 @@ pub fn shape_island<R: Rng>(rng: &mut R, size: UVec2) -> Grid<bool> {
         smooth(&mut grid);
         smooth(&mut grid);
         keep_one_island(&mut grid);
+
+        if !is_isalnd_area_good(&grid) {
+            continue;
+        }
 
         return grid;
     }
@@ -72,15 +76,15 @@ fn keep_one_island(grid: &mut Grid<bool>) {
     }
 }
 
-fn connected_components(grid: &Grid<bool>) -> (Vec<(u16, bool, u16)>, Grid<u16>) {
+fn connected_components(grid: &Grid<bool>) -> (Vec<(u32, bool, u32)>, Grid<u32>) {
     let mut frequencies = Vec::with_capacity(32);
-    let mut labels = Grid::new(grid.size(), u16::MAX);
+    let mut labels = Grid::new(grid.size(), u32::MAX);
     let mut num_labels = 0;
 
     let mut stack = Vec::with_capacity(grid.data().len());
 
     for cell in grid.cells() {
-        if labels[cell] != u16::MAX {
+        if labels[cell] != u32::MAX {
             continue;
         }
 

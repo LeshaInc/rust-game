@@ -29,8 +29,7 @@ pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Seed(0))
-            .insert_resource(ChunkSpawnCenter(Vec2::ZERO))
+        app.insert_resource(ChunkSpawnCenter(Vec2::ZERO))
             .insert_resource(ChunkSpawnRadius(70.0))
             .insert_resource(ChunkDespawnRadius(80.0))
             .add_plugins(BillboardMaterialPlugin::<GrassMaterial>::default())

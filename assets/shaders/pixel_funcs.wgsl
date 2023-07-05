@@ -61,8 +61,8 @@ fn process_all_lights(in: PixelInput) -> vec3<f32> {
         out_color += process_single_light(in, (*light).direction_to_light, (*light).color.rgb, shadow);
     }
 
-    out_color = mix(out_color, vec3(1.0), 0.03 * smoothstep(2.0, 6.0, in.mesh_position.y));
-    out_color = mix(out_color, vec3(0.0), 0.5 * smoothstep(2.0, 6.0, -in.mesh_position.y));
+    out_color = mix(out_color, vec3(1.0), 0.03 * smoothstep(2.0, 6.0, in.mesh_position.z));
+    out_color = mix(out_color, vec3(0.0), 0.5 * smoothstep(2.0, 6.0, -in.mesh_position.z));
 
     return out_color;
 }

@@ -3411,6 +3411,7 @@ dependencies = [
  "rg_billboard",
  "rg_core",
  "rg_pixel_material",
+ "rg_worldgen",
  "turborand",
 ]
 

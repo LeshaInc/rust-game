@@ -16,18 +16,15 @@ use rg_core::CollisionLayers;
 use rg_dev_overlay::DevOverlayPlugin;
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
-use rg_terrain::TerrainPlugin;
+use rg_terrain::{Seed, TerrainPlugin};
 
 fn main() {
-    // for seed in 0..10 {
-    //     let t = std::time::Instant::now();
-    //     rg_worldgen::worldgen(seed, UVec2::new(128, 256));
-    //     println!("{:?}", t.elapsed());
-    // }
-
-    // return;
+    let seed = 0;
+    let world_maps = rg_worldgen::worldgen(seed, UVec2::new(128, 256));
 
     App::new()
+        .insert_resource(Seed(seed))
+        .insert_resource(world_maps)
         .edit_schedule(Main, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Warn,
@@ -141,7 +138,7 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
 
     commands.spawn(behavior_trees.add(behavior_tree));
 
-    commands.spawn((SpawnCharacter, Transform::from_xyz(0.0, 0.0, 20.0)));
+    commands.spawn((SpawnCharacter, Transform::from_xyz(1024.0, 2048.0, 100.0)));
 
     debug!("Spawned everything");
 }

@@ -198,6 +198,65 @@ impl Grid<f32> {
         }
     }
 
+    pub fn sample(&self, pos: Vec2) -> f32 {
+        let ipos = pos.as_ivec2();
+        let fpos = pos - ipos.as_vec2();
+
+        let tl = *self.get(ipos + IVec2::new(0, 0)).unwrap_or(&0.0);
+        let tr = *self.get(ipos + IVec2::new(1, 0)).unwrap_or(&0.0);
+        let bl = *self.get(ipos + IVec2::new(0, 1)).unwrap_or(&0.0);
+        let br = *self.get(ipos + IVec2::new(1, 1)).unwrap_or(&0.0);
+
+        fn lerp(a: f32, b: f32, t: f32) -> f32 {
+            a * (1.0 - t) + b * t
+        }
+
+        lerp(lerp(tl, tr, fpos.x), lerp(bl, br, fpos.x), fpos.y)
+    }
+
+    pub fn resize(&self, new_size: UVec2) -> Grid<f32> {
+        let mut res = Grid::new(new_size, 0.0);
+        let scale = self.size.as_vec2() / new_size.as_vec2();
+
+        for cell in res.cells() {
+            let pos = cell.as_vec2() * scale;
+            res[cell] = self.sample(pos);
+        }
+
+        res
+    }
+
+    pub fn blur(&mut self, kernel_size: i32) {
+        let size = self.size().as_ivec2();
+        let mut res = self.clone();
+
+        for y in 0..size.y {
+            for x in kernel_size..size.x - kernel_size {
+                let cell = IVec2::new(x, y);
+
+                let mut sum = 0.0;
+                for sx in -kernel_size..=kernel_size {
+                    sum += self[cell + IVec2::new(sx, 0)];
+                }
+
+                res[cell] = sum / (2 * kernel_size + 1) as f32;
+            }
+        }
+
+        for x in 0..size.x {
+            for y in kernel_size..size.y - kernel_size {
+                let cell = IVec2::new(x, y);
+
+                let mut sum = 0.0;
+                for sy in -kernel_size..=kernel_size {
+                    sum += res[cell + IVec2::new(0, sy)];
+                }
+
+                self[cell] = sum / (2 * kernel_size + 1) as f32;
+            }
+        }
+    }
+
     pub fn min_value(&self) -> f32 {
         self.data.iter().copied().fold(f32::INFINITY, f32::min)
     }
@@ -206,16 +265,16 @@ impl Grid<f32> {
         self.data.iter().copied().fold(f32::NEG_INFINITY, f32::max)
     }
 
-    pub fn to_binary(&self, cutoff: f32) -> Grid<bool> {
-        let mut binary = Grid::new(self.size, false).with_origin(self.origin);
+    pub fn to_bool(&self, cutoff: f32) -> Grid<bool> {
+        let mut res = Grid::new(self.size, false).with_origin(self.origin);
 
         for (cell, &value) in self.entries() {
             if value > cutoff {
-                binary[cell] = true;
+                res[cell] = true;
             }
         }
 
-        binary
+        res
     }
 
     pub fn debug_save(&self, path: &str) {
@@ -238,6 +297,33 @@ impl Grid<f32> {
 }
 
 impl Grid<bool> {
+    pub fn to_f32(&self) -> Grid<f32> {
+        let mut res = Grid::new(self.size, 0.0).with_origin(self.origin);
+
+        for (cell, &value) in self.entries() {
+            res[cell] = if value { 1.0 } else { 0.0 };
+        }
+
+        res
+    }
+
+    pub fn compute_edt(&self) -> Grid<f32> {
+        let data = edt::edt(
+            self.data(),
+            (self.size().x as usize, self.size().y as usize),
+            false,
+        );
+
+        let max = data.iter().copied().fold(0.0, f64::max);
+
+        let data = data
+            .into_iter()
+            .map(|v| (v / max) as f32)
+            .collect::<Vec<_>>();
+
+        Grid::from_data(self.size(), &data)
+    }
+
     pub fn debug_save(&self, path: &str) {
         let data = self.data.iter();
         let scaled_data = data.map(|&v| if v { 255 } else { 0 }).collect::<Vec<u8>>();

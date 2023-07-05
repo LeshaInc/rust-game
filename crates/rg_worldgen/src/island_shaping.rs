@@ -9,19 +9,16 @@ pub fn shape_island<R: Rng>(rng: &mut R, size: UVec2) -> Grid<bool> {
         grid.add_fbm_noise(rng, scale, 1.0, 8);
         voronoi_reshape(rng, &mut grid);
 
-        let mut grid = grid.to_binary(0.4);
+        let mut grid = grid.to_bool(0.4);
         keep_one_island(&mut grid);
 
-        if !is_isalnd_area_good(&grid) {
-            continue;
-        }
+        random_zoom(rng, &mut grid);
+        random_zoom(rng, &mut grid);
+        erode(&mut grid);
+        erode(&mut grid);
+        smooth(&mut grid);
+        smooth(&mut grid);
 
-        random_zoom(rng, &mut grid);
-        random_zoom(rng, &mut grid);
-        erode(&mut grid);
-        erode(&mut grid);
-        smooth(&mut grid);
-        smooth(&mut grid);
         keep_one_island(&mut grid);
 
         if !is_isalnd_area_good(&grid) {
@@ -36,7 +33,7 @@ fn voronoi_reshape<R: Rng>(rng: &mut R, grid: &mut Grid<f32>) {
     let size = grid.size().as_vec2();
     let margin = f32::min(size.x, size.y) * 0.3;
 
-    let mut points = [Vec2::ZERO; 20];
+    let mut points = [Vec2::ZERO; 32];
     for point in points.iter_mut().skip(1) {
         point.x = rng.gen_range(margin..=(size.x - margin));
         point.y = rng.gen_range(margin..=(size.y - margin));
@@ -122,7 +119,7 @@ fn is_isalnd_area_good(grid: &Grid<bool>) -> bool {
     let area = grid.data().iter().filter(|v| **v).count();
     let percentage = area as f32 / (size.x * size.y);
 
-    0.4 <= percentage && percentage <= 0.6
+    0.5 <= percentage && percentage <= 0.6
 }
 
 fn random_zoom<R: Rng>(rng: &mut R, grid: &mut Grid<bool>) {

@@ -14,8 +14,8 @@ pub fn worldgen(seed: u64, size: UVec2) {
     let mut rng = Pcg32::seed_from_u64(seed);
 
     let island = shape_island(&mut rng, size);
-    let elevation = compute_elevation(&island);
-    let rivers = generate_rivers(&mut rng, &elevation);
+    let mut elevation = compute_elevation(&island);
+    let _rivers = generate_rivers(&mut rng, &mut elevation);
 
-    rivers.debug_save(&format!("/tmp/world_{seed}.png"));
+    elevation.debug_save(&format!("/tmp/world_{seed}.png"));
 }

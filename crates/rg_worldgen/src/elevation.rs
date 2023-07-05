@@ -1,66 +1,35 @@
-use bevy::prelude::IVec2;
+use std::f32::consts::PI;
+
 use rg_core::Grid;
 
 pub fn compute_elevation(island: &Grid<bool>) -> Grid<f32> {
-    let data = edt::edt_fmm(
-        island.data(),
-        (island.size().x as usize, island.size().y as usize),
-        false,
-    );
+    let mut elevation = island
+        .to_f32()
+        .resize(island.size() / 4)
+        .to_bool(0.5)
+        .compute_edt()
+        .resize(island.size());
 
-    let max = data.iter().copied().fold(0.0, f64::max);
-
-    let data = data
-        .into_iter()
-        .map(|v| (v / max) as f32)
-        .collect::<Vec<_>>();
-
-    let mut elevation = Grid::from_data(island.size(), &data);
-
-    blur(&mut elevation, 4);
-    blur(&mut elevation, 4);
     reshape(&mut elevation, island);
+    elevation.blur(3);
+    elevation.blur(3);
 
     elevation
 }
 
 fn reshape(elevation: &mut Grid<f32>, island: &Grid<bool>) {
     for (cell, height) in elevation.entries_mut() {
-        if island[cell] {
-            *height = height.min(0.15) * 2.0 + height.powi(3);
-        } else {
+        if !island[cell] {
             *height = 0.0;
         }
-    }
-}
 
-fn blur(grid: &mut Grid<f32>, kernel_size: i32) {
-    let size = grid.size().as_ivec2();
-    let mut res = grid.clone();
+        let beach_size = 0.3;
+        let inland_height = 0.3;
 
-    for y in 0..size.y {
-        for x in kernel_size..size.x - kernel_size {
-            let cell = IVec2::new(x, y);
-
-            let mut sum = 0.0;
-            for sx in -kernel_size..=kernel_size {
-                sum += grid[cell + IVec2::new(sx, 0)];
-            }
-
-            res[cell] = sum / (2 * kernel_size + 1) as f32;
-        }
-    }
-
-    for x in 0..size.x {
-        for y in kernel_size..size.y - kernel_size {
-            let cell = IVec2::new(x, y);
-
-            let mut sum = 0.0;
-            for sy in -kernel_size..=kernel_size {
-                sum += res[cell + IVec2::new(0, sy)];
-            }
-
-            grid[cell] = sum / (2 * kernel_size + 1) as f32;
-        }
+        *height = if *height < beach_size {
+            (0.5 - 0.5 * (*height * PI / beach_size).cos()) * inland_height
+        } else {
+            height.powi(4) + inland_height
+        };
     }
 }

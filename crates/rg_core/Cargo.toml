@@ -11,3 +11,4 @@ image = { workspace = true }
 parking_lot = { workspace = true }
 rand = { workspace = true }
 rand_pcg = { workspace = true }
+edt = { workspace = true }

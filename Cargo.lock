@@ -1505,8 +1505,9 @@ dependencies = [
 
 [[package]]
 name = "edt"
-version = "0.2.1"
-source = "git+https://github.com/LeshaInc/rust-edt#7cccef3453933188efa046ff2d70f438a9b5ddeb"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0f0a192161cae710201120b9a2649b40e9af9fd9a2cb4915c06167b46e4a909"
 
 [[package]]
 name = "egui"
@@ -3346,6 +3347,7 @@ dependencies = [
  "bevy",
  "bevy_rapier3d",
  "bitflags 2.3.3",
+ "edt",
  "image",
  "parking_lot",
  "rand",

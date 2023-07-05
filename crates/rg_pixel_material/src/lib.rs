@@ -47,10 +47,6 @@ impl Material for PixelMaterial {
         "shaders/pixel.wgsl".into()
     }
 
-    fn prepass_fragment_shader() -> ShaderRef {
-        ShaderRef::Default
-    }
-
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,

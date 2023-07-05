@@ -11,11 +11,10 @@ mod utils;
 use bevy::asset::AssetPath;
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
-use bevy::render::render_resource::AsBindGroup;
+use bevy::render::render_resource::{AsBindGroup, ShaderRef};
 use bevy_rapier3d::prelude::CollisionGroups;
 use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin};
 use rg_core::CollisionLayers;
-use rg_pixel_material::PixelMaterial;
 
 pub use crate::chunks::Chunks;
 pub use crate::heightmap::ChunkHeightmap;
@@ -33,6 +32,7 @@ impl Plugin for TerrainPlugin {
             .insert_resource(ChunkSpawnRadius(70.0))
             .insert_resource(ChunkDespawnRadius(80.0))
             .add_plugins(BillboardMaterialPlugin::<GrassMaterial>::default())
+            .add_plugins(MaterialPlugin::<TerrainMaterial>::default())
             .insert_resource(Chunks::default())
             .add_systems(Startup, startup)
             .add_systems(
@@ -68,10 +68,34 @@ pub struct ChunkPos(pub IVec2);
 pub struct Seed(pub u64);
 
 #[derive(Debug, Clone, Resource)]
-pub struct TerrainMaterial(pub Handle<PixelMaterial>);
+pub struct TerrainMaterials {
+    pub surface: Handle<TerrainMaterial>,
+    pub grass: Handle<GrassMaterial>,
+}
 
-#[derive(Debug, Clone, Resource)]
-pub struct TerrainGrassMaterial(pub Handle<GrassMaterial>);
+#[derive(Debug, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
+#[uuid = "cc76913b-20ee-45b2-8a71-d89ca79ec8a1"]
+#[bind_group_data(TerrainMaterialKey)]
+pub struct TerrainMaterial {
+    #[texture(0)]
+    #[sampler(1)]
+    pub texture: Handle<Image>,
+}
+
+#[derive(Eq, PartialEq, Hash, Clone)]
+pub struct TerrainMaterialKey {}
+
+impl From<&TerrainMaterial> for TerrainMaterialKey {
+    fn from(_material: &TerrainMaterial) -> Self {
+        Self {}
+    }
+}
+
+impl Material for TerrainMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/terrain.wgsl".into()
+    }
+}
 
 #[derive(Debug, Default, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
 #[uuid = "d36218ae-d090-4ef1-a660-a4579db53935"]
@@ -93,20 +117,18 @@ impl BillboardMaterial for GrassMaterial {
 
 fn startup(
     mut commands: Commands,
-    mut materials: ResMut<Assets<PixelMaterial>>,
+    mut terrain_materials: ResMut<Assets<TerrainMaterial>>,
     mut grass_materials: ResMut<Assets<GrassMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let material = materials.add(PixelMaterial {
-        color: Color::rgb_u8(105, 172, 73),
-        ..default()
+    commands.insert_resource(TerrainMaterials {
+        surface: terrain_materials.add(TerrainMaterial {
+            texture: asset_server.load("images/tiles/grass.png"),
+        }),
+        grass: grass_materials.add(GrassMaterial {
+            texture: asset_server.load("images/grass.png"),
+        }),
     });
-
-    commands.insert_resource(TerrainMaterial(material.clone()));
-
-    commands.insert_resource(TerrainGrassMaterial(grass_materials.add(GrassMaterial {
-        texture: asset_server.load("images/grass.png"),
-    })));
 }
 
 #[derive(Copy, Clone, Resource)]
@@ -121,7 +143,7 @@ pub struct ChunkDespawnRadius(pub f32);
 fn spawn_chunks(
     mut commands: Commands,
     mut chunks: ResMut<Chunks>,
-    terrain_material: Res<TerrainMaterial>,
+    materials: Res<TerrainMaterials>,
     center: Res<ChunkSpawnCenter>,
     radius: Res<ChunkSpawnRadius>,
 ) {
@@ -157,7 +179,7 @@ fn spawn_chunks(
                 ),
                 Visibility::Visible,
                 ComputedVisibility::default(),
-                terrain_material.0.clone(),
+                materials.surface.clone(),
             ));
 
             chunks.insert(chunk_pos, new_chunk.id());

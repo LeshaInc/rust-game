@@ -1,4 +1,5 @@
 use std::f32::consts::TAU;
+use std::ops::{AddAssign, DivAssign, Index, IndexMut, MulAssign, SubAssign};
 use std::sync::Arc;
 
 use bevy::core::cast_slice;
@@ -54,14 +55,13 @@ impl<T> Grid<T> {
         Grid::new(size, T::default())
     }
 
-    pub fn from_data(size: UVec2, data: &[T]) -> Grid<T>
-    where
-        T: Clone,
-    {
+    pub fn from_data(size: UVec2, data: impl Into<Box<[T]>>) -> Grid<T> {
+        let data = data.into();
+        assert_eq!(data.len(), (size.x as usize) * (size.y as usize));
         Grid {
             origin: IVec2::ZERO,
             size,
-            data: data.into(),
+            data,
         }
     }
 
@@ -151,7 +151,7 @@ impl<T> Grid<T> {
     }
 }
 
-impl<T> std::ops::Index<IVec2> for Grid<T> {
+impl<T> Index<IVec2> for Grid<T> {
     type Output = T;
 
     fn index(&self, cell: IVec2) -> &Self::Output {
@@ -159,10 +159,74 @@ impl<T> std::ops::Index<IVec2> for Grid<T> {
     }
 }
 
-impl<T> std::ops::IndexMut<IVec2> for Grid<T> {
+impl<T> IndexMut<IVec2> for Grid<T> {
     fn index_mut(&mut self, cell: IVec2) -> &mut Self::Output {
         let size = self.size;
         self.get_mut(cell).unwrap_or_else(|| panic_oob(cell, size))
+    }
+}
+
+impl<'a, T: AddAssign<&'a T> + 'a> AddAssign<&'a Grid<T>> for Grid<T> {
+    fn add_assign(&mut self, rhs: &'a Grid<T>) {
+        assert_eq!(self.size, rhs.size);
+        assert_eq!(self.origin, rhs.origin);
+        for (lhs, rhs) in self.data.iter_mut().zip(rhs.data.iter()) {
+            *lhs += rhs;
+        }
+    }
+}
+
+impl<T: for<'a> AddAssign<&'a T>> AddAssign<Grid<T>> for Grid<T> {
+    fn add_assign(&mut self, rhs: Grid<T>) {
+        *self += &rhs;
+    }
+}
+
+impl<'a, T: SubAssign<&'a T> + 'a> SubAssign<&'a Grid<T>> for Grid<T> {
+    fn sub_assign(&mut self, rhs: &'a Grid<T>) {
+        assert_eq!(self.size, rhs.size);
+        assert_eq!(self.origin, rhs.origin);
+        for (lhs, rhs) in self.data.iter_mut().zip(rhs.data.iter()) {
+            *lhs -= rhs;
+        }
+    }
+}
+
+impl<T: for<'a> SubAssign<&'a T>> SubAssign<Grid<T>> for Grid<T> {
+    fn sub_assign(&mut self, rhs: Grid<T>) {
+        *self -= &rhs;
+    }
+}
+
+impl<'a, T: MulAssign<&'a T> + 'a> MulAssign<&'a Grid<T>> for Grid<T> {
+    fn mul_assign(&mut self, rhs: &'a Grid<T>) {
+        assert_eq!(self.size, rhs.size);
+        assert_eq!(self.origin, rhs.origin);
+        for (lhs, rhs) in self.data.iter_mut().zip(rhs.data.iter()) {
+            *lhs *= rhs;
+        }
+    }
+}
+
+impl<T: for<'a> MulAssign<&'a T>> MulAssign<Grid<T>> for Grid<T> {
+    fn mul_assign(&mut self, rhs: Grid<T>) {
+        *self *= &rhs;
+    }
+}
+
+impl<'a, T: DivAssign<&'a T> + 'a> DivAssign<&'a Grid<T>> for Grid<T> {
+    fn div_assign(&mut self, rhs: &'a Grid<T>) {
+        assert_eq!(self.size, rhs.size);
+        assert_eq!(self.origin, rhs.origin);
+        for (lhs, rhs) in self.data.iter_mut().zip(rhs.data.iter()) {
+            *lhs /= rhs;
+        }
+    }
+}
+
+impl<T: for<'a> DivAssign<&'a T>> DivAssign<Grid<T>> for Grid<T> {
+    fn div_assign(&mut self, rhs: Grid<T>) {
+        *self /= &rhs;
     }
 }
 
@@ -321,7 +385,7 @@ impl Grid<bool> {
             .map(|v| (v / max) as f32)
             .collect::<Vec<_>>();
 
-        Grid::from_data(self.size(), &data)
+        Grid::from_data(self.size(), data)
     }
 
     pub fn debug_save(&self, path: &str) {
@@ -404,7 +468,7 @@ impl<T> From<Grid<T>> for SharedGrid<T> {
     }
 }
 
-impl<T> std::ops::Index<IVec2> for SharedGrid<T> {
+impl<T> Index<IVec2> for SharedGrid<T> {
     type Output = T;
 
     fn index(&self, cell: IVec2) -> &Self::Output {

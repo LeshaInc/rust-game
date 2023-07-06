@@ -16,14 +16,15 @@ use rg_core::CollisionLayers;
 use rg_dev_overlay::DevOverlayPlugin;
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
-use rg_terrain::{Seed, TerrainPlugin};
+use rg_terrain::TerrainPlugin;
+use rg_worldgen::WorldSeed;
 
 fn main() {
     let seed = 0;
     let world_maps = rg_worldgen::worldgen(seed, UVec2::new(128, 256));
 
     App::new()
-        .insert_resource(Seed(seed))
+        .insert_resource(WorldSeed(seed))
         .insert_resource(world_maps)
         .edit_schedule(Main, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {

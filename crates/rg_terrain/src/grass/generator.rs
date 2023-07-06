@@ -1,5 +1,6 @@
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
+use bevy::render::mesh::{Indices, VertexAttributeValues};
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rg_billboard::{BillboardInstance, MultiBillboard};
@@ -11,30 +12,32 @@ use crate::CHUNK_SIZE;
 pub const MIN_RADIUS: f32 = 0.2;
 
 #[derive(Debug)]
-pub struct GeneratedGrass {
+pub struct GrassResult {
     pub multi_billboard: MultiBillboard,
 }
 
-#[derive(Debug, Clone, Copy, Component)]
-pub struct ChunkGrass(pub Entity);
+pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh) -> GrassResult {
+    let Some(VertexAttributeValues::Float32x3(positions)) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+    else {
+        panic!("bad mesh positions")
+    };
 
-pub fn generate(
-    seed: u64,
-    chunk_pos: IVec2,
-    positions: &[Vec3],
-    indices: &[u32],
-) -> GeneratedGrass {
+    let Some(Indices::U32(indices)) = mesh.indices() else {
+        panic!("bad mesh indices")
+    };
+
     let _span = info_span!("chunk grass generator").entered();
 
     let mut rng = Pcg32::seed_from_u64(seed ^ (chunk_pos.x as u64) ^ (chunk_pos.y as u64) << 32);
-    let grid = PoissonDiscSampling::new(&mut rng, CHUNK_SIZE, MIN_RADIUS).grid;
+    let grid = PoissonDiscSampling::new(&mut rng, Vec2::splat(CHUNK_SIZE), MIN_RADIUS).grid;
 
     let mut instances = Vec::with_capacity(32 * 1024);
 
     for indices in indices.chunks_exact(3) {
-        let pos_a = positions[indices[0] as usize];
-        let pos_b = positions[indices[1] as usize];
-        let pos_c = positions[indices[2] as usize];
+        let pos_a = Vec3::from(positions[indices[0] as usize]);
+        let pos_b = Vec3::from(positions[indices[1] as usize]);
+        let pos_c = Vec3::from(positions[indices[2] as usize]);
 
         let cell_a = pos_a.xy() / CHUNK_SIZE * grid.size().as_vec2();
         let cell_b = pos_b.xy() / CHUNK_SIZE * grid.size().as_vec2();
@@ -65,7 +68,7 @@ pub fn generate(
         }
     }
 
-    GeneratedGrass {
+    GrassResult {
         multi_billboard: MultiBillboard {
             instances: instances.into(),
             anchor: Vec2::new(0.5, 1.0),

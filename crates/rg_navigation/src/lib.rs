@@ -9,7 +9,9 @@ use bevy_rapier3d::rapier::prelude::{
 };
 use futures_lite::future;
 use rg_core::{CollisionLayers, Grid};
-use rg_terrain::{chunk_cell_to_world, Chunk, ChunkPos, CHUNK_RESOLUTION, MAX_UPDATES_PER_FRAME};
+use rg_terrain::{chunk_pos_to_world, tile_pos_to_world, Chunk, ChunkPos, CHUNK_TILES};
+
+const MAX_UPDATES_PER_FRAME: usize = 32;
 
 pub const MIN_HEIGHT: f32 = -200.0;
 pub const MAX_HEIGHT: f32 = 200.0;
@@ -54,8 +56,8 @@ fn schedule_tasks(
     for (chunk_id, &ChunkPos(chunk_pos)) in q_chunks.iter().take(MAX_UPDATES_PER_FRAME) {
         let task_pool = AsyncComputeTaskPool::get();
 
-        let min = chunk_cell_to_world(chunk_pos, IVec2::ZERO).extend(MIN_HEIGHT);
-        let max = chunk_cell_to_world(chunk_pos + IVec2::ONE, IVec2::ZERO).extend(MAX_HEIGHT);
+        let min = chunk_pos_to_world(chunk_pos).extend(MIN_HEIGHT);
+        let max = chunk_pos_to_world(chunk_pos + IVec2::ONE).extend(MAX_HEIGHT);
         let aabb = Aabb::new(min.into(), max.into());
 
         let mut colliders = ColliderSet::new();
@@ -123,11 +125,12 @@ pub struct NavMeshGenerator {
 
 impl NavMeshGenerator {
     pub fn new(chunk_pos: IVec2, colliders: ColliderSet) -> NavMeshGenerator {
+        let grid_size = UVec2::splat(CHUNK_TILES);
         NavMeshGenerator {
             chunk_pos,
             colliders,
-            heightmap: Grid::new(CHUNK_RESOLUTION, f32::NAN),
-            connections: Grid::new(CHUNK_RESOLUTION, 0),
+            heightmap: Grid::new(grid_size, f32::NAN),
+            connections: Grid::new(grid_size, 0),
         }
     }
 
@@ -151,7 +154,7 @@ impl NavMeshGenerator {
         let mut cell_heights = Vec::new();
 
         for cell in self.heightmap.cells() {
-            let pos = chunk_cell_to_world(self.chunk_pos, cell);
+            let pos = tile_pos_to_world(self.chunk_pos, cell);
 
             let ray_origin = pos.extend(MIN_HEIGHT);
             let max_toi = MAX_HEIGHT - MIN_HEIGHT;
@@ -229,7 +232,7 @@ fn draw_nav_mesh_gizmos(q_chunks: Query<(&ChunkPos, &ChunkNavMesh)>, mut gizmos:
                 continue;
             }
 
-            let pos = chunk_cell_to_world(chunk_pos, cell).extend(height + 0.1);
+            let pos = tile_pos_to_world(chunk_pos, cell).extend(height + 0.1);
 
             for (i, neighbor) in nav_grid.heightmap.neighborhood_8(cell) {
                 if nav_grid.connections[cell] & (1 << i) as u8 == 0 {
@@ -242,7 +245,7 @@ fn draw_nav_mesh_gizmos(q_chunks: Query<(&ChunkPos, &ChunkNavMesh)>, mut gizmos:
                 }
 
                 let neighbor_pos =
-                    chunk_cell_to_world(chunk_pos, neighbor).extend(neighbor_height + 0.1);
+                    tile_pos_to_world(chunk_pos, neighbor).extend(neighbor_height + 0.1);
 
                 gizmos.line(pos, neighbor_pos, Color::GREEN);
             }

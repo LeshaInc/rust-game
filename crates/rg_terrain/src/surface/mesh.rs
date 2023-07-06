@@ -1,26 +1,17 @@
 use bevy::math::{ivec2, vec2, vec3, Vec3Swizzles};
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
-use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy::utils::HashMap;
 use bevy_rapier3d::prelude::*;
-use futures_lite::future;
-use rg_billboard::{MultiBillboard, MultiBillboardBundle};
-use rg_core::{SharedGrid, NEIGHBORHOOD_8};
+use rg_core::Grid;
 
-use crate::grass::{self, GeneratedGrass};
-use crate::{
-    Chunk, ChunkHeightmap, ChunkPos, Chunks, Seed, TerrainMaterials, CHUNK_RESOLUTION, CHUNK_SIZE,
-    MAX_UPDATES_PER_FRAME,
-};
+use crate::chunk::{CHUNK_TILES, TILE_SIZE};
 
 const VERTICES_CAP: usize = 128 * 1024;
 const INDICES_CAP: usize = 128 * 1024;
 
-struct MeshGenerator {
-    seed: u64,
-    chunk_pos: IVec2,
-    heightmaps: Heightmaps,
+pub struct MeshGenerator {
+    heightmap: Grid<f32>,
     positions: Vec<Vec3>,
     normals: Vec<Vec3>,
     indices: Vec<u32>,
@@ -36,19 +27,15 @@ struct MeshGenerator {
     rotate: bool,
 }
 
-#[derive(Debug)]
-struct MeshResult {
-    mesh: Mesh,
-    grass: GeneratedGrass,
-    collider: Collider,
+pub struct MeshResult {
+    pub mesh: Mesh,
+    pub collider: Collider,
 }
 
 impl MeshGenerator {
-    fn new(seed: u64, chunk_pos: IVec2, heightmaps: Heightmaps) -> MeshGenerator {
+    pub fn new(heightmap: Grid<f32>) -> MeshGenerator {
         MeshGenerator {
-            seed,
-            chunk_pos,
-            heightmaps,
+            heightmap,
             positions: Vec::with_capacity(VERTICES_CAP),
             normals: Vec::with_capacity(VERTICES_CAP),
             indices: Vec::with_capacity(INDICES_CAP),
@@ -65,7 +52,7 @@ impl MeshGenerator {
         }
     }
 
-    fn generate(mut self) -> MeshResult {
+    pub fn generate(mut self) -> MeshResult {
         let _span = info_span!("chunk mesh generator").entered();
 
         self.generate_cells();
@@ -77,21 +64,16 @@ impl MeshGenerator {
         self.apply_scale();
 
         let collider = self.create_collider();
-        let grass = grass::generate(self.seed, self.chunk_pos, &self.positions, &self.indices);
         let mesh = self.create_mesh();
 
-        MeshResult {
-            mesh,
-            grass,
-            collider,
-        }
+        MeshResult { mesh, collider }
     }
 
     fn generate_cells(&mut self) {
         let _span = info_span!("generate cells").entered();
 
-        for y in 0..CHUNK_RESOLUTION.y as i32 {
-            for x in 0..CHUNK_RESOLUTION.x as i32 {
+        for y in 0..CHUNK_TILES as i32 {
+            for x in 0..CHUNK_TILES as i32 {
                 let first_vertex_idx = self.positions.len();
                 self.cell_first_vertex_idx = first_vertex_idx;
 
@@ -151,7 +133,9 @@ impl MeshGenerator {
         let _span = info_span!("snap vertices").entered();
 
         for pos in &mut self.positions {
-            let (height, grad) = self.heightmaps.sample_height_and_grad(pos.xy());
+            let height = self.heightmap.sample(pos.xy());
+            let grad = self.heightmap.sample_grad(pos.xy());
+
             if (pos.z - height).abs().powi(2) < 0.0025 / grad.length_squared() {
                 pos.z = height;
             }
@@ -195,7 +179,7 @@ impl MeshGenerator {
         let _span = info_span!("snap normals").entered();
 
         for (pos, normal) in self.positions.iter_mut().zip(&mut self.normals) {
-            let (_, grad) = self.heightmaps.sample_height_and_grad(pos.xy());
+            let grad = self.heightmap.sample_grad(pos.xy());
             let target_normal = vec3(-grad.x, -grad.y, 2.0).normalize();
             if normal.z.abs() > 0.1 && normal.dot(target_normal) > 0.9 {
                 *normal = target_normal;
@@ -233,10 +217,9 @@ impl MeshGenerator {
     fn apply_scale(&mut self) {
         let _span = info_span!("apply scale").entered();
 
-        let scale = CHUNK_SIZE / CHUNK_RESOLUTION.as_vec2();
         for pos in &mut self.positions {
-            pos.x *= scale.x;
-            pos.y *= scale.y;
+            pos.x *= TILE_SIZE;
+            pos.y *= TILE_SIZE;
         }
     }
 
@@ -557,122 +540,6 @@ impl MeshGenerator {
     }
 
     fn get_quantized_height(&self, pos: IVec2) -> f32 {
-        (self.heightmaps.get_height(pos) / self.height_step).floor() * self.height_step
-    }
-}
-
-struct Heightmaps {
-    center: SharedGrid<f32>,
-    neighbors: [SharedGrid<f32>; 8],
-}
-
-impl Heightmaps {
-    fn get_height(&self, pos: IVec2) -> f32 {
-        if let Some(&height) = self.center.get(pos) {
-            return height;
-        }
-
-        for (i, &dir) in NEIGHBORHOOD_8.iter().enumerate() {
-            let pos = pos - dir * CHUNK_RESOLUTION.as_ivec2();
-            if let Some(&height) = self.neighbors[i].get(pos) {
-                return height;
-            }
-        }
-
-        0.0
-    }
-
-    fn sample_height_and_grad(&self, pos: Vec2) -> (f32, Vec2) {
-        let ipos = pos.as_ivec2();
-        let fpos = pos - ipos.as_vec2();
-
-        let tl = self.get_height(ipos + ivec2(0, 0));
-        let tr = self.get_height(ipos + ivec2(1, 0));
-        let bl = self.get_height(ipos + ivec2(0, 1));
-        let br = self.get_height(ipos + ivec2(1, 1));
-
-        fn lerp(a: f32, b: f32, t: f32) -> f32 {
-            a * (1.0 - t) + b * t
-        }
-
-        let height = lerp(lerp(tl, tr, fpos.x), lerp(bl, br, fpos.x), fpos.y);
-        let grad_x = lerp(tr - tl, br - bl, fpos.y);
-        let grad_y = lerp(bl - tl, br - tr, fpos.x);
-
-        (height, vec2(grad_x, grad_y))
-    }
-}
-
-#[derive(Debug, Component)]
-pub struct ChunkMeshTask(Task<MeshResult>);
-
-pub fn schedule_system(
-    q_chunks: Query<
-        (Entity, &ChunkPos, &ChunkHeightmap),
-        (With<Chunk>, Without<Handle<Mesh>>, Without<ChunkMeshTask>),
-    >,
-    q_chunk_heightmaps: Query<&ChunkHeightmap, With<Chunk>>,
-    chunks: Res<Chunks>,
-    seed: Res<Seed>,
-    mut commands: Commands,
-) {
-    let task_pool = AsyncComputeTaskPool::get();
-    let seed = seed.0;
-
-    let mut count = 0;
-
-    for (chunk_id, &ChunkPos(chunk_pos), heightmap) in q_chunks.iter() {
-        let neighbors = chunks
-            .get_neighbors(chunk_pos)
-            .map(|neighbor_id| neighbor_id.and_then(|id| q_chunk_heightmaps.get(id).ok()));
-
-        if neighbors.iter().any(|v| v.is_none()) {
-            continue;
-        }
-
-        count += 1;
-        if count > MAX_UPDATES_PER_FRAME {
-            break;
-        }
-
-        let center = heightmap.0.clone();
-        let neighbors = neighbors.map(|v| v.unwrap().0.clone());
-
-        let task = task_pool.spawn(async move {
-            let generator = MeshGenerator::new(seed, chunk_pos, Heightmaps { center, neighbors });
-            generator.generate()
-        });
-
-        commands.entity(chunk_id).insert(ChunkMeshTask(task));
-    }
-}
-
-pub fn update_system(
-    mut q_chunks: Query<(Entity, &mut ChunkMeshTask), With<Chunk>>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut multi_billboards: ResMut<Assets<MultiBillboard>>,
-    materials: Res<TerrainMaterials>,
-) {
-    for (chunk_id, mut task) in q_chunks.iter_mut().take(MAX_UPDATES_PER_FRAME) {
-        let Some(res) = future::block_on(future::poll_once(&mut task.0)) else {
-            continue;
-        };
-
-        let grass_id = commands
-            .spawn((
-                materials.grass.clone(),
-                MultiBillboardBundle {
-                    multi_billboard: multi_billboards.add(res.grass.multi_billboard),
-                    ..default()
-                },
-            ))
-            .id();
-
-        commands
-            .entity(chunk_id)
-            .add_child(grass_id)
-            .remove::<ChunkMeshTask>()
-            .insert((meshes.add(res.mesh), res.collider));
+        (self.heightmap[pos] / self.height_step).floor() * self.height_step
     }
 }

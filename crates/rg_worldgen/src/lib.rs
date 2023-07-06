@@ -13,6 +13,9 @@ use crate::elevation::compute_elevation;
 use crate::island_shaping::shape_island;
 use crate::rivers::generate_rivers;
 
+#[derive(Debug, Copy, Clone, Resource)]
+pub struct WorldSeed(pub u64);
+
 pub fn worldgen(seed: u64, size: UVec2) -> WorldMaps {
     let mut rng = Pcg32::seed_from_u64(seed);
 

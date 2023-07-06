@@ -271,11 +271,21 @@ impl Grid<f32> {
         let bl = *self.get(ipos + IVec2::new(0, 1)).unwrap_or(&0.0);
         let br = *self.get(ipos + IVec2::new(1, 1)).unwrap_or(&0.0);
 
-        fn lerp(a: f32, b: f32, t: f32) -> f32 {
-            a * (1.0 - t) + b * t
-        }
-
         lerp(lerp(tl, tr, fpos.x), lerp(bl, br, fpos.x), fpos.y)
+    }
+
+    pub fn sample_grad(&self, pos: Vec2) -> Vec2 {
+        let ipos = pos.as_ivec2();
+        let fpos = pos - ipos.as_vec2();
+
+        let tl = *self.get(ipos + IVec2::new(0, 0)).unwrap_or(&0.0);
+        let tr = *self.get(ipos + IVec2::new(1, 0)).unwrap_or(&0.0);
+        let bl = *self.get(ipos + IVec2::new(0, 1)).unwrap_or(&0.0);
+        let br = *self.get(ipos + IVec2::new(1, 1)).unwrap_or(&0.0);
+
+        let grad_x = lerp(tr - tl, br - bl, fpos.y);
+        let grad_y = lerp(bl - tl, br - tr, fpos.x);
+        Vec2::new(grad_x, grad_y)
     }
 
     pub fn resize(&self, new_size: UVec2) -> Grid<f32> {
@@ -474,4 +484,9 @@ impl<T> Index<IVec2> for SharedGrid<T> {
     fn index(&self, cell: IVec2) -> &Self::Output {
         &self.0[cell]
     }
+}
+
+// TODO: move this somewhere else
+fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a * (1.0 - t) + b * t
 }

@@ -5,7 +5,6 @@ mod chunks;
 mod grass;
 mod heightmap;
 mod mesher;
-mod poisson;
 mod utils;
 
 use bevy::asset::AssetPath;

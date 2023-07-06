@@ -1,5 +1,3 @@
-use std::f32::consts::TAU;
-
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;

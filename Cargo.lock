@@ -3408,11 +3408,12 @@ dependencies = [
  "bevy",
  "bevy_rapier3d",
  "futures-lite",
+ "rand",
+ "rand_pcg",
  "rg_billboard",
  "rg_core",
  "rg_pixel_material",
  "rg_worldgen",
- "turborand",
 ]
 
 [[package]]
@@ -3939,16 +3940,6 @@ name = "ttf-parser"
 version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a464a4b34948a5f67fddd2b823c62d9d92e44be75058b99939eae6c5b6960b33"
-
-[[package]]
-name = "turborand"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e28d61f1c96db8c016037a77961fa5da84fc3a57fe69a15283ace0ab1647bac0"
-dependencies = [
- "getrandom",
- "instant",
-]
 
 [[package]]
 name = "twox-hash"

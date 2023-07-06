@@ -3352,6 +3352,8 @@ dependencies = [
  "parking_lot",
  "rand",
  "rand_pcg",
+ "ron",
+ "serde",
 ]
 
 [[package]]
@@ -3427,6 +3429,7 @@ dependencies = [
  "rand",
  "rand_pcg",
  "rg_core",
+ "serde",
 ]
 
 [[package]]

@@ -18,8 +18,11 @@ pub struct SurfacePlugin;
 
 impl Plugin for SurfacePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(TerrainMaterialPlugin)
-            .add_systems(Update, (update_chunks, schedule_tasks.after(update_chunks)));
+        app.add_plugins(TerrainMaterialPlugin).add_systems(
+            Update,
+            (update_chunks, schedule_tasks.after(update_chunks))
+                .run_if(resource_exists::<WorldMaps>()),
+        );
     }
 }
 

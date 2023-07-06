@@ -12,3 +12,4 @@ edt = { workspace = true }
 image = { workspace = true }
 rand = { workspace = true }
 rand_pcg = { workspace = true }
+serde = { workspace = true }

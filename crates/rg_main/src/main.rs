@@ -17,15 +17,11 @@ use rg_dev_overlay::DevOverlayPlugin;
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::TerrainPlugin;
-use rg_worldgen::WorldSeed;
+use rg_worldgen::{WorldSeed, WorldgenPlugin};
 
 fn main() {
-    let seed = 0;
-    let world_maps = rg_worldgen::worldgen(seed, UVec2::new(128, 256));
-
     App::new()
-        .insert_resource(WorldSeed(seed))
-        .insert_resource(world_maps)
+        .insert_resource(WorldSeed(0))
         .edit_schedule(Main, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Warn,
@@ -53,6 +49,7 @@ fn main() {
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(BillboardPlugin)
+        .add_plugins(WorldgenPlugin)
         .add_plugins(TerrainPlugin)
         .add_plugins(NavigationPlugin)
         .add_plugins(CameraControllerPlugin)

@@ -1,15 +1,29 @@
 use bevy::prelude::{IVec2, UVec2, Vec2};
 use rand::Rng;
 use rg_core::Grid;
+use serde::Deserialize;
 
-pub fn shape_island<R: Rng>(rng: &mut R, size: UVec2) -> Grid<bool> {
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct IslandSettings {
+    pub size: UVec2,
+    pub noise_scale: f32,
+    pub cutoff: f32,
+    pub reshape_margin: f32,
+    pub reshape_radius: f32,
+    pub reshape_alpha: f32,
+    pub min_area: f32,
+    pub max_area: f32,
+}
+
+pub fn shape_island<R: Rng>(rng: &mut R, settings: &IslandSettings) -> Grid<bool> {
     loop {
+        let size = settings.size;
         let mut grid = Grid::new(size, 0.0);
-        let scale = size.x.min(size.y) as f32 / 5000.0;
+        let scale = size.x.min(size.y) as f32 / settings.noise_scale;
         grid.add_fbm_noise(rng, scale, 1.0, 8);
-        voronoi_reshape(rng, &mut grid);
+        voronoi_reshape(rng, &mut grid, settings);
 
-        let mut grid = grid.to_bool(0.4);
+        let mut grid = grid.to_bool(settings.cutoff);
         keep_one_island(&mut grid);
 
         random_zoom(rng, &mut grid);
@@ -21,7 +35,7 @@ pub fn shape_island<R: Rng>(rng: &mut R, size: UVec2) -> Grid<bool> {
 
         keep_one_island(&mut grid);
 
-        if !is_isalnd_area_good(&grid) {
+        if !is_isalnd_area_good(&grid, settings) {
             continue;
         }
 
@@ -29,9 +43,9 @@ pub fn shape_island<R: Rng>(rng: &mut R, size: UVec2) -> Grid<bool> {
     }
 }
 
-fn voronoi_reshape<R: Rng>(rng: &mut R, grid: &mut Grid<f32>) {
+fn voronoi_reshape<R: Rng>(rng: &mut R, grid: &mut Grid<f32>, settings: &IslandSettings) {
     let size = grid.size().as_vec2();
-    let margin = f32::min(size.x, size.y) * 0.3;
+    let margin = f32::min(size.x, size.y) * settings.reshape_margin;
 
     let mut points = [Vec2::ZERO; 32];
     for point in points.iter_mut().skip(1) {
@@ -47,9 +61,9 @@ fn voronoi_reshape<R: Rng>(rng: &mut R, grid: &mut Grid<f32>) {
             .iter()
             .map(|p| p.distance_squared(pos))
             .fold(f32::INFINITY, f32::min);
-        let inv_dist = 1.0 - sq_dist.sqrt() / (size.x.min(size.y) * 0.3);
+        let inv_dist = 1.0 - sq_dist.sqrt() / (size.x.min(size.y) * settings.reshape_radius);
 
-        let alpha = 0.5;
+        let alpha = settings.reshape_alpha;
         *value = *value * (1.0 - alpha) + inv_dist * alpha;
     }
 }
@@ -114,12 +128,12 @@ fn connected_components(grid: &Grid<bool>) -> (Vec<(u32, bool, u32)>, Grid<u32>)
     (frequencies, labels)
 }
 
-fn is_isalnd_area_good(grid: &Grid<bool>) -> bool {
+fn is_isalnd_area_good(grid: &Grid<bool>, settings: &IslandSettings) -> bool {
     let size = grid.size().as_vec2();
     let area = grid.data().iter().filter(|v| **v).count();
     let percentage = area as f32 / (size.x * size.y);
 
-    0.5 <= percentage && percentage <= 0.6
+    settings.min_area <= percentage && percentage <= settings.max_area
 }
 
 fn random_zoom<R: Rng>(rng: &mut R, grid: &mut Grid<bool>) {

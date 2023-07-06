@@ -3,18 +3,31 @@ use std::collections::BinaryHeap;
 use bevy::prelude::{IVec2, UVec2, Vec2};
 use rand::Rng;
 use rg_core::{Grid, PoissonDiscSampling};
+use serde::Deserialize;
 
-pub fn generate_rivers<R: Rng>(rng: &mut R, elevation: &mut Grid<f32>) -> Grid<f32> {
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct RiversSettings {
+    pub point_radius: f32,
+    pub inertia: f32,
+    pub evaporation: f32,
+    pub erosion: f32,
+}
+
+pub fn generate_rivers<R: Rng>(
+    rng: &mut R,
+    elevation: &mut Grid<f32>,
+    settings: &RiversSettings,
+) -> Grid<f32> {
     let size = elevation.size();
 
-    let points = generate_points(rng, &elevation);
+    let points = generate_points(rng, &elevation, settings);
     let mut queue = BinaryHeap::new();
     initialize_queue(&mut queue, &points);
-    let downstream = generate_downstream_map(&mut queue, &points);
+    let downstream = generate_downstream_map(&mut queue, &points, settings);
     let upstream = generate_upstream_map(&points, &downstream);
-    let volume = compute_volume(&points, &upstream);
+    let volume = compute_volume(&points, &upstream, settings);
     let volume_map = generate_volume_map(&points, size, &downstream, &volume);
-    apply_erosion(&volume_map, elevation);
+    apply_erosion(&volume_map, elevation, settings);
 
     elevation.clone()
 }
@@ -27,10 +40,15 @@ struct Points {
     neighbors: Vec<Vec<usize>>,
 }
 
-fn generate_points<R: Rng>(rng: &mut R, elevation: &Grid<f32>) -> Points {
+fn generate_points<R: Rng>(
+    rng: &mut R,
+    elevation: &Grid<f32>,
+    settings: &RiversSettings,
+) -> Points {
     let mut points = Points::default();
 
-    points.positions = PoissonDiscSampling::new(rng, elevation.size().as_vec2(), 3.0).points;
+    points.positions =
+        PoissonDiscSampling::new(rng, elevation.size().as_vec2(), settings.point_radius).points;
     points.count = points.positions.len();
 
     let iter = points.positions.iter();
@@ -121,6 +139,7 @@ fn initialize_queue(queue: &mut BinaryHeap<QueueItem>, points: &Points) {
 fn generate_downstream_map(
     queue: &mut BinaryHeap<QueueItem>,
     points: &Points,
+    settings: &RiversSettings,
 ) -> Vec<Option<usize>> {
     let mut downstream = vec![None; points.count];
 
@@ -144,7 +163,7 @@ fn generate_downstream_map(
             let neighbor_dir = (end - start).normalize();
 
             let priority = neighbor_dir.dot(edge.dir);
-            let weighted_dir = neighbor_dir.lerp(edge.dir, 0.3).normalize();
+            let weighted_dir = neighbor_dir.lerp(edge.dir, settings.inertia).normalize();
 
             queue.push(QueueItem {
                 priority,
@@ -170,17 +189,22 @@ fn generate_upstream_map(points: &Points, downstream: &[Option<usize>]) -> Vec<V
     upstream
 }
 
-fn compute_volume(points: &Points, upstream: &[Vec<usize>]) -> Vec<f32> {
+fn compute_volume(points: &Points, upstream: &[Vec<usize>], settings: &RiversSettings) -> Vec<f32> {
     let mut volume = vec![f32::NAN; points.count];
 
     for i in 0..points.count {
-        compute_volume_at_point(&mut volume, upstream, i);
+        compute_volume_at_point(&mut volume, upstream, i, settings);
     }
 
     volume
 }
 
-fn compute_volume_at_point(volume: &mut [f32], upstream: &[Vec<usize>], i: usize) {
+fn compute_volume_at_point(
+    volume: &mut [f32],
+    upstream: &[Vec<usize>],
+    i: usize,
+    settings: &RiversSettings,
+) {
     if !volume[i].is_nan() {
         return;
     }
@@ -188,11 +212,11 @@ fn compute_volume_at_point(volume: &mut [f32], upstream: &[Vec<usize>], i: usize
     let mut v = 1.0;
 
     for &up in &upstream[i] {
-        compute_volume_at_point(volume, upstream, up);
+        compute_volume_at_point(volume, upstream, up, settings);
         v += volume[up];
     }
 
-    volume[i] = v * (1.0 - 0.2);
+    volume[i] = v * (1.0 - settings.evaporation);
 }
 
 fn generate_volume_map(
@@ -302,14 +326,15 @@ fn aa_line(start: Vec2, end: Vec2, mut callback: impl FnMut(IVec2, f32)) {
     }
 }
 
-fn apply_erosion(volume_map: &Grid<f32>, elevation: &mut Grid<f32>) {
+fn apply_erosion(volume_map: &Grid<f32>, elevation: &mut Grid<f32>, settings: &RiversSettings) {
     let mut erosion_map = volume_map.clone();
 
     erosion_map.blur(2);
     erosion_map.blur(2);
 
     for (cell, elevation) in elevation.entries_mut() {
-        let fac = 1.0 / (1.0 + erosion_map[cell].powf(1.1)) * 0.15 + 0.95;
+        let unscaled = 1.0 / (1.0 + erosion_map[cell].powf(1.1));
+        let fac = unscaled * settings.erosion + (1.0 - settings.erosion);
         *elevation *= fac;
     }
 }

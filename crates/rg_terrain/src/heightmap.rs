@@ -21,12 +21,14 @@ pub fn generate(seed: u64, chunk_pos: IVec2, world_elevation: &Grid<f32>) -> Chu
         let pos = chunk_cell_to_world(chunk_pos, cell);
 
         *height = world_elevation.sample(pos / 4.0) * 100.0;
-        *height += noise.get(pos / 200.0) * 10.0;
-        *height += noise.get(pos / 100.0) * 5.0;
-        *height += noise.get(pos / 50.0) * 2.5;
+        *height += noise.get(pos / 100.0) * 10.0;
+        *height += noise.get(pos / 50.0) * 5.0;
+        *height += noise.get(pos / 25.0) * 2.5;
+        *height += noise.get(pos / 12.5) * 1.25;
+        *height += noise.get(pos / 6.25) * 0.625;
 
         *height /= 3.0;
-        *height = *height - (*height * TAU).sin() / TAU;
+        *height = height.floor() + (30.0 * (height.fract() - 0.5)).tanh() * 0.5 + 0.5;
         *height *= 3.0;
     }
 

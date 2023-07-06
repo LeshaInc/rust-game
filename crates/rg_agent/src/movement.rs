@@ -26,7 +26,7 @@ fn handle_movement_input(
     time: Res<FixedTime>,
 ) {
     for (movement, mut controller, controller_output) in &mut q_agents {
-        let mut translation = movement.direction * 16.0 * time.period.as_secs_f32();
+        let mut translation = movement.direction * 32.0 * time.period.as_secs_f32();
 
         if !controller_output.grounded {
             translation.z -= 0.1;

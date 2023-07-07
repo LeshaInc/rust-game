@@ -3,6 +3,8 @@ use rand::Rng;
 use rg_core::Grid;
 use serde::Deserialize;
 
+use crate::{WorldgenProgress, WorldgenStage};
+
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct IslandSettings {
     pub size: UVec2,
@@ -15,25 +17,48 @@ pub struct IslandSettings {
     pub max_area: f32,
 }
 
-pub fn shape_island<R: Rng>(rng: &mut R, settings: &IslandSettings) -> Grid<bool> {
+pub fn shape_island<R: Rng>(
+    rng: &mut R,
+    settings: &IslandSettings,
+    progress: &WorldgenProgress,
+) -> Grid<bool> {
     loop {
+        progress.set(WorldgenStage::Island, 0);
+
         let size = settings.size;
         let mut grid = Grid::new(size, 0.0);
         let scale = size.x.min(size.y) as f32 / settings.noise_scale;
+
         grid.add_fbm_noise(rng, scale, 1.0, 8);
+        progress.set(WorldgenStage::Island, 10);
+
         voronoi_reshape(rng, &mut grid, settings);
+        progress.set(WorldgenStage::Island, 20);
 
         let mut grid = grid.to_bool(settings.cutoff);
         keep_one_island(&mut grid);
+        progress.set(WorldgenStage::Island, 30);
 
         random_zoom(rng, &mut grid);
+        progress.set(WorldgenStage::Island, 40);
+
         random_zoom(rng, &mut grid);
+        progress.set(WorldgenStage::Island, 50);
+
         erode(&mut grid);
+        progress.set(WorldgenStage::Island, 60);
+
         erode(&mut grid);
+        progress.set(WorldgenStage::Island, 70);
+
         smooth(&mut grid);
+        progress.set(WorldgenStage::Island, 80);
+
         smooth(&mut grid);
+        progress.set(WorldgenStage::Island, 90);
 
         keep_one_island(&mut grid);
+        progress.set(WorldgenStage::Island, 100);
 
         if !is_isalnd_area_good(&grid, settings) {
             continue;

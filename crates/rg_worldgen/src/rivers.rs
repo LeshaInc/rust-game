@@ -5,6 +5,8 @@ use rand::Rng;
 use rg_core::{Grid, PoissonDiscSampling};
 use serde::Deserialize;
 
+use crate::{WorldgenProgress, WorldgenStage};
+
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct RiversSettings {
     pub point_radius: f32,
@@ -17,17 +19,33 @@ pub fn generate_rivers<R: Rng>(
     rng: &mut R,
     elevation: &mut Grid<f32>,
     settings: &RiversSettings,
+    progress: &WorldgenProgress,
 ) -> Grid<f32> {
+    progress.set(WorldgenStage::Rivers, 0);
+
     let size = elevation.size();
 
     let points = generate_points(rng, &elevation, settings);
+    progress.set(WorldgenStage::Rivers, 20);
+
     let mut queue = BinaryHeap::new();
     initialize_queue(&mut queue, &points);
+    progress.set(WorldgenStage::Rivers, 30);
+
     let downstream = generate_downstream_map(&mut queue, &points, settings);
+    progress.set(WorldgenStage::Rivers, 50);
+
     let upstream = generate_upstream_map(&points, &downstream);
+    progress.set(WorldgenStage::Rivers, 60);
+
     let volume = compute_volume(&points, &upstream, settings);
+    progress.set(WorldgenStage::Rivers, 70);
+
     let volume_map = generate_volume_map(&points, size, &downstream, &volume);
+    progress.set(WorldgenStage::Rivers, 80);
+
     apply_erosion(&volume_map, elevation, settings);
+    progress.set(WorldgenStage::Rivers, 100);
 
     elevation.clone()
 }

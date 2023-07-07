@@ -3425,6 +3425,7 @@ dependencies = [
  "bevy",
  "delaunator",
  "edt",
+ "futures-lite",
  "image",
  "rand",
  "rand_pcg",

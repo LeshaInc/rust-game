@@ -9,6 +9,7 @@ rg_core = { path = "../rg_core" }
 bevy = { workspace = true }
 delaunator = { workspace = true }
 edt = { workspace = true }
+futures-lite = { workspace = true }
 image = { workspace = true }
 rand = { workspace = true }
 rand_pcg = { workspace = true }

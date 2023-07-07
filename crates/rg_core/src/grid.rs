@@ -306,7 +306,7 @@ impl Grid<f32> {
 
         for y in 0..size.y {
             for x in kernel_size..size.x - kernel_size {
-                let cell = IVec2::new(x, y);
+                let cell = self.origin + IVec2::new(x, y);
 
                 let mut sum = 0.0;
                 for sx in -kernel_size..=kernel_size {
@@ -319,7 +319,7 @@ impl Grid<f32> {
 
         for x in 0..size.x {
             for y in kernel_size..size.y - kernel_size {
-                let cell = IVec2::new(x, y);
+                let cell = self.origin + IVec2::new(x, y);
 
                 let mut sum = 0.0;
                 for sy in -kernel_size..=kernel_size {

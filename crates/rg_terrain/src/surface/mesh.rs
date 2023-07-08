@@ -56,7 +56,6 @@ impl MeshGenerator {
         let _span = info_span!("chunk mesh generator").entered();
 
         self.generate_cells();
-        self.snap_vertices();
         self.cleanup_triangles();
         self.compute_normals();
         self.snap_normals();
@@ -83,6 +82,8 @@ impl MeshGenerator {
                     pos.x += x as f32;
                     pos.y += y as f32;
                 }
+
+                self.snap_cell_vertices();
             }
         }
     }
@@ -129,10 +130,8 @@ impl MeshGenerator {
         }
     }
 
-    fn snap_vertices(&mut self) {
-        let _span = info_span!("snap vertices").entered();
-
-        for pos in &mut self.positions {
+    fn snap_cell_vertices(&mut self) {
+        for pos in &mut self.positions[self.cell_first_vertex_idx..] {
             let height = self.heightmap.sample(pos.xy());
             let grad = self.heightmap.sample_grad(pos.xy());
 
@@ -140,11 +139,11 @@ impl MeshGenerator {
             pos.z = pos.z * alpha + height * (1.0 - alpha);
         }
 
-        for i in 0..self.positions.len() {
+        for i in self.cell_first_vertex_idx..self.positions.len() {
             let pos = self.positions[i];
             let mut min_diff = f32::INFINITY;
 
-            for j in i.saturating_sub(25)..i.saturating_add(25).min(self.positions.len()) {
+            for j in self.cell_first_vertex_idx..self.positions.len() {
                 if i == j {
                     continue;
                 }

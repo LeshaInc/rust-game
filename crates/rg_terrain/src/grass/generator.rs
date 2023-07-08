@@ -4,19 +4,19 @@ use bevy::render::mesh::{Indices, VertexAttributeValues};
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rg_billboard::{BillboardInstance, MultiBillboard};
-use rg_core::PoissonDiscSampling;
+use rg_core::{Grid, PoissonDiscSampling};
 
 use crate::utils::{get_barycentric, is_inside_barycentric};
-use crate::CHUNK_SIZE;
+use crate::{CHUNK_SIZE, CHUNK_TILES};
 
-pub const MIN_RADIUS: f32 = 0.2;
+pub const MIN_RADIUS: f32 = 0.12;
 
 #[derive(Debug)]
 pub struct GrassResult {
     pub multi_billboard: MultiBillboard,
 }
 
-pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh) -> GrassResult {
+pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh, density_map: Grid<f32>) -> GrassResult {
     let Some(VertexAttributeValues::Float32x3(positions)) =
         mesh.attribute(Mesh::ATTRIBUTE_POSITION)
     else {
@@ -54,6 +54,11 @@ pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh) -> GrassResult {
             let mut pos = pos.extend(0.0);
             let bary = get_barycentric(pos_a, pos_b, pos_c, pos);
             if !is_inside_barycentric(bary) {
+                continue;
+            }
+
+            let density = density_map.sample(pos.xy() / CHUNK_SIZE * (CHUNK_TILES as f32));
+            if !rng.gen_bool(density as f64) {
                 continue;
             }
 

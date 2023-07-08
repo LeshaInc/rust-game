@@ -38,8 +38,8 @@ impl PoissonDiscSampling {
 
                 if neighbor.x < 0.0
                     || neighbor.y < 0.0
-                    || neighbor.x >= size.x
-                    || neighbor.y >= size.y
+                    || neighbor.x >= size.x - min_radius * 0.5
+                    || neighbor.y >= size.y - min_radius * 0.5
                 {
                     continue;
                 }

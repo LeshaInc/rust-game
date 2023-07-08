@@ -19,7 +19,7 @@ impl Plugin for DefaultActionsPlugin {
     }
 }
 
-#[derive(Default, Clone, Reflect, FromReflect)]
+#[derive(Default, Clone, Reflect)]
 pub struct SequenceUntilFailure {
     index: usize,
 }
@@ -50,7 +50,7 @@ fn process_sequence_until_failure(mut q_agents: Query<&mut Behavior<SequenceUnti
     }
 }
 
-#[derive(Default, Clone, Reflect, FromReflect)]
+#[derive(Default, Clone, Reflect)]
 pub struct SequenceUntilSuccess {
     index: usize,
 }
@@ -81,7 +81,7 @@ fn process_sequence_until_success(mut q_agents: Query<&mut Behavior<SequenceUnti
     }
 }
 
-#[derive(Default, Clone, Reflect, FromReflect)]
+#[derive(Default, Clone, Reflect)]
 pub struct AlwaysSucceed;
 
 impl Action for AlwaysSucceed {
@@ -103,7 +103,7 @@ fn process_always_succeed(mut q_agents: Query<&mut Behavior<AlwaysSucceed>>) {
     }
 }
 
-#[derive(Default, Clone, Reflect, FromReflect)]
+#[derive(Default, Clone, Reflect)]
 pub struct AlwaysFail;
 
 impl Action for AlwaysFail {
@@ -125,7 +125,7 @@ fn process_always_fail(mut q_agents: Query<&mut Behavior<AlwaysFail>>) {
     }
 }
 
-#[derive(Default, Clone, Reflect, FromReflect)]
+#[derive(Default, Clone, Reflect)]
 pub struct InvertResult;
 
 impl Action for InvertResult {
@@ -152,7 +152,7 @@ fn process_invert_result(mut q_agents: Query<&mut Behavior<InvertResult>>) {
     }
 }
 
-#[derive(Default, Clone, Reflect, FromReflect)]
+#[derive(Default, Clone, Reflect)]
 pub struct Sleep {
     pub duration: Duration,
 }
@@ -176,7 +176,7 @@ fn process_sleep(mut q_agents: Query<&mut Behavior<Sleep>>, time: Res<Time>) {
     }
 }
 
-#[derive(Default, Clone, Reflect, FromReflect)]
+#[derive(Default, Clone, Reflect)]
 pub struct LogMessage {
     pub message: String,
 }

@@ -136,7 +136,7 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
 
     commands.spawn(behavior_trees.add(behavior_tree));
 
-    commands.spawn((SpawnCharacter, Transform::from_xyz(512.0, 1024.0, 100.0)));
+    commands.spawn((SpawnCharacter, Transform::from_xyz(1024.0, 2048.0, 100.0)));
 
     debug!("Spawned everything");
 }

@@ -10,13 +10,14 @@
         max_area: 0.6,
     ),
     elevation: (
-        beach_size: 0.3,
-        inland_height: 0.3,
+        beach_size: 0.2,
+        land_height: 0.1,
+        ocean_depth: 0.1
     ),
     rivers: (
-        point_radius: 3.0,
+        point_radius: 2.0,
         inertia: 0.3,
         evaporation: 0.2,
-        erosion: 0.15,
+        erosion: 0.2,
     )
 )

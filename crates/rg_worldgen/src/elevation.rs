@@ -1,5 +1,4 @@
-use std::f32::consts::PI;
-
+use bevy::prelude::IVec2;
 use rg_core::Grid;
 use serde::Deserialize;
 
@@ -8,7 +7,8 @@ use crate::{WorldgenProgress, WorldgenStage};
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct ElevationSettings {
     pub beach_size: f32,
-    pub inland_height: f32,
+    pub land_height: f32,
+    pub ocean_depth: f32,
 }
 
 pub fn compute_elevation(
@@ -18,37 +18,70 @@ pub fn compute_elevation(
 ) -> Grid<f32> {
     progress.set(WorldgenStage::Elevation, 0);
 
-    let mut elevation = island
-        .to_f32()
-        .resize(island.size() / 4)
-        .to_bool(0.5)
-        .compute_edt()
-        .resize(island.size());
+    let edt = compute_edt(island);
+    progress.set(WorldgenStage::Elevation, 25);
 
-    progress.set(WorldgenStage::Elevation, 20);
+    let inv_edt = compute_inv_edt(island);
+    progress.set(WorldgenStage::Elevation, 50);
 
-    reshape(&mut elevation, island, settings);
-    progress.set(WorldgenStage::Elevation, 40);
+    let mut elevation = shape(island, &edt, &inv_edt, settings);
+    progress.set(WorldgenStage::Elevation, 75);
 
-    elevation.blur(3);
-    progress.set(WorldgenStage::Elevation, 60);
+    elevation.blur(2);
+    progress.set(WorldgenStage::Elevation, 90);
 
-    elevation.blur(3);
+    elevation.blur(2);
     progress.set(WorldgenStage::Elevation, 100);
 
     elevation
 }
 
-fn reshape(elevation: &mut Grid<f32>, island: &Grid<bool>, settings: &ElevationSettings) {
-    for (cell, height) in elevation.entries_mut() {
-        if !island[cell] {
-            *height = 0.0;
-        }
+fn compute_edt(island: &Grid<bool>) -> Grid<f32> {
+    let bitmap = island.to_f32().resize(island.size() / 4).to_bool(0.5);
+    bitmap.compute_edt().resize(island.size())
+}
 
-        *height = if *height < settings.beach_size {
-            (0.5 - 0.5 * (*height * PI / settings.beach_size).cos()) * settings.inland_height
-        } else {
-            height.powi(4) + settings.inland_height
-        };
+fn compute_inv_edt(island: &Grid<bool>) -> Grid<f32> {
+    let island_f32 = island.to_f32();
+
+    let mut grid = Grid::new(island.size() / 4 + 128, 1.0).with_origin(-IVec2::splat(64));
+    for cell in grid.cells() {
+        grid[cell] = 1.0 - island_f32.sample(cell.as_vec2() * 4.0);
     }
+
+    let edt = grid.to_bool(0.5).compute_edt();
+    let mut res = Grid::new(island.size(), 0.0);
+
+    for cell in res.cells() {
+        res[cell] = edt.sample(cell.as_vec2() / 4.0);
+    }
+
+    res
+}
+
+fn shape(
+    island: &Grid<bool>,
+    edt: &Grid<f32>,
+    inv_edt: &Grid<f32>,
+    settings: &ElevationSettings,
+) -> Grid<f32> {
+    let mut elevation = Grid::new(island.size(), 0.0);
+
+    for cell in elevation.cells() {
+        let dist = if island[cell] {
+            edt[cell]
+        } else {
+            -inv_edt[cell]
+        };
+
+        let k = -1.0 - 0.5;
+        let x = (dist / (2.0 * settings.beach_size) + 0.5).clamp(0.0, 1.0);
+        let alpha = (1.0 - 1.0 / (1.0 + (1.0 / x - 1.0).powf(k))).clamp(0.0, 1.0);
+
+        let mut height = settings.land_height * alpha - settings.ocean_depth * (1.0 - alpha);
+        height += dist.max(0.0).powi(3);
+        elevation[cell] = height;
+    }
+
+    elevation
 }

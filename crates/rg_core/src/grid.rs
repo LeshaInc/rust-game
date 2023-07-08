@@ -395,7 +395,7 @@ impl Grid<bool> {
             .map(|v| (v / max) as f32)
             .collect::<Vec<_>>();
 
-        Grid::from_data(self.size(), data)
+        Grid::from_data(self.size(), data).with_origin(self.origin)
     }
 
     pub fn debug_save(&self, path: &str) {

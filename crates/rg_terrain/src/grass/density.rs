@@ -35,7 +35,7 @@ impl DensityMapGenerator {
         for (cell, density) in self.density_map.entries_mut() {
             let pos = tile_pos_to_world(self.chunk_pos, cell);
 
-            let elevation = self.world_elevation.sample(pos / 2.0);
+            let elevation = self.world_elevation.sample(pos / 4.0);
             if elevation <= 0.0 {
                 continue;
             }

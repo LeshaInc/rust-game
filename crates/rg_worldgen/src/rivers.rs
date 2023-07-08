@@ -136,7 +136,7 @@ fn initialize_queue(queue: &mut BinaryHeap<QueueItem>, points: &Points) {
         }
 
         for &end_i in &points.neighbors[start_i] {
-            if points.heights[end_i] == 0.0 {
+            if points.heights[end_i] < 0.0 {
                 continue;
             }
 

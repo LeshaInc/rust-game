@@ -100,8 +100,6 @@ pub struct WorldMaps {
 struct WorldgenTask(pub Task<WorldMaps>);
 
 fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut commands: Commands) {
-    println!("SCHEDULE!!!");
-
     let pool = AsyncComputeTaskPool::get();
     let seed = seed.0;
     let settings = settings.clone();
@@ -114,6 +112,7 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
         let mut elevation = compute_elevation(&island, &settings.elevation, &progress);
         let rivers = generate_rivers(&mut rng, &mut elevation, &settings.rivers, &progress);
 
+        island.debug_save(&format!("/tmp/island.png"));
         elevation.debug_save(&format!("/tmp/elevation.png"));
         rivers.debug_save(&format!("/tmp/rivers.png"));
 

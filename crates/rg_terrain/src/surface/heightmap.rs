@@ -36,25 +36,25 @@ impl HeightmapGenerator {
         for (cell, height) in self.heightmap.entries_mut() {
             let pos = tile_pos_to_world(self.chunk_pos, cell);
 
-            let elevation = self.world_elevation.sample(pos / 2.0);
+            let elevation = self.world_elevation.sample(pos / 4.0);
             *height = elevation * 100.0;
 
             let mut fbm = 0.0;
-            fbm += noise.get(pos / 100.0) * 10.0;
-            fbm += noise.get(pos / 50.0) * 5.0;
-            fbm += noise.get(pos / 25.0) * 2.5;
-            fbm += noise.get(pos / 12.5) * 1.25;
-            fbm += noise.get(pos / 6.25) * 0.625;
+            fbm += noise.get(pos / 100.0);
+            fbm += noise.get(pos / 50.0) / 2.0;
+            fbm += noise.get(pos / 25.0) / 4.0;
+            fbm += noise.get(pos / 12.5) / 8.0;
+            fbm += noise.get(pos / 6.25) / 16.0;
 
-            *height += fbm * elevation.powf(0.1);
+            *height += 8.0 * fbm * elevation.max(0.0).powf(0.5);
 
-            *height /= 3.0;
-            *height = height.floor() + (30.0 * (height.fract() - 0.5)).tanh() * 0.5 + 0.5;
-            *height *= 3.0;
+            *height /= 2.0;
+            *height = height.floor() + (70.0 * (height.fract() - 0.5)).tanh() * 0.5 + 0.5;
+            *height *= 2.0;
         }
 
-        self.heightmap.blur(4);
-        self.heightmap.blur(4);
+        self.heightmap.blur(3);
+        self.heightmap.blur(3);
 
         self.heightmap
     }

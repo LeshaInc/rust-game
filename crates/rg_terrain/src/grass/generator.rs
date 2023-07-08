@@ -9,7 +9,7 @@ use rg_core::{Grid, PoissonDiscSampling};
 use crate::utils::{get_barycentric, is_inside_barycentric};
 use crate::{CHUNK_SIZE, CHUNK_TILES};
 
-pub const MIN_RADIUS: f32 = 0.12;
+pub const MIN_RADIUS: f32 = 0.14;
 
 #[derive(Debug)]
 pub struct GrassResult {

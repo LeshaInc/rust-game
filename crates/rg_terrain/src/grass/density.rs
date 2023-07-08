@@ -18,7 +18,8 @@ impl DensityMapGenerator {
         chunk_pos: IVec2,
         world_elevation: Arc<Grid<f32>>,
     ) -> DensityMapGenerator {
-        let density_map = Grid::new_default(UVec2::splat(CHUNK_TILES));
+        let density_map =
+            Grid::new_default(UVec2::splat(CHUNK_TILES + 2)).with_origin(-IVec2::splat(1));
         DensityMapGenerator {
             seed,
             chunk_pos,
@@ -41,15 +42,13 @@ impl DensityMapGenerator {
             }
 
             let mut fbm = 0.0;
-            fbm += noise.get(pos / 6.0);
-            fbm += noise.get(pos / 3.0) * 0.5;
-            fbm += noise.get(pos / 1.5) * 0.25;
-            fbm /= 1.0 + 0.5 + 0.25;
+            fbm += noise.get(pos / 12.0);
+            fbm += noise.get(pos / 6.0) / 2.0;
+            fbm += noise.get(pos / 3.0) / 4.0;
+            fbm += noise.get(pos / 1.5) / 8.0;
+            fbm /= 1.0 + 0.5 + 0.25 + 0.125;
 
-            *density = fbm.clamp(0.0, 1.0);
-            if *density < 0.2 {
-                *density = 0.0;
-            }
+            *density = fbm.clamp(0.0, 1.0).powf(1.0);
         }
 
         self.density_map

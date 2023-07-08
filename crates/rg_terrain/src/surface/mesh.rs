@@ -39,7 +39,7 @@ impl MeshGenerator {
             positions: Vec::with_capacity(VERTICES_CAP),
             normals: Vec::with_capacity(VERTICES_CAP),
             indices: Vec::with_capacity(INDICES_CAP),
-            height_step: 0.2,
+            height_step: 0.25,
             cell_first_vertex_idx: 0,
             height: 0.0,
             up_height: 0.0,
@@ -136,8 +136,26 @@ impl MeshGenerator {
             let height = self.heightmap.sample(pos.xy());
             let grad = self.heightmap.sample_grad(pos.xy());
 
-            if (pos.z - height).abs().powi(2) < 0.0025 / grad.length_squared() {
-                pos.z = height;
+            let alpha = (grad.length() * 4.0).clamp(0.0, 1.0).powf(3.0);
+            pos.z = pos.z * alpha + height * (1.0 - alpha);
+        }
+
+        for i in 0..self.positions.len() {
+            let pos = self.positions[i];
+            let mut min_diff = f32::INFINITY;
+
+            for j in i.saturating_sub(25)..i.saturating_add(25).min(self.positions.len()) {
+                if i == j {
+                    continue;
+                }
+                let neighbor = self.positions[j];
+                if neighbor.xy() == pos.xy() {
+                    min_diff = min_diff.min(neighbor.z - pos.z);
+                }
+            }
+
+            if -0.1 < min_diff && min_diff < 0.0 {
+                self.positions[i].z += min_diff;
             }
         }
     }
@@ -179,18 +197,20 @@ impl MeshGenerator {
         let _span = info_span!("snap normals").entered();
 
         for (pos, normal) in self.positions.iter_mut().zip(&mut self.normals) {
+            if normal.z.abs() < 0.1 {
+                continue;
+            }
+
             let grad = self.heightmap.sample_grad(pos.xy());
             let target_normal = vec3(-grad.x, -grad.y, 2.0).normalize();
-            if normal.z.abs() > 0.1 && normal.dot(target_normal) > 0.9 {
-                *normal = target_normal;
-            }
+            *normal = (*normal * 0.0 + target_normal * 1.0).normalize();
         }
     }
 
     fn deduplicate(&mut self) {
         let _span = info_span!("deduplicate").entered();
 
-        let mut map = HashMap::with_capacity(self.positions.len());
+        let mut map = HashMap::<(UVec3, UVec3), u32>::with_capacity(self.positions.len());
 
         let mut new_positions = Vec::with_capacity(self.positions.len());
         let mut new_normals = Vec::with_capacity(self.positions.len());

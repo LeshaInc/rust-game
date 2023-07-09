@@ -33,7 +33,7 @@ fn fragment(
     pixel_input.mesh_position = in.world_position;
     pixel_input.mesh_normal = in.world_normal;
     pixel_input.mesh_albedo = albedo;
-    pixel_input.bands = 32u;
+    pixel_input.bands = 256u;
     pixel_input.dither = false;
     
     var out_color = pixel::process_all_lights(pixel_input);

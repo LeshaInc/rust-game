@@ -147,7 +147,7 @@ impl MeshGenerator {
             let height = self.heightmap.sample(pos.xy());
             let grad = self.heightmap.sample_grad(pos.xy());
 
-            let alpha = (grad.length() * 4.0).clamp(0.0, 1.0).powf(3.0);
+            let alpha = (grad.length() * 3.0).clamp(0.0, 1.0).powf(3.0);
             pos.z = pos.z * alpha + height * (1.0 - alpha);
         }
 
@@ -191,8 +191,8 @@ impl MeshGenerator {
             let walls = cells.flat_map(|cell| &self.cell_walls[cell]);
 
             for &idx in walls {
-                if self.positions[idx].z == self.positions[idx + 3].z
-                    && self.positions[idx + 1].z == self.positions[idx + 2].z
+                if (self.positions[idx].z - self.positions[idx + 3].z).abs() < 0.01
+                    && (self.positions[idx + 1].z - self.positions[idx + 2].z).abs() < 0.01
                 {
                     continue;
                 }
@@ -254,8 +254,8 @@ impl MeshGenerator {
             }
 
             let grad = self.heightmap.sample_grad(pos.xy());
-            let target_normal = vec3(-grad.x, -grad.y, 2.0).normalize();
-            *normal = (*normal * 0.2 + target_normal * 0.8).normalize();
+            let target_normal = vec3(-grad.x, -grad.y, 1.0 * TILE_SIZE).normalize();
+            *normal = (*normal * 0.7 + target_normal * 0.3).normalize();
         }
     }
 
@@ -553,9 +553,9 @@ impl MeshGenerator {
             self.ms_triangle(vec2(0.25, 0.25), vec2(0.25, 0.75), vec2(0.0, 0.5));
             self.ms_quad(
                 vec2(0.25, 0.25),
-                vec2(1.00, 0.00),
-                vec2(1.00, 1.00),
-                vec2(0.75, 0.25),
+                vec2(0.50, 0.00),
+                vec2(0.50, 1.00),
+                vec2(0.25, 0.75),
             );
 
             if self.up_mask == 8 {

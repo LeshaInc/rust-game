@@ -275,17 +275,11 @@ impl Grid<f32> {
     }
 
     pub fn sample_grad(&self, pos: Vec2) -> Vec2 {
-        let ipos = pos.as_ivec2();
-        let fpos = pos - ipos.as_vec2();
-
-        let tl = *self.get(ipos + IVec2::new(0, 0)).unwrap_or(&0.0);
-        let tr = *self.get(ipos + IVec2::new(1, 0)).unwrap_or(&0.0);
-        let bl = *self.get(ipos + IVec2::new(0, 1)).unwrap_or(&0.0);
-        let br = *self.get(ipos + IVec2::new(1, 1)).unwrap_or(&0.0);
-
-        let grad_x = lerp(tr - tl, br - bl, fpos.y);
-        let grad_y = lerp(bl - tl, br - tr, fpos.x);
-        Vec2::new(grad_x, grad_y)
+        let l = self.sample(pos - Vec2::X);
+        let r = self.sample(pos + Vec2::X);
+        let t = self.sample(pos - Vec2::Y);
+        let b = self.sample(pos + Vec2::Y);
+        Vec2::new((r - l) * 0.5, (b - t) * 0.5)
     }
 
     pub fn resize(&self, new_size: UVec2) -> Grid<f32> {

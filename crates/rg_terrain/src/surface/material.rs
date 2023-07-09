@@ -50,7 +50,7 @@ impl FromWorld for DefaultTerrainMaterial {
         let (asset_server, mut materials) = system_state.get_mut(world);
 
         let material = materials.add(TerrainMaterial {
-            texture: asset_server.load("images/tiles/grass.png"),
+            texture: asset_server.load("images/tiles/terrain.png"),
         });
 
         Self(material)

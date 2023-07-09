@@ -17,7 +17,11 @@ fn fragment(
     let is_normal_edge = pixel::check_normal_edge(depth_samples, normal_samples, 0.1);
     let is_edge = is_depth_edge || is_normal_edge;
 
-    let uv = (in.world_position.xy * 2.0) % 1.0;
+    var uv = (in.world_position.xy * 2.0) % 1.0;
+    uv.y *= 0.5;
+    if in.world_position.z < 0.0 {
+        uv.y += 0.5;
+    }
 
     var albedo = textureSample(texture, texture_sampler, uv).rgb;
 

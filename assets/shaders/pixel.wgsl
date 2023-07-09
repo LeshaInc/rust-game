@@ -22,6 +22,9 @@ fn fragment(
     let is_edge = is_depth_edge || is_normal_edge;
 
     var albedo = material.color.rgb;
+#ifdef VERTEX_COLORS
+    albedo *= in.color.rgb;
+#endif
     albedo = mix(albedo, albedo * 0.5, f32(is_edge));
 
     var pixel_input: pixel::PixelInput;

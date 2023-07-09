@@ -14,9 +14,13 @@ pub struct MeshGenerator {
     heightmap: Grid<f32>,
     positions: Vec<Vec3>,
     normals: Vec<Vec3>,
+    colors: Vec<Vec4>,
     indices: Vec<u32>,
     height_step: f32,
+    cell: IVec2,
     cell_first_vertex_idx: usize,
+    cell_first_index: usize,
+    cell_walls: Grid<Vec<usize>>,
     height: f32,
     up_height: f32,
     mask: u8,
@@ -38,9 +42,13 @@ impl MeshGenerator {
             heightmap,
             positions: Vec::with_capacity(VERTICES_CAP),
             normals: Vec::with_capacity(VERTICES_CAP),
+            colors: Vec::with_capacity(VERTICES_CAP),
             indices: Vec::with_capacity(INDICES_CAP),
             height_step: 0.25,
+            cell: IVec2::ZERO,
             cell_first_vertex_idx: 0,
+            cell_first_index: 0,
+            cell_walls: Grid::new(UVec2::splat(CHUNK_TILES + 1), Vec::new()),
             height: 0.0,
             up_height: 0.0,
             mask: 0,
@@ -57,7 +65,7 @@ impl MeshGenerator {
 
         self.generate_cells();
         self.cleanup_triangles();
-        self.compute_normals();
+        self.compute_colors();
         self.snap_normals();
         self.deduplicate();
         self.apply_scale();
@@ -74,7 +82,10 @@ impl MeshGenerator {
         for y in 0..CHUNK_TILES as i32 {
             for x in 0..CHUNK_TILES as i32 {
                 let first_vertex_idx = self.positions.len();
+
+                self.cell = IVec2::new(x, y);
                 self.cell_first_vertex_idx = first_vertex_idx;
+                self.cell_first_index = self.indices.len();
 
                 self.generate_cell(ivec2(x, y));
 
@@ -83,6 +94,7 @@ impl MeshGenerator {
                     pos.y += y as f32;
                 }
 
+                self.compute_cell_normals();
                 self.snap_cell_vertices();
             }
         }
@@ -153,9 +165,52 @@ impl MeshGenerator {
                 }
             }
 
-            if -0.1 < min_diff && min_diff < 0.0 {
+            if -0.09 < min_diff && min_diff < 0.0 {
                 self.positions[i].z += min_diff;
             }
+        }
+    }
+
+    fn compute_colors(&mut self) {
+        let _span = info_span!("compute colors").entered();
+
+        let positions = self.positions.iter();
+        let normals = self.normals.iter();
+        let colors = self.colors.iter_mut();
+
+        for ((&pos, &normal), color) in positions.zip(normals).zip(colors) {
+            if normal.z.abs() < 0.1 {
+                continue;
+            }
+
+            let mut min_dist: f32 = 0.5;
+
+            let cell = pos.xy().as_ivec2();
+            let neighbors = self.cell_walls.neighborhood_8(cell).map(|v| v.1);
+            let cells = neighbors.chain(std::iter::once(cell));
+            let walls = cells.flat_map(|cell| &self.cell_walls[cell]);
+
+            for &idx in walls {
+                if self.positions[idx].z == self.positions[idx + 3].z
+                    && self.positions[idx + 1].z == self.positions[idx + 2].z
+                {
+                    continue;
+                }
+
+                for i in 0..2 {
+                    let a = self.positions[i * 2 + idx];
+                    let b = self.positions[i * 2 + idx + 1];
+
+                    let norm = (b - a).normalize();
+                    let fac = ((pos - a).dot(norm)).clamp(0.0, 1.0);
+                    let vec = pos - a - fac * (b - a);
+                    let dist = vec.x.abs() + vec.y.abs();
+
+                    min_dist = min_dist.min(dist);
+                }
+            }
+
+            color.x = (1.0 - min_dist / 0.5).clamp(0.0, 1.0);
         }
     }
 
@@ -178,10 +233,8 @@ impl MeshGenerator {
         }
     }
 
-    fn compute_normals(&mut self) {
-        let _span = info_span!("compute normals").entered();
-
-        for indices in self.indices.chunks_exact(3) {
+    fn compute_cell_normals(&mut self) {
+        for indices in self.indices[self.cell_first_index..].chunks_exact(3) {
             let pos_a = self.positions[indices[0] as usize];
             let pos_b = self.positions[indices[1] as usize];
             let pos_c = self.positions[indices[2] as usize];
@@ -202,35 +255,47 @@ impl MeshGenerator {
 
             let grad = self.heightmap.sample_grad(pos.xy());
             let target_normal = vec3(-grad.x, -grad.y, 2.0).normalize();
-            *normal = (*normal * 0.0 + target_normal * 1.0).normalize();
+            *normal = (*normal * 0.2 + target_normal * 0.8).normalize();
         }
     }
 
     fn deduplicate(&mut self) {
         let _span = info_span!("deduplicate").entered();
 
-        let mut map = HashMap::<(UVec3, UVec3), u32>::with_capacity(self.positions.len());
+        let mut map = HashMap::<(UVec3, UVec3, UVec4), u32>::with_capacity(self.positions.len());
 
         let mut new_positions = Vec::with_capacity(self.positions.len());
         let mut new_normals = Vec::with_capacity(self.positions.len());
+        let mut new_colors = Vec::with_capacity(self.positions.len());
 
         for index in &mut self.indices {
             let pos = self.positions[*index as usize];
             let normal = self.normals[*index as usize];
+            let color = self.colors[*index as usize];
 
             let bit_pos = UVec3::new(pos.x.to_bits(), pos.y.to_bits(), pos.z.to_bits());
             let bit_normal = UVec3::new(normal.x.to_bits(), normal.y.to_bits(), normal.z.to_bits());
+            let bit_color = UVec4::new(
+                color.x.to_bits(),
+                color.y.to_bits(),
+                color.z.to_bits(),
+                color.w.to_bits(),
+            );
 
-            *index = *map.entry((bit_pos, bit_normal)).or_insert_with(|| {
-                let new_index = new_positions.len() as u32;
-                new_positions.push(pos);
-                new_normals.push(normal);
-                new_index
-            });
+            *index = *map
+                .entry((bit_pos, bit_normal, bit_color))
+                .or_insert_with(|| {
+                    let new_index = new_positions.len() as u32;
+                    new_positions.push(pos);
+                    new_normals.push(normal);
+                    new_colors.push(color);
+                    new_index
+                });
         }
 
         self.positions = new_positions;
         self.normals = new_normals;
+        self.colors = new_colors;
     }
 
     fn apply_scale(&mut self) {
@@ -261,6 +326,7 @@ impl MeshGenerator {
 
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors);
         mesh.set_indices(Some(bevy::render::mesh::Indices::U32(self.indices)));
 
         mesh
@@ -406,6 +472,7 @@ impl MeshGenerator {
         let index = self.positions.len() as u32;
         self.positions.extend([a, b, c]);
         self.normals.extend([Vec3::ZERO; 3]);
+        self.colors.extend([Vec4::ZERO; 3]);
         self.indices.extend([index, index + 1, index + 2]);
     }
 
@@ -413,6 +480,7 @@ impl MeshGenerator {
         let index = self.positions.len() as u32;
         self.positions.extend([a, b, c, d]);
         self.normals.extend([Vec3::ZERO; 4]);
+        self.colors.extend([Vec4::ZERO; 4]);
         self.indices.extend([index, index + 1, index + 2]);
         self.indices.extend([index, index + 2, index + 3]);
     }
@@ -448,6 +516,8 @@ impl MeshGenerator {
             }
         }
 
+        self.cell_walls[self.cell].push(self.positions.len());
+
         self.ms_quad_3d(
             b.extend(self.height),
             a.extend(self.height),
@@ -457,96 +527,220 @@ impl MeshGenerator {
     }
 
     fn ms_case_1(&mut self) {
-        self.ms_triangle(vec2(0.0, 0.0), vec2(0.5, 0.0), vec2(0.0, 0.5));
+        self.ms_triangle(vec2(0.0, 0.0), vec2(0.25, 0.0), vec2(0.25, 0.25));
+        self.ms_triangle(vec2(0.0, 0.0), vec2(0.25, 0.25), vec2(0.0, 0.25));
+        self.ms_triangle(vec2(0.25, 0.0), vec2(0.5, 0.0), vec2(0.25, 0.25));
+        self.ms_triangle(vec2(0.0, 0.25), vec2(0.25, 0.25), vec2(0.0, 0.5));
 
         if self.up_mask == 2 && self.down_mask == 12 || self.up_mask == 12 && self.down_mask == 2 {
-            self.ms_triangle(vec2(0.0, 0.5), vec2(0.5, 0.0), vec2(1.0, 0.5));
+            self.ms_triangle(vec2(0.25, 0.25), vec2(0.5, 0.0), vec2(0.75, 0.25));
+            self.ms_quad(
+                vec2(0.25, 0.25),
+                vec2(0.75, 0.25),
+                vec2(1.00, 0.50),
+                vec2(0.00, 0.50),
+            );
 
             if self.up_mask == 2 {
-                self.ms_wall(vec2(0.5, 0.0), vec2(1.0, 0.5));
+                self.ms_wall(vec2(0.5, 0.0), vec2(0.75, 0.25));
+                self.ms_wall(vec2(0.75, 0.25), vec2(1.0, 0.5));
             } else {
                 self.ms_wall(vec2(1.0, 0.5), vec2(0.0, 0.5));
             }
         } else if self.up_mask == 8 && self.down_mask == 6
             || self.up_mask == 6 && self.down_mask == 8
         {
-            self.ms_triangle(vec2(0.0, 0.5), vec2(0.5, 0.0), vec2(0.5, 1.0));
+            self.ms_triangle(vec2(0.25, 0.25), vec2(0.25, 0.75), vec2(0.0, 0.5));
+            self.ms_quad(
+                vec2(0.25, 0.25),
+                vec2(1.00, 0.00),
+                vec2(1.00, 1.00),
+                vec2(0.75, 0.25),
+            );
 
             if self.up_mask == 8 {
-                self.ms_wall(vec2(0.5, 1.0), vec2(0.0, 0.5));
+                self.ms_wall(vec2(0.5, 1.0), vec2(0.25, 0.75));
+                self.ms_wall(vec2(0.25, 0.75), vec2(0.0, 0.5));
             } else {
                 self.ms_wall(vec2(0.5, 0.0), vec2(0.5, 1.0));
             }
         } else if self.up_mask == 4 && self.down_mask == 10 {
             self.ms_quad(
-                vec2(0.5, 0.0),
-                vec2(1.0, 0.5),
-                vec2(0.5, 1.0),
-                vec2(0.0, 0.5),
+                vec2(0.50, 0.50),
+                vec2(0.25, 0.25),
+                vec2(0.50, 0.00),
+                vec2(0.75, 0.25),
             );
 
-            self.ms_wall(vec2(1.0, 0.5), vec2(0.5, 1.0));
+            self.ms_quad(
+                vec2(0.50, 0.50),
+                vec2(0.75, 0.25),
+                vec2(1.00, 0.50),
+                vec2(0.75, 0.75),
+            );
+
+            self.ms_quad(
+                vec2(0.50, 0.50),
+                vec2(0.75, 0.75),
+                vec2(0.50, 1.00),
+                vec2(0.25, 0.75),
+            );
+
+            self.ms_quad(
+                vec2(0.50, 0.50),
+                vec2(0.25, 0.75),
+                vec2(0.00, 0.50),
+                vec2(0.25, 0.25),
+            );
+
+            self.ms_wall(vec2(1.0, 0.5), vec2(0.75, 0.75));
+            self.ms_wall(vec2(0.75, 0.75), vec2(0.5, 1.0));
         } else {
-            self.ms_wall(vec2(0.5, 0.0), vec2(0.0, 0.5));
+            self.ms_wall(vec2(0.5, 0.0), vec2(0.25, 0.25));
+            self.ms_wall(vec2(0.25, 0.25), vec2(0.0, 0.5));
         }
     }
 
     fn ms_case_3(&mut self) {
-        self.ms_quad(
-            vec2(0.0, 0.0),
-            vec2(1.0, 0.0),
-            vec2(1.0, 0.5),
-            vec2(0.0, 0.5),
-        );
-
         if self.up_mask == 4 && self.down_mask == 8 || self.up_mask == 8 && self.down_mask == 4 {
-            self.ms_triangle(vec2(0.0, 0.5), vec2(1.0, 0.5), vec2(0.5, 1.0));
+            self.ms_triangle(vec2(0.0, 0.0), vec2(0.25, 0.25), vec2(0.0, 0.25));
+            self.ms_triangle(vec2(0.0, 0.25), vec2(0.25, 0.25), vec2(0.0, 0.5));
+            self.ms_triangle(vec2(1.0, 0.0), vec2(1.0, 0.25), vec2(0.75, 0.25));
+            self.ms_triangle(vec2(1.0, 0.25), vec2(1.0, 0.5), vec2(0.75, 0.25));
+            self.ms_triangle(vec2(0.25, 0.25), vec2(0.75, 0.25), vec2(0.5, 0.5));
+
+            self.ms_quad(
+                vec2(0.50, 0.50),
+                vec2(0.75, 0.25),
+                vec2(1.00, 0.50),
+                vec2(0.75, 0.75),
+            );
+
+            self.ms_quad(
+                vec2(0.50, 0.50),
+                vec2(0.75, 0.75),
+                vec2(0.50, 1.00),
+                vec2(0.25, 0.75),
+            );
+
+            self.ms_quad(
+                vec2(0.50, 0.50),
+                vec2(0.25, 0.75),
+                vec2(0.00, 0.50),
+                vec2(0.25, 0.25),
+            );
 
             if self.up_mask == 4 {
-                self.ms_wall(vec2(1.0, 0.5), vec2(0.5, 1.0));
+                self.ms_wall(vec2(1.0, 0.5), vec2(0.75, 0.75));
+                self.ms_wall(vec2(0.75, 0.75), vec2(0.5, 1.0));
             } else {
-                self.ms_wall(vec2(0.5, 1.0), vec2(0.0, 0.5));
+                self.ms_wall(vec2(0.5, 1.0), vec2(0.25, 0.75));
+                self.ms_wall(vec2(0.25, 0.75), vec2(0.0, 0.5));
             }
         } else {
+            self.ms_quad(
+                vec2(0.0, 0.00),
+                vec2(1.0, 0.00),
+                vec2(1.0, 0.25),
+                vec2(0.0, 0.25),
+            );
+
+            self.ms_quad(
+                vec2(0.0, 0.25),
+                vec2(1.0, 0.25),
+                vec2(1.0, 0.50),
+                vec2(0.0, 0.50),
+            );
+
             self.ms_wall(vec2(1.0, 0.5), vec2(0.0, 0.5));
         }
     }
 
     fn ms_case_5(&mut self) {
-        self.ms_triangle(vec2(0.0, 0.0), vec2(0.5, 0.0), vec2(0.0, 0.5));
-        self.ms_triangle(vec2(1.0, 1.0), vec2(0.5, 1.0), vec2(1.0, 0.5));
+        self.ms_triangle(vec2(0.0, 0.0), vec2(0.25, 0.0), vec2(0.25, 0.25));
+        self.ms_triangle(vec2(0.0, 0.0), vec2(0.25, 0.25), vec2(0.0, 0.25));
+        self.ms_triangle(vec2(0.25, 0.0), vec2(0.5, 0.0), vec2(0.25, 0.25));
+        self.ms_triangle(vec2(0.0, 0.25), vec2(0.25, 0.25), vec2(0.0, 0.5));
+
+        self.ms_triangle(vec2(0.75, 0.75), vec2(1.0, 0.75), vec2(1.0, 1.0));
+        self.ms_triangle(vec2(0.75, 0.75), vec2(1.0, 1.0), vec2(0.75, 1.0));
+        self.ms_triangle(vec2(0.75, 0.75), vec2(1.0, 0.5), vec2(1.0, 0.75));
+        self.ms_triangle(vec2(0.75, 0.75), vec2(0.75, 1.0), vec2(0.5, 1.0));
 
         if self.up_mask != 10 {
             self.ms_quad(
-                vec2(0.5, 0.0),
-                vec2(1.0, 0.5),
-                vec2(0.5, 1.0),
-                vec2(0.0, 0.5),
+                vec2(0.50, 0.50),
+                vec2(0.25, 0.25),
+                vec2(0.50, 0.00),
+                vec2(0.75, 0.25),
+            );
+
+            self.ms_quad(
+                vec2(0.50, 0.50),
+                vec2(0.75, 0.25),
+                vec2(1.00, 0.50),
+                vec2(0.75, 0.75),
+            );
+
+            self.ms_quad(
+                vec2(0.50, 0.50),
+                vec2(0.75, 0.75),
+                vec2(0.50, 1.00),
+                vec2(0.25, 0.75),
+            );
+
+            self.ms_quad(
+                vec2(0.50, 0.50),
+                vec2(0.25, 0.75),
+                vec2(0.00, 0.50),
+                vec2(0.25, 0.25),
             );
 
             if (self.up_mask & 8) != 0 {
-                self.ms_wall(vec2(0.5, 1.0), vec2(0.0, 0.5));
+                self.ms_wall(vec2(0.5, 1.0), vec2(0.25, 0.75));
+                self.ms_wall(vec2(0.25, 0.75), vec2(0.0, 0.5));
             }
 
             if (self.up_mask & 2) != 0 {
-                self.ms_wall(vec2(0.5, 0.0), vec2(1.0, 0.5));
+                self.ms_wall(vec2(0.5, 0.0), vec2(0.75, 0.25));
+                self.ms_wall(vec2(0.75, 0.25), vec2(1.0, 0.5));
             }
         } else {
-            self.ms_wall(vec2(0.5, 0.0), vec2(0.0, 0.5));
-            self.ms_wall(vec2(0.5, 1.0), vec2(1.0, 0.5));
+            self.ms_wall(vec2(0.5, 0.0), vec2(0.25, 0.25));
+            self.ms_wall(vec2(0.25, 0.25), vec2(0.0, 0.5));
+
+            self.ms_wall(vec2(0.5, 1.0), vec2(0.75, 0.75));
+            self.ms_wall(vec2(0.75, 0.75), vec2(1.0, 0.5));
         }
     }
 
     fn ms_case_7(&mut self) {
-        self.ms_triangle(vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0));
+        self.ms_triangle(vec2(0.0, 0.0), vec2(0.25, 0.25), vec2(0.0, 0.25));
+        self.ms_triangle(vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.25, 0.25));
+        self.ms_triangle(vec2(0.0, 0.25), vec2(0.25, 0.25), vec2(0.0, 0.5));
+        self.ms_triangle(vec2(0.25, 0.25), vec2(1.0, 0.0), vec2(0.5, 0.5));
+
+        self.ms_triangle(vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(0.75, 0.75));
+        self.ms_triangle(vec2(0.75, 0.75), vec2(1.0, 1.0), vec2(0.75, 1.0));
+        self.ms_triangle(vec2(0.75, 0.75), vec2(0.75, 1.0), vec2(0.5, 1.0));
+        self.ms_triangle(vec2(0.75, 0.75), vec2(0.5, 0.5), vec2(1.0, 0.0));
+
         self.ms_quad(
-            vec2(0.0, 0.0),
-            vec2(1.0, 1.0),
-            vec2(0.5, 1.0),
-            vec2(0.0, 0.5),
+            vec2(0.50, 0.50),
+            vec2(0.75, 0.75),
+            vec2(0.50, 1.00),
+            vec2(0.25, 0.75),
         );
 
-        self.ms_wall(vec2(0.5, 1.0), vec2(0.0, 0.5));
+        self.ms_quad(
+            vec2(0.50, 0.50),
+            vec2(0.25, 0.75),
+            vec2(0.00, 0.50),
+            vec2(0.25, 0.25),
+        );
+
+        self.ms_wall(vec2(0.5, 1.0), vec2(0.25, 0.75));
+        self.ms_wall(vec2(0.25, 0.75), vec2(0.0, 0.5));
     }
 
     fn ms_case_15(&mut self) {

@@ -26,6 +26,7 @@ fn fragment(
     }
     
     albedo = mix(albedo, albedo * 0.5, f32(is_edge));
+    albedo *= 1.0 - smoothstep(0.5, 1.0, in.color.x) * 0.5;
 
     var pixel_input: pixel::PixelInput;
     pixel_input.frag_coord = in.position;

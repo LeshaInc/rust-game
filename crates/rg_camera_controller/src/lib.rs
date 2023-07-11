@@ -72,8 +72,8 @@ impl Default for CameraController {
             camera_scale: 1.0 / 48.0,
             camera_pitch: 30f32.to_radians(),
             camera_near: 0.1,
-            camera_far: 70.0,
-            camera_distance: 25.0,
+            camera_far: 200.0,
+            camera_distance: 50.0,
         }
     }
 }
@@ -89,7 +89,9 @@ fn create_blit_target(
     q_controller: Query<Entity, (With<CameraController>, Without<BlitTarget>)>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let Ok(controller) = q_controller.get_single() else { return };
+    let Ok(controller) = q_controller.get_single() else {
+        return;
+    };
 
     let image = images.add(Image {
         texture_descriptor: TextureDescriptor {
@@ -128,7 +130,9 @@ fn create_blit_target(
 }
 
 fn update_transform(mut q_controller: Query<&mut CameraController>, time: Res<Time>) {
-    let Ok(mut controller) = q_controller.get_single_mut() else { return };
+    let Ok(mut controller) = q_controller.get_single_mut() else {
+        return;
+    };
 
     if controller
         .translation
@@ -175,11 +179,13 @@ fn update_camera(
     mut dither_offset: ResMut<GlobalDitherOffset>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let Ok(window) = q_window.get_single() else { return };
+    let Ok(window) = q_window.get_single() else {
+        return;
+    };
 
     let Ok((controller, mut camera_transform, mut camera_projection, mut camera, blit_target)) =
-        q_controller.get_single_mut() else
-    {
+        q_controller.get_single_mut()
+    else {
         return;
     };
 

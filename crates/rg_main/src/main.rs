@@ -85,8 +85,8 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,
-            minimum_distance: 10.0,
-            maximum_distance: 50.0,
+            minimum_distance: 20.0,
+            maximum_distance: 100.0,
             ..default()
         }
         .build(),

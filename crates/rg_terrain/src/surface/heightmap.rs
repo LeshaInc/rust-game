@@ -37,7 +37,7 @@ impl HeightmapGenerator {
             let pos = tile_pos_to_world(self.chunk_pos, cell);
 
             let elevation = self.world_elevation.sample(pos / 4.0);
-            *height = elevation * 100.0;
+            *height = elevation * 160.0;
 
             let mut fbm = 0.0;
             fbm += noise.get(pos / 100.0);

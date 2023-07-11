@@ -72,7 +72,7 @@ impl Default for CameraController {
             camera_scale: 1.0 / 48.0,
             camera_pitch: 30f32.to_radians(),
             camera_near: 0.1,
-            camera_far: 200.0,
+            camera_far: 100.0,
             camera_distance: 50.0,
         }
     }

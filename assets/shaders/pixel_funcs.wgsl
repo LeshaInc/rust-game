@@ -63,8 +63,10 @@ fn process_all_lights(in: PixelInput) -> vec3<f32> {
     }
 
     out_color = mix(out_color, vec3(1.0), 0.03 * smoothstep(5.0, 9.0, in.mesh_position.z - in.fog_height));
-    out_color = mix(out_color, vec3(0.00, 0.005, 0.02), 0.7 * smoothstep(1.0, 5.0, -in.mesh_position.z + in.fog_height));
-    out_color = mix(out_color, vec3(0.00, 0.005, 0.02), 1.0 * smoothstep(1.0, 20.0, -in.mesh_position.z + in.fog_height));
+    out_color = mix(out_color, vec3(0.5, 0.5, 1.0), 0.05 * smoothstep(2.0, 5.0, -in.mesh_position.z + in.fog_height));
+    out_color = mix(out_color, vec3(0.5, 0.5, 1.0), 0.5 * smoothstep(2.0, 20.0, -in.mesh_position.z + in.fog_height));
+
+    out_color = mix(out_color, vec3(0.5, 0.5, 1.0), smoothstep(0.95, 1.0, 1.0 - in.frag_coord.z));
 
     return out_color;
 }

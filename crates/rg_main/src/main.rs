@@ -47,6 +47,7 @@ fn main() {
         )
         .add_plugins(EguiPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
+        .add_plugins(RapierDebugRenderPlugin::default().disabled())
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(BillboardPlugin)
         .add_plugins(WorldgenPlugin)

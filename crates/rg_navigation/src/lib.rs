@@ -9,6 +9,7 @@ use bevy_rapier3d::rapier::prelude::{
 };
 use futures_lite::future;
 use rg_core::{CollisionLayers, Grid};
+use rg_dev_overlay::DevOverlaySettings;
 use rg_terrain::{chunk_pos_to_world, tile_pos_to_world, Chunk, ChunkPos, CHUNK_TILES};
 
 const MAX_UPDATES_PER_FRAME: usize = 32;
@@ -28,7 +29,8 @@ impl Plugin for NavigationPlugin {
             (
                 schedule_tasks,
                 update_tasks,
-                draw_nav_mesh_gizmos.run_if(rg_dev_overlay::is_enabled),
+                draw_nav_mesh_gizmos
+                    .run_if(|s: Res<DevOverlaySettings>| s.enabled && s.show_navmesh),
             ),
         );
     }

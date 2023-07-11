@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::mesh::MeshVertexBufferLayout;
 use bevy::render::render_resource::{
-    AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
+    AsBindGroup, Face, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
 };
 
 pub struct PixelMaterialPlugin;
@@ -57,6 +57,8 @@ impl Material for PixelMaterial {
         _layout: &MeshVertexBufferLayout,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
+        descriptor.primitive.cull_mode = Some(Face::Back);
+
         if key.bind_group_data.dither_enabled {
             if let Some(fragment) = descriptor.fragment.as_mut() {
                 fragment.shader_defs.push("DITHER_ENABLED".into());

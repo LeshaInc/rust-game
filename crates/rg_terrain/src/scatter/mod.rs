@@ -17,7 +17,7 @@ pub struct ScatterPlugin;
 
 impl Plugin for ScatterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, scatter);
+        app.add_systems(Update, scatter.run_if(resource_exists::<Prototype>()));
     }
 
     fn finish(&self, app: &mut App) {
@@ -38,7 +38,7 @@ fn scatter(
     for (chunk, chunk_pos) in q_chunks.iter().take(MAX_UPDATES_PER_FRAME) {
         let mut rng =
             Pcg32::seed_from_u64(seed.0 | (chunk_pos.0.x as u64) | (chunk_pos.0.y as u64) << 32);
-        let points = PoissonDiscSampling::new(&mut rng, Vec2::splat(CHUNK_SIZE), 4.0).points;
+        let points = PoissonDiscSampling::new(&mut rng, Vec2::splat(CHUNK_SIZE), 4.3).points;
 
         let mut children = Vec::with_capacity(points.len());
 
@@ -70,7 +70,8 @@ fn scatter(
 
 #[derive(Resource)]
 struct Prototype {
-    mesh: Handle<Mesh>,
+    trunk_mesh: Handle<Mesh>,
+    crown_mesh: Handle<Mesh>,
     material: Handle<PixelMaterial>,
 }
 
@@ -80,18 +81,37 @@ impl Prototype {
 
         let angle = rng.gen_range(0.0..TAU);
         let rotation = Quat::from_rotation_z(angle);
-        let scale = rng.gen_range(0.7..=1.0);
+        let scale = rng.gen_range(0.7..=1.1);
+
+        let transform = Transform {
+            translation: pos,
+            rotation,
+            scale: Vec3::splat(scale),
+        };
 
         commands
             .spawn(MaterialMeshBundle {
-                transform: Transform {
-                    translation: pos,
-                    rotation,
-                    scale: Vec3::splat(scale),
-                },
-                mesh: self.mesh.clone(),
+                transform,
+                mesh: self.trunk_mesh.clone(),
                 material: self.material.clone(),
                 ..default()
+            })
+            .with_children(|commands| {
+                commands.spawn((
+                    TransformBundle::from(Transform::from_xyz(0.0, 0.0, 1.28)),
+                    Collider::capsule_z(1.28, 0.32),
+                ));
+
+                commands.spawn((
+                    TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.5)),
+                    Collider::ball(1.0),
+                ));
+
+                commands.spawn(MaterialMeshBundle {
+                    mesh: self.crown_mesh.clone(),
+                    material: self.material.clone(),
+                    ..default()
+                });
             })
             .id()
     }
@@ -102,8 +122,13 @@ impl FromWorld for Prototype {
         let mut system_state: SystemState<(Res<AssetServer>, ResMut<Assets<PixelMaterial>>)> =
             SystemState::new(world);
         let (asset_server, mut materials) = system_state.get_mut(world);
-        let mesh = asset_server.load("tree.glb#Mesh0/Primitive0");
+        let trunk_mesh = asset_server.load("tree.glb#Mesh0/Primitive0");
+        let crown_mesh = asset_server.load("tree.glb#Mesh1/Primitive0");
         let material = materials.add(PixelMaterial { ..default() });
-        Self { mesh, material }
+        Self {
+            trunk_mesh,
+            crown_mesh,
+            material,
+        }
     }
 }

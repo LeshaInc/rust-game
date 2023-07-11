@@ -105,8 +105,7 @@ fn update_tasks(
         commands
             .entity(chunk_id)
             .remove::<NavMeshTask>()
-            .insert(res)
-            .insert(NavMeshGenerated);
+            .insert((res, NavMeshGenerated));
     }
 }
 
@@ -225,8 +224,15 @@ impl NavMeshGenerator {
     }
 }
 
-fn draw_nav_mesh_gizmos(q_chunks: Query<(&ChunkPos, &ChunkNavMesh)>, mut gizmos: Gizmos) {
-    for (&ChunkPos(chunk_pos), nav_grid) in &q_chunks {
+fn draw_nav_mesh_gizmos(
+    q_chunks: Query<(&ChunkPos, &ChunkNavMesh, &ComputedVisibility)>,
+    mut gizmos: Gizmos,
+) {
+    for (&ChunkPos(chunk_pos), nav_grid, visibility) in &q_chunks {
+        if !visibility.is_visible() {
+            continue;
+        }
+
         for (cell, height) in nav_grid.heightmap.entries() {
             if height.is_nan() {
                 continue;

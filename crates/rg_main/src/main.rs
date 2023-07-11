@@ -72,12 +72,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut behavior_trees: ResMut<Assets<BehaviorTree>>,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<PixelMaterial>>,
-) {
+fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>>) {
     // light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -139,21 +134,9 @@ fn setup(
     behavior_tree.add_child(sequence, message_1);
     behavior_tree.add_child(sequence, sleep_2);
     behavior_tree.add_child(sequence, message_2);
-
     commands.spawn(behavior_trees.add(behavior_tree));
 
     commands.spawn((SpawnCharacter, Transform::from_xyz(1024.0, 2048.0, 100.0)));
-
-    // tree
-    let mesh: Handle<Mesh> = asset_server.load("tree.glb#Mesh0/Primitive0");
-    commands.spawn(MaterialMeshBundle {
-        transform: Transform::from_xyz(1024.0, 2048.0, 12.0),
-        mesh,
-        material: materials.add(PixelMaterial { ..default() }),
-        ..default()
-    });
-
-    debug!("Spawned everything");
 }
 
 fn handle_input(

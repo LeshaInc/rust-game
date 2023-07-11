@@ -59,7 +59,7 @@ fn main() {
         .add_plugins(DevOverlayPlugin)
         .insert_resource(ClearColor(Color::rgb_linear(0.5, 0.5, 1.0)))
         .insert_resource(RapierConfiguration {
-            gravity: Vec3::Z * -9.81,
+            gravity: Vec3::Z * -18.0,
             ..default()
         })
         .insert_resource(Msaa::Off)

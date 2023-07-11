@@ -13,6 +13,7 @@ struct PixelInput {
     bands: u32,
     dither: bool,
     dither_offset: vec2<u32>,
+    fog_height: f32,
 }
 
 fn process_single_light(
@@ -61,8 +62,9 @@ fn process_all_lights(in: PixelInput) -> vec3<f32> {
         out_color += process_single_light(in, (*light).direction_to_light, (*light).color.rgb, shadow);
     }
 
-    out_color = mix(out_color, vec3(1.0), 0.03 * smoothstep(2.0, 6.0, in.mesh_position.z));
-    out_color = mix(out_color, vec3(0.0), 0.5 * smoothstep(2.0, 6.0, -in.mesh_position.z));
+    out_color = mix(out_color, vec3(1.0), 0.03 * smoothstep(5.0, 9.0, in.mesh_position.z - in.fog_height));
+    out_color = mix(out_color, vec3(0.00, 0.005, 0.02), 0.7 * smoothstep(1.0, 5.0, -in.mesh_position.z + in.fog_height));
+    out_color = mix(out_color, vec3(0.00, 0.005, 0.02), 1.0 * smoothstep(1.0, 20.0, -in.mesh_position.z + in.fog_height));
 
     return out_color;
 }

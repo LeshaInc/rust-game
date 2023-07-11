@@ -1,9 +1,18 @@
+#define DITHER_ENABLED
+
 #import bevy_pbr::mesh_vertex_output MeshVertexOutput
 #import rg::pixel_funcs as pixel
 
+struct TerrainMaterial {
+    dither_offset: vec2<u32>,
+    fog_height: f32,
+};
+
 @group(1) @binding(0)
-var texture: texture_2d<f32>;
+var<uniform> material: TerrainMaterial;
 @group(1) @binding(1)
+var texture: texture_2d<f32>;
+@group(1) @binding(2)
 var texture_sampler: sampler;
 
 @fragment
@@ -37,8 +46,10 @@ fn fragment(
     pixel_input.mesh_position = in.world_position;
     pixel_input.mesh_normal = in.world_normal;
     pixel_input.mesh_albedo = albedo;
-    pixel_input.bands = 256u;
-    pixel_input.dither = false;
+    pixel_input.bands = 8u;
+    pixel_input.dither = true;
+    pixel_input.dither_offset = material.dither_offset;
+    pixel_input.fog_height = material.fog_height;
     
     var out_color = pixel::process_all_lights(pixel_input);
     return vec4<f32>(out_color, 1.0);

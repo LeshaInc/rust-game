@@ -1,3 +1,5 @@
+#define DITHER_ENABLED
+
 #import bevy_pbr::mesh_view_bindings as bindings
 #import rg::pixel_funcs as pixel
 
@@ -10,9 +12,16 @@ struct Vertex {
     @location(4) i_random: u32,
 };
 
+struct GrassMaterial {
+    dither_offset: vec2<u32>,
+    fog_height: f32,
+};
+
 @group(1) @binding(0)
-var texture: texture_2d<f32>;
+var<uniform> material: GrassMaterial;
 @group(1) @binding(1)
+var texture: texture_2d<f32>;
+@group(1) @binding(2)
 var texture_sampler: sampler;
 
 struct Uniforms {
@@ -84,7 +93,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     pixel_input.mesh_albedo = albedo;
     pixel_input.bands = 10u;
     pixel_input.dither = true;
-    pixel_input.dither_offset = vec2(0u, 0u); //material.dither_offset;
+    pixel_input.dither_offset = material.dither_offset;
+    pixel_input.fog_height = material.fog_height;
 
     var out_color = pixel::process_all_lights(pixel_input);
     return vec4(out_color, 1.0);

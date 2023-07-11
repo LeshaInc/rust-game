@@ -2,12 +2,14 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::{AsBindGroup, ShaderRef};
+use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight};
 
 pub struct TerrainMaterialPlugin;
 
 impl Plugin for TerrainMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(MaterialPlugin::<TerrainMaterial>::default());
+        app.add_plugins(MaterialPlugin::<TerrainMaterial>::default())
+            .add_systems(Update, update_globals);
     }
 
     fn finish(&self, app: &mut App) {
@@ -19,8 +21,12 @@ impl Plugin for TerrainMaterialPlugin {
 #[uuid = "cc76913b-20ee-45b2-8a71-d89ca79ec8a1"]
 #[bind_group_data(TerrainMaterialKey)]
 pub struct TerrainMaterial {
-    #[texture(0)]
-    #[sampler(1)]
+    #[uniform(0)]
+    pub dither_offset: UVec2,
+    #[uniform(0)]
+    pub fog_height: f32,
+    #[texture(1)]
+    #[sampler(2)]
     pub texture: Handle<Image>,
 }
 
@@ -51,8 +57,21 @@ impl FromWorld for DefaultTerrainMaterial {
 
         let material = materials.add(TerrainMaterial {
             texture: asset_server.load("images/tiles/terrain.png"),
+            dither_offset: UVec2::ZERO,
+            fog_height: 0.0,
         });
 
         Self(material)
+    }
+}
+
+fn update_globals(
+    mut materials: ResMut<Assets<TerrainMaterial>>,
+    dither_offset: Res<GlobalDitherOffset>,
+    fog_height: Res<GlobalFogHeight>,
+) {
+    for (_, material) in materials.iter_mut() {
+        material.dither_offset = dither_offset.0;
+        material.fog_height = fog_height.0;
     }
 }

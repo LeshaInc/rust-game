@@ -6,7 +6,7 @@ use bevy_rapier3d::prelude::{
 };
 use rg_camera_controller::CameraController;
 use rg_core::CollisionLayers;
-use rg_pixel_material::PixelMaterial;
+use rg_pixel_material::{GlobalFogHeight, PixelMaterial};
 use rg_terrain::ChunkSpawnCenter;
 
 use crate::MovementInput;
@@ -24,7 +24,7 @@ impl Plugin for CharacterPlugin {
             ),
         );
 
-        app.add_systems(Update, update_camera);
+        app.add_systems(Update, (update_camera, update_fog_height));
     }
 }
 
@@ -147,4 +147,15 @@ fn update_camera(
     };
 
     camera.target_translation = character_transform.translation;
+}
+
+fn update_fog_height(
+    q_character: Query<&Transform, With<ControlledCharacter>>,
+    mut fog_height: ResMut<GlobalFogHeight>,
+) {
+    let Ok(character_transform) = q_character.get_single() else {
+        return;
+    };
+
+    fog_height.0 = character_transform.translation.z;
 }

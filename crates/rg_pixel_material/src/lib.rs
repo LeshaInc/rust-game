@@ -11,7 +11,8 @@ pub struct PixelMaterialPlugin;
 impl Plugin for PixelMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(MaterialPlugin::<PixelMaterial>::default())
-            .insert_resource(GlobalDitherOffset::default())
+            .init_resource::<GlobalDitherOffset>()
+            .init_resource::<GlobalFogHeight>()
             .init_resource::<PixelMaterialShaders>()
             .add_systems(PostUpdate, update_globals);
     }
@@ -29,6 +30,8 @@ pub struct PixelMaterial {
     // TODO: shader globals
     #[uniform(0)]
     pub dither_offset: UVec2,
+    #[uniform(0)]
+    pub fog_height: f32,
 }
 
 impl Default for PixelMaterial {
@@ -38,6 +41,7 @@ impl Default for PixelMaterial {
             bands: 4,
             dither_enabled: true,
             dither_offset: UVec2::ZERO,
+            fog_height: 0.0,
         }
     }
 }
@@ -79,12 +83,17 @@ impl From<&PixelMaterial> for PixelMaterialKey {
 #[derive(Debug, Default, Resource)]
 pub struct GlobalDitherOffset(pub UVec2);
 
+#[derive(Debug, Default, Resource)]
+pub struct GlobalFogHeight(pub f32);
+
 fn update_globals(
     mut materials: ResMut<Assets<PixelMaterial>>,
     dither_offset: Res<GlobalDitherOffset>,
+    fog_height: Res<GlobalFogHeight>,
 ) {
     for (_, material) in materials.iter_mut() {
         material.dither_offset = dither_offset.0;
+        material.fog_height = fog_height.0;
     }
 }
 

@@ -4,12 +4,14 @@ use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::AsBindGroup;
 use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin};
+use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight};
 
 pub struct GrassMaterialPlugin;
 
 impl Plugin for GrassMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(BillboardMaterialPlugin::<GrassMaterial>::default());
+        app.add_plugins(BillboardMaterialPlugin::<GrassMaterial>::default())
+            .add_systems(Update, update_globals);
     }
 
     fn finish(&self, app: &mut App) {
@@ -20,8 +22,12 @@ impl Plugin for GrassMaterialPlugin {
 #[derive(Debug, Default, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
 #[uuid = "d36218ae-d090-4ef1-a660-a4579db53935"]
 pub struct GrassMaterial {
-    #[texture(0)]
-    #[sampler(1)]
+    #[uniform(0)]
+    pub dither_offset: UVec2,
+    #[uniform(0)]
+    pub fog_height: f32,
+    #[texture(1)]
+    #[sampler(2)]
     pub texture: Handle<Image>,
 }
 
@@ -47,8 +53,21 @@ impl FromWorld for DefaultGrassMaterial {
 
         let material = materials.add(GrassMaterial {
             texture: asset_server.load("images/grass.png"),
+            dither_offset: UVec2::ZERO,
+            fog_height: 0.0,
         });
 
         Self(material)
+    }
+}
+
+fn update_globals(
+    mut materials: ResMut<Assets<GrassMaterial>>,
+    dither_offset: Res<GlobalDitherOffset>,
+    fog_height: Res<GlobalFogHeight>,
+) {
+    for (_, material) in materials.iter_mut() {
+        material.dither_offset = dither_offset.0;
+        material.fog_height = fog_height.0;
     }
 }

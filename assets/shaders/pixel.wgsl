@@ -5,6 +5,7 @@ struct PixelMaterial {
     color: vec4<f32>,
     bands: u32,
     dither_offset: vec2<u32>,
+    fog_height: f32,
 };
 
 @group(1) @binding(0)
@@ -35,6 +36,7 @@ fn fragment(
     pixel_input.bands = material.bands;
     pixel_input.dither = !is_edge;
     pixel_input.dither_offset = material.dither_offset;
+    pixel_input.fog_height = material.fog_height;
     
     var out_color = pixel::process_all_lights(pixel_input);
     return vec4<f32>(out_color, 1.0);

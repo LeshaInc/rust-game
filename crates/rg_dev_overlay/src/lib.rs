@@ -16,7 +16,7 @@ impl Plugin for DevOverlayPlugin {
         .insert_resource(GizmoConfig {
             enabled: false,
             aabb: AabbGizmoConfig {
-                draw_all: true,
+                draw_all: false,
                 ..default()
             },
             ..default()

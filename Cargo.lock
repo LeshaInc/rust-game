@@ -3374,6 +3374,9 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bytemuck",
+ "rand",
+ "rand_pcg",
+ "rg_core",
 ]
 
 [[package]]

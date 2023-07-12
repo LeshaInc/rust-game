@@ -19,6 +19,7 @@ use bevy::render::Extract;
 #[repr(C)]
 pub struct BillboardInstance {
     pub pos: Vec3,
+    pub normal: Vec3,
     pub size: Vec2,
     pub color: Vec3,
     pub random: u32,
@@ -29,6 +30,7 @@ impl BillboardInstance {
         let mut layout = VertexBufferLayout::from_vertex_formats(
             VertexStepMode::Instance,
             [
+                VertexFormat::Float32x3,
                 VertexFormat::Float32x3,
                 VertexFormat::Float32x2,
                 VertexFormat::Float32x3,

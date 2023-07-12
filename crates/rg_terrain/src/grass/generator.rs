@@ -66,6 +66,7 @@ pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh, density_map: Grid<f32>)
 
             instances.push(BillboardInstance {
                 pos,
+                normal: Vec3::Z,
                 size: Vec2::new(8.0 / 48.0, 16.0 / 48.0),
                 color: Vec3::new(1.0, 1.0, 1.0),
                 random: rng.gen_range(0..u32::MAX),

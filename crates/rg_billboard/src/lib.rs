@@ -3,25 +3,28 @@
 
 mod instance;
 mod material;
+mod scatter;
 
 use bevy::prelude::*;
 use bevy::render::extract_component::UniformComponentPlugin;
 use bevy::render::render_asset::RenderAssetPlugin;
 use bevy::render::view::VisibilitySystems;
 use bevy::render::RenderApp;
-use material::DummyMesh;
 
 use crate::instance::{
     compute_multi_billboard_bounds, extract_multi_billboards, MultiBillboardUniform,
 };
 pub use crate::instance::{BillboardInstance, MultiBillboard};
+use crate::material::DummyMesh;
 pub use crate::material::{BillboardMaterial, BillboardMaterialKey, BillboardMaterialPlugin};
+pub use crate::scatter::{ScatterMultiBillboard, ScatterPlugin};
 
 pub struct BillboardPlugin;
 
 impl Plugin for BillboardPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<MultiBillboard>()
+        app.add_plugins(ScatterPlugin)
+            .add_asset::<MultiBillboard>()
             .init_resource::<DummyMesh>()
             .add_plugins(RenderAssetPlugin::<MultiBillboard>::default())
             .add_plugins(UniformComponentPlugin::<MultiBillboardUniform>::default())

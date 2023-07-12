@@ -60,41 +60,40 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         0.0,
     );
 
+    let world_normal = normalize((uniforms.transform * vec4(vertex.i_normal, 0.0)).xyz);
+
     var out: VertexOutput;
     out.position = bindings::view.view_proj * vec4(world_pos, 1.0);
     out.uv = vertex.uv;
     out.world_position = vec4(world_origin_pos + vec3(0.0, 0.0, 0.01), 1.0);
-    out.world_normal = vertex.i_normal;
+    out.world_normal = world_normal;
     out.color = vertex.i_color;
     out.random = vertex.i_random;
     return out;
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    var uv = in.uv * vec2(0.125, 0.5);
-    if in.random % 100u > 90u {
-        uv.y += 0.5;
-    }
-    uv.x += f32(in.random % 4u) / 4.0;
-    
-    let color = vec4(in.color, 1.0) * textureSample(texture, texture_sampler, uv);
+fn fragment(in: VertexOutput, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
+    let color = textureSample(texture, texture_sampler, in.uv);
     if color.a < 0.5 {
         discard;
     }
-
-    let albedo = color.rgb;
-
+    
     var pixel_input: pixel::PixelInput;
     pixel_input.frag_coord = in.position;
     pixel_input.mesh_position = in.world_position;
-    pixel_input.mesh_normal = in.world_normal;
-    pixel_input.mesh_albedo = albedo;
-    pixel_input.bands = 10u;
+    if front_facing {
+        // TODO: this is backwards
+        pixel_input.mesh_normal = -in.world_normal;
+    } else {
+        pixel_input.mesh_normal = in.world_normal;
+    }
+    pixel_input.mesh_albedo = color.rgb;
+    pixel_input.bands = 4u;
     pixel_input.dither = true;
     pixel_input.dither_offset = material.dither_offset;
     pixel_input.fog_height = material.fog_height;
 
     var out_color = pixel::process_all_lights(pixel_input);
-    return vec4(out_color, 1.0);
+    return vec4<f32>(out_color, 1.0);
 }

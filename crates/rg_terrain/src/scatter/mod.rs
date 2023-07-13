@@ -15,7 +15,7 @@ use rg_worldgen::WorldSeed;
 
 use crate::{chunk_pos_to_world, Chunk, ChunkPos, CHUNK_SIZE};
 
-const MAX_UPDATES_PER_FRAME: usize = 4;
+const MAX_UPDATES_PER_FRAME: usize = 1;
 
 pub struct ScatterPlugin;
 
@@ -48,8 +48,10 @@ fn scatter(
 ) {
     for (chunk, chunk_pos) in q_chunks.iter().take(MAX_UPDATES_PER_FRAME) {
         let mut rng =
-            Pcg32::seed_from_u64(seed.0 | (chunk_pos.0.x as u64) | (chunk_pos.0.y as u64) << 32);
-        let points = PoissonDiscSampling::new(&mut rng, Vec2::splat(CHUNK_SIZE), 4.3).points;
+            Pcg32::seed_from_u64(seed.0 ^ (chunk_pos.0.x as u64) ^ (chunk_pos.0.y as u64) << 32);
+
+        let size = Vec2::splat(CHUNK_SIZE);
+        let points = PoissonDiscSampling::new_tileable(seed.0, chunk_pos.0, size, 4.0).points;
 
         let mut children = Vec::with_capacity(points.len());
 
@@ -63,7 +65,6 @@ fn scatter(
                 false,
                 QueryFilter::new(),
             ) else {
-                println!("failure");
                 continue;
             };
 
@@ -89,7 +90,7 @@ struct Prototype {
 
 impl Prototype {
     fn spawn<R: Rng>(&self, rng: &mut R, commands: &mut Commands, mut pos: Vec3) -> Entity {
-        pos.y -= rng.gen_range(0.05..=0.25);
+        pos.z -= rng.gen_range(0.00..=0.2);
 
         let angle = rng.gen_range(0.0..TAU);
         let rotation = Quat::from_rotation_z(angle);

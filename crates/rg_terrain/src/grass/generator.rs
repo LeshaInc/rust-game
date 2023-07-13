@@ -30,7 +30,8 @@ pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh, density_map: Grid<f32>)
     let _span = info_span!("chunk grass generator").entered();
 
     let mut rng = Pcg32::seed_from_u64(seed ^ (chunk_pos.x as u64) ^ (chunk_pos.y as u64) << 32);
-    let grid = PoissonDiscSampling::new(&mut rng, Vec2::splat(CHUNK_SIZE), MIN_RADIUS).grid;
+    let sampling = PoissonDiscSampling::new(&mut rng, Vec2::splat(CHUNK_SIZE), MIN_RADIUS);
+    let grid = sampling.grid;
 
     let mut instances = Vec::with_capacity(32 * 1024);
 
@@ -39,9 +40,9 @@ pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh, density_map: Grid<f32>)
         let pos_b = Vec3::from(positions[indices[1] as usize]);
         let pos_c = Vec3::from(positions[indices[2] as usize]);
 
-        let cell_a = pos_a.xy() / CHUNK_SIZE * grid.size().as_vec2();
-        let cell_b = pos_b.xy() / CHUNK_SIZE * grid.size().as_vec2();
-        let cell_c = pos_c.xy() / CHUNK_SIZE * grid.size().as_vec2();
+        let cell_a = pos_a.xy() / sampling.cell_size;
+        let cell_b = pos_b.xy() / sampling.cell_size;
+        let cell_c = pos_c.xy() / sampling.cell_size;
 
         let min_cell = cell_a.min(cell_b).min(cell_c).floor().as_ivec2();
         let max_cell = cell_a.max(cell_b).max(cell_c).ceil().as_ivec2();

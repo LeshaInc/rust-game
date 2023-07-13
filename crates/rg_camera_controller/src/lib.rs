@@ -246,7 +246,7 @@ fn update_camera(
     sprite_transform.translation = Vec3::new(
         -window.width() / 2.0 + ((offset.x * scale.x - 0.5) * controller.pixel_scale).round(),
         window.height() / 2.0
-            + ((offset.z * scale.z + offset.y * scale.y - 0.5) * controller.pixel_scale).round(),
+            + ((offset.z * scale.z + offset.y * scale.y + 0.5) * controller.pixel_scale).round(),
         0.0,
     );
 }

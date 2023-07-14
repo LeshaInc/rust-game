@@ -30,7 +30,7 @@ pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh, density_map: Grid<f32>)
     let _span = info_span!("chunk grass generator").entered();
 
     let mut rng = Pcg32::seed_from_u64(seed ^ (chunk_pos.x as u64) ^ (chunk_pos.y as u64) << 32);
-    let sampling = PoissonDiscSampling::new(&mut rng, Vec2::splat(CHUNK_SIZE), MIN_RADIUS);
+    let sampling = PoissonDiscSampling::new(&mut rng, Vec2::splat(CHUNK_SIZE), MIN_RADIUS, 8);
     let grid = sampling.grid;
 
     let mut instances = Vec::with_capacity(32 * 1024);

@@ -51,7 +51,7 @@ fn scatter(
             Pcg32::seed_from_u64(seed.0 ^ (chunk_pos.0.x as u64) ^ (chunk_pos.0.y as u64) << 32);
 
         let size = Vec2::splat(CHUNK_SIZE);
-        let points = PoissonDiscSampling::new_tileable(seed.0, chunk_pos.0, size, 4.0).points;
+        let points = PoissonDiscSampling::new_tileable(seed.0, chunk_pos.0, size, 4.0, 64).points;
 
         let mut children = Vec::with_capacity(points.len());
 

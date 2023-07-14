@@ -6,8 +6,6 @@ use rand_pcg::Pcg32;
 
 use crate::Grid;
 
-const MAX_TRIES: u32 = 64;
-
 #[derive(Debug)]
 pub struct PoissonDiscSampling {
     pub cell_size: f32,
@@ -16,8 +14,13 @@ pub struct PoissonDiscSampling {
 }
 
 impl PoissonDiscSampling {
-    pub fn new<R: Rng>(rng: &mut R, size: Vec2, min_dist: f32) -> PoissonDiscSampling {
-        Self::new_tileable(rng.gen(), IVec2::ZERO, size, min_dist)
+    pub fn new<R: Rng>(
+        rng: &mut R,
+        size: Vec2,
+        min_dist: f32,
+        max_tries: u32,
+    ) -> PoissonDiscSampling {
+        Self::new_tileable(rng.gen(), IVec2::ZERO, size, min_dist, max_tries)
     }
 
     pub fn new_tileable(
@@ -25,6 +28,7 @@ impl PoissonDiscSampling {
         chunk_pos: IVec2,
         size: Vec2,
         min_dist: f32,
+        max_tries: u32,
     ) -> PoissonDiscSampling {
         let _span = info_span!("poisson disc sampling").entered();
 
@@ -63,11 +67,11 @@ impl PoissonDiscSampling {
 
         points.retain(|pt| pt.x >= 0.0 && pt.y >= 0.0 && pt.x < size.x && pt.y < size.y);
 
-        'outer: for i in 0..MAX_TRIES {
+        'outer: for i in 0..max_tries {
             let center = Vec2::new(rng.gen_range(0.3..0.7), rng.gen_range(0.3..0.7)) * size;
             let center_cell = (center / cell_size).as_ivec2();
 
-            if i < MAX_TRIES - 1 {
+            if i < max_tries - 1 {
                 for sx in -1..=1 {
                     for sy in -1..=1 {
                         let cell = center_cell + IVec2::new(sx, sy);
@@ -89,7 +93,7 @@ impl PoissonDiscSampling {
             let active_idx = active_set.len() - 1;
             let active = active_set[active_idx];
 
-            for _ in 0..MAX_TRIES {
+            for _ in 0..max_tries {
                 let neighbor = active + sample_disc(&mut rng, min_dist);
 
                 if neighbor.x < 0.0

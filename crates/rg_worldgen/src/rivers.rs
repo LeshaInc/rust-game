@@ -66,7 +66,7 @@ fn generate_points<R: Rng>(
     let mut points = Points::default();
 
     points.positions =
-        PoissonDiscSampling::new(rng, elevation.size().as_vec2(), settings.point_radius).points;
+        PoissonDiscSampling::new(rng, elevation.size().as_vec2(), settings.point_radius, 8).points;
     points.count = points.positions.len();
 
     let iter = points.positions.iter();

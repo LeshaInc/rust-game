@@ -39,11 +39,15 @@ pub fn compute_elevation(
 }
 
 fn compute_edt(island: &Grid<bool>) -> Grid<f32> {
+    let _scope = info_span!("compute_edt").entered();
+
     let bitmap = island.to_f32().resize(island.size() / 4).to_bool(0.5);
     bitmap.compute_edt().resize(island.size())
 }
 
 fn compute_inv_edt(island: &Grid<bool>) -> Grid<f32> {
+    let _scope = info_span!("compute_inv_edt").entered();
+
     let island_f32 = island.to_f32();
 
     let mut grid = Grid::new(island.size() / 4 + 128, 1.0).with_origin(-IVec2::splat(64));
@@ -67,6 +71,8 @@ fn shape(
     inv_edt: &Grid<f32>,
     settings: &ElevationSettings,
 ) -> Grid<f32> {
+    let _scope = info_span!("shape").entered();
+
     let mut elevation = Grid::new(island.size(), 0.0);
 
     for cell in elevation.cells() {

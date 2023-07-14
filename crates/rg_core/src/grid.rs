@@ -3,8 +3,9 @@ use std::ops::{AddAssign, DivAssign, Index, IndexMut, MulAssign, SubAssign};
 use std::sync::Arc;
 
 use bevy::core::cast_slice;
-use bevy::prelude::{IVec2, UVec2, Vec2};
+use bevy::prelude::{info_span, IVec2, UVec2, Vec2};
 use rand::Rng;
+use rayon::prelude::*;
 
 use crate::SimplexNoise2;
 
@@ -82,6 +83,10 @@ impl<T> Grid<T> {
         &self.data
     }
 
+    pub fn data_mut(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+
     pub fn index(&self, mut cell: IVec2) -> usize {
         cell -= self.origin;
         (cell.y as usize) * (self.size.x as usize) + (cell.x as usize)
@@ -100,12 +105,60 @@ impl<T> Grid<T> {
             .flat_map(move |y| (0..size.x as i32).map(move |x| origin + IVec2::new(x, y)))
     }
 
+    pub fn par_cells(&self) -> impl IndexedParallelIterator<Item = IVec2> {
+        let size = self.size;
+        let origin = self.origin;
+        (0..(size.x as usize) * (size.y as usize))
+            .into_par_iter()
+            .map(move |idx| {
+                let x = (idx % (size.x as usize)) as i32;
+                let y = (idx / (size.x as usize)) as i32;
+                origin + IVec2::new(x, y)
+            })
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &T> {
+        self.data.iter()
+    }
+
+    pub fn par_values(&self) -> impl IndexedParallelIterator<Item = &T>
+    where
+        T: Sync,
+    {
+        self.data.par_iter()
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.data.iter_mut()
+    }
+
+    pub fn par_values_mut(&mut self) -> impl IndexedParallelIterator<Item = &mut T>
+    where
+        T: Send,
+    {
+        self.data.par_iter_mut()
+    }
+
     pub fn entries(&self) -> impl Iterator<Item = (IVec2, &T)> {
-        self.cells().zip(self.data.iter())
+        self.cells().zip(self.values())
+    }
+
+    pub fn par_entries(&self) -> impl IndexedParallelIterator<Item = (IVec2, &T)>
+    where
+        T: Sync + 'static,
+    {
+        self.par_cells().zip(self.par_values())
     }
 
     pub fn entries_mut(&mut self) -> impl Iterator<Item = (IVec2, &mut T)> {
-        self.cells().zip(self.data.iter_mut())
+        self.cells().zip(self.values_mut())
+    }
+
+    pub fn par_entries_mut(&mut self) -> impl IndexedParallelIterator<Item = (IVec2, &mut T)>
+    where
+        T: Send + 'static,
+    {
+        self.par_cells().zip(self.par_values_mut())
     }
 
     fn neighborhood<const N: usize>(
@@ -245,6 +298,8 @@ impl Grid<f32> {
         mut amplitude: f32,
         octaves: usize,
     ) {
+        let _scope = info_span!("add_fbm_noise").entered();
+
         let mut total_amplitude = 0.0;
 
         for _ in 0..octaves {
@@ -283,6 +338,8 @@ impl Grid<f32> {
     }
 
     pub fn resize(&self, new_size: UVec2) -> Grid<f32> {
+        let _scope = info_span!("resize").entered();
+
         let mut res = Grid::new(new_size, 0.0);
         let scale = self.size.as_vec2() / new_size.as_vec2();
 
@@ -295,34 +352,26 @@ impl Grid<f32> {
     }
 
     pub fn blur(&mut self, kernel_size: i32) {
-        let size = self.size().as_ivec2();
-        let mut res = self.clone();
+        let _scope = info_span!("blur").entered();
 
-        for y in 0..size.y {
-            for x in kernel_size..size.x - kernel_size {
-                let cell = self.origin + IVec2::new(x, y);
-
-                let mut sum = 0.0;
-                for sx in -kernel_size..=kernel_size {
-                    sum += self[cell + IVec2::new(sx, 0)];
-                }
-
-                res[cell] = sum / (2 * kernel_size + 1) as f32;
+        let mut temp = self.clone();
+        temp.par_entries_mut().for_each(|(cell, value)| {
+            let mut sum = 0.0;
+            for sx in -kernel_size..=kernel_size {
+                sum += self.get(cell + IVec2::new(sx, 0)).copied().unwrap_or(0.0);
             }
-        }
 
-        for x in 0..size.x {
-            for y in kernel_size..size.y - kernel_size {
-                let cell = self.origin + IVec2::new(x, y);
+            *value = sum / (2 * kernel_size + 1) as f32;
+        });
 
-                let mut sum = 0.0;
-                for sy in -kernel_size..=kernel_size {
-                    sum += res[cell + IVec2::new(0, sy)];
-                }
-
-                self[cell] = sum / (2 * kernel_size + 1) as f32;
+        self.par_entries_mut().for_each(|(cell, value)| {
+            let mut sum = 0.0;
+            for sy in -kernel_size..=kernel_size {
+                sum += temp.get(cell + IVec2::new(0, sy)).copied().unwrap_or(0.0);
             }
-        }
+
+            *value = sum / (2 * kernel_size + 1) as f32;
+        });
     }
 
     pub fn min_value(&self) -> f32 {
@@ -376,6 +425,8 @@ impl Grid<bool> {
     }
 
     pub fn compute_edt(&self) -> Grid<f32> {
+        let _scope = info_span!("compute_edt").entered();
+
         let data = edt::edt(
             self.data(),
             (self.size().x as usize, self.size().y as usize),

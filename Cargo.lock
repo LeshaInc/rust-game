@@ -3372,6 +3372,7 @@ dependencies = [
  "parking_lot",
  "rand",
  "rand_pcg",
+ "rayon",
  "ron",
  "serde",
 ]
@@ -3450,6 +3451,7 @@ dependencies = [
  "image",
  "rand",
  "rand_pcg",
+ "rayon",
  "rg_core",
  "serde",
 ]

@@ -65,6 +65,8 @@ fn generate_points<R: Rng>(
     elevation: &Grid<f32>,
     settings: &RiversSettings,
 ) -> Points {
+    let _scope = info_span!("generate_points").entered();
+
     let mut points = Points::default();
 
     points.positions =
@@ -79,21 +81,31 @@ fn generate_points<R: Rng>(
         })
         .collect::<Vec<_>>();
 
-    let triangulation = delaunator::triangulate(&points_f64);
+    let triangulation = {
+        let _scope = info_span!("triangulation").entered();
+        delaunator::triangulate(&points_f64)
+    };
 
     let it = points.positions.iter();
     points.heights = it.map(|pt| elevation[pt.as_ivec2()]).collect::<Vec<_>>();
 
     points.neighbors = vec![vec![]; points.count];
 
-    for start in 0..triangulation.halfedges.len() {
-        let point = triangulation.triangles[start];
-        let neighbors = &mut points.neighbors[point];
+    let mut point_to_halfedge = vec![0; points.count];
 
+    for edge in 0..triangulation.triangles.len() {
+        let endpoint = triangulation.triangles[delaunator::next_halfedge(edge)];
+        if triangulation.halfedges[edge] != delaunator::EMPTY {
+            point_to_halfedge[endpoint] = edge;
+        }
+    }
+
+    for (point, neighbors) in points.neighbors.iter_mut().enumerate() {
+        let start = point_to_halfedge[point];
         let mut incoming = start;
         loop {
+            neighbors.push(triangulation.triangles[incoming]);
             let outgoing = delaunator::next_halfedge(incoming);
-            neighbors.push(triangulation.triangles[outgoing]);
             incoming = triangulation.halfedges[outgoing];
             if incoming == delaunator::EMPTY || incoming == start {
                 break;
@@ -132,6 +144,8 @@ impl Ord for QueueItem {
 }
 
 fn initialize_queue(queue: &mut BinaryHeap<QueueItem>, points: &Points) {
+    let _scope = info_span!("initialize_queue").entered();
+
     for start_i in 0..points.count {
         if points.heights[start_i] > 0.0 {
             continue;
@@ -161,6 +175,8 @@ fn generate_downstream_map(
     points: &Points,
     settings: &RiversSettings,
 ) -> Vec<Option<usize>> {
+    let _scope = info_span!("generate_downstream_map").entered();
+
     let mut downstream = vec![None; points.count];
 
     while let Some(edge) = queue.pop() {
@@ -198,6 +214,8 @@ fn generate_downstream_map(
 }
 
 fn generate_upstream_map(points: &Points, downstream: &[Option<usize>]) -> Vec<Vec<usize>> {
+    let _scope = info_span!("generate_upstream_map").entered();
+
     let mut upstream = vec![vec![]; points.count];
 
     for (i, &j) in downstream.iter().enumerate() {
@@ -210,6 +228,8 @@ fn generate_upstream_map(points: &Points, downstream: &[Option<usize>]) -> Vec<V
 }
 
 fn compute_volume(points: &Points, upstream: &[Vec<usize>], settings: &RiversSettings) -> Vec<f32> {
+    let _scope = info_span!("compute_volume").entered();
+
     let mut volume = vec![f32::NAN; points.count];
 
     for i in 0..points.count {
@@ -245,6 +265,8 @@ fn generate_volume_map(
     downstream: &[Option<usize>],
     volume: &[f32],
 ) -> Grid<f32> {
+    let _scope = info_span!("generate_volume_map").entered();
+
     let mut volume_map = Grid::new(size, 0.0);
 
     for start_i in 0..points.count {
@@ -347,6 +369,8 @@ fn aa_line(start: Vec2, end: Vec2, mut callback: impl FnMut(IVec2, f32)) {
 }
 
 fn apply_erosion(volume_map: &Grid<f32>, elevation: &mut Grid<f32>, settings: &RiversSettings) {
+    let _scope = info_span!("apply_erosion").entered();
+
     let mut erosion_map = volume_map.clone();
 
     erosion_map.blur(2);

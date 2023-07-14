@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use rand::Rng;
+use rayon::prelude::*;
 use rg_core::Grid;
 use serde::Deserialize;
 
@@ -62,7 +63,7 @@ pub fn shape_island<R: Rng>(
         keep_one_island(&mut grid);
         progress.set(WorldgenStage::Island, 100);
 
-        if !is_isalnd_area_good(&grid, settings) {
+        if !is_island_area_good(&grid, settings) {
             continue;
         }
 
@@ -71,6 +72,8 @@ pub fn shape_island<R: Rng>(
 }
 
 fn voronoi_reshape<R: Rng>(rng: &mut R, grid: &mut Grid<f32>, settings: &IslandSettings) {
+    let _scope = info_span!("voronoi_reshape").entered();
+
     let size = grid.size().as_vec2();
     let margin = f32::min(size.x, size.y) * settings.reshape_margin;
 
@@ -96,6 +99,8 @@ fn voronoi_reshape<R: Rng>(rng: &mut R, grid: &mut Grid<f32>, settings: &IslandS
 }
 
 fn keep_one_island(grid: &mut Grid<bool>) {
+    let _scope = info_span!("keep_one_island").entered();
+
     loop {
         let (freq, labels) = connected_components(&grid);
         if freq.len() <= 2 {
@@ -115,6 +120,8 @@ fn keep_one_island(grid: &mut Grid<bool>) {
 }
 
 fn connected_components(grid: &Grid<bool>) -> (Vec<(u32, bool, u32)>, Grid<u32>) {
+    let _scope = info_span!("connected_components").entered();
+
     let mut frequencies = Vec::with_capacity(32);
     let mut labels = Grid::new(grid.size(), u32::MAX);
     let mut num_labels = 0;
@@ -155,7 +162,9 @@ fn connected_components(grid: &Grid<bool>) -> (Vec<(u32, bool, u32)>, Grid<u32>)
     (frequencies, labels)
 }
 
-fn is_isalnd_area_good(grid: &Grid<bool>, settings: &IslandSettings) -> bool {
+fn is_island_area_good(grid: &Grid<bool>, settings: &IslandSettings) -> bool {
+    let _scope = info_span!("is_island_area_good").entered();
+
     let size = grid.size().as_vec2();
     let area = grid.data().iter().filter(|v| **v).count();
     let percentage = area as f32 / (size.x * size.y);
@@ -164,6 +173,8 @@ fn is_isalnd_area_good(grid: &Grid<bool>, settings: &IslandSettings) -> bool {
 }
 
 fn random_zoom<R: Rng>(rng: &mut R, grid: &mut Grid<bool>) {
+    let _scope = info_span!("random_zoom").entered();
+
     let mut res = Grid::new(grid.size() * 2, false);
 
     for cell in grid.cells() {
@@ -186,36 +197,46 @@ fn random_zoom<R: Rng>(rng: &mut R, grid: &mut Grid<bool>) {
 }
 
 fn erode(grid: &mut Grid<bool>) {
-    let mut res = grid.clone();
+    let _scope = info_span!("erode").entered();
+    *grid = Grid::from_data(
+        grid.size(),
+        grid.par_cells()
+            .map(|cell| {
+                if !grid[cell] {
+                    return false;
+                }
 
-    for cell in grid.cells() {
-        let mut val = grid[cell];
-        for (_, neighbor) in grid.neighborhood_4(cell) {
-            val &= grid[neighbor];
-        }
-        res[cell] = val;
-    }
+                for (_, neighbor) in grid.neighborhood_4(cell) {
+                    if !grid[neighbor] {
+                        return false;
+                    }
+                }
 
-    *grid = res;
+                true
+            })
+            .collect::<Vec<bool>>(),
+    );
 }
 
 fn smooth(grid: &mut Grid<bool>) {
-    let mut res = grid.clone();
+    let _scope = info_span!("smooth").entered();
+    *grid = Grid::from_data(
+        grid.size(),
+        grid.par_cells()
+            .map(|cell| {
+                let mut num_true = 0;
+                let mut num_false = 0;
 
-    for cell in grid.cells() {
-        let mut num_true = 0;
-        let mut num_false = 0;
+                for (_, neighbor) in grid.neighborhood_8(cell) {
+                    if grid[neighbor] {
+                        num_true += 1;
+                    } else {
+                        num_false += 1;
+                    }
+                }
 
-        for (_, neighbor) in grid.neighborhood_8(cell) {
-            if grid[neighbor] {
-                num_true += 1;
-            } else {
-                num_false += 1;
-            }
-        }
-
-        res[cell] = num_true > num_false;
-    }
-
-    *grid = res;
+                num_true > num_false
+            })
+            .collect::<Vec<bool>>(),
+    );
 }

@@ -13,4 +13,5 @@ futures-lite = { workspace = true }
 image = { workspace = true }
 rand = { workspace = true }
 rand_pcg = { workspace = true }
+rayon = { workspace = true }
 serde = { workspace = true }

@@ -17,15 +17,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: olegtarasov/get-tag@v2.1.2
-        id: get_version
       - uses: actions/checkout@v3
         with:
           lfs: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-release-linux-${{ hashFiles('**/Cargo.toml') }}
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-gnu
-      - name: install dependencies
+
+      - name: Install dependencies
         run: |
           sudo apt-get update; sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
@@ -54,11 +64,20 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: olegtarasov/get-tag@v2.1.2
-        id: get_version
       - uses: actions/checkout@v3
         with:
           lfs: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-release-windows-${{ hashFiles('**/Cargo.toml') }}
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc

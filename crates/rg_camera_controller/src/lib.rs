@@ -43,6 +43,8 @@ pub struct CameraController {
     pub rotation_snap: f32,
     pub zoom_snap: f32,
 
+    pub translation_max_diff_squared: f32,
+
     /// Screen pixels per camera pixels
     pub pixel_scale: f32,
     /// Camera meters per pixel
@@ -68,6 +70,7 @@ impl Default for CameraController {
             translation_snap: 0.0001,
             rotation_snap: 0.003,
             zoom_snap: 0.001,
+            translation_max_diff_squared: 2500.0,
             pixel_scale: 2.0,
             camera_scale: 1.0 / 48.0,
             camera_pitch: 30f32.to_radians(),
@@ -134,11 +137,10 @@ fn update_transform(mut q_controller: Query<&mut CameraController>, time: Res<Ti
         return;
     };
 
-    if controller
+    let dist = controller
         .translation
-        .distance_squared(controller.target_translation)
-        < controller.translation_snap
-    {
+        .distance_squared(controller.target_translation);
+    if dist < controller.translation_snap || dist > controller.translation_max_diff_squared {
         controller.translation = controller.target_translation;
     } else {
         let alpha = 1.0 - controller.translation_smoothing.powf(time.delta_seconds());

@@ -3,6 +3,7 @@ use std::time::Duration;
 use bevy::asset::ChangeWatcher;
 use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
 use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
+use bevy::math::Vec3Swizzles;
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
@@ -16,8 +17,8 @@ use rg_core::CollisionLayers;
 use rg_dev_overlay::DevOverlayPlugin;
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
-use rg_terrain::TerrainPlugin;
-use rg_worldgen::{WorldSeed, WorldgenPlugin};
+use rg_terrain::{ChunkSpawnCenter, TerrainPlugin};
+use rg_worldgen::{WorldSeed, WorldgenPlugin, WorldgenState};
 
 fn main() {
     App::new()
@@ -69,7 +70,15 @@ fn main() {
             brightness: 0.5,
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, handle_input)
+        .add_systems(
+            Update,
+            (
+                handle_input,
+                spawn_character
+                    .run_if(in_state(WorldgenState::Done))
+                    .run_if(not(resource_exists::<CharacterSpawned>())),
+            ),
+        )
         .run();
 }
 
@@ -108,6 +117,10 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
             },
             ..default()
         },
+        UiCameraConfig {
+            show_ui: false,
+            ..default()
+        },
         CameraController::default(),
         DepthPrepass,
         NormalPrepass,
@@ -136,8 +149,21 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
     behavior_tree.add_child(sequence, sleep_2);
     behavior_tree.add_child(sequence, message_2);
     commands.spawn(behavior_trees.add(behavior_tree));
+}
 
-    commands.spawn((SpawnCharacter, Transform::from_xyz(1024.0, 2048.0, 100.0)));
+#[derive(Resource)]
+struct CharacterSpawned;
+
+fn spawn_character(physics_context: Res<RapierContext>, mut commands: Commands) {
+    let pos = Vec3::new(1024.0, 2048.0, 100.0);
+    commands.insert_resource(ChunkSpawnCenter(pos.xy()));
+    if let Some((_, toi)) =
+        physics_context.cast_ray(pos, -Vec3::Z, 1000.0, false, QueryFilter::new())
+    {
+        let pos = pos - Vec3::Z * (toi - 2.0);
+        commands.spawn((SpawnCharacter, Transform::from_translation(pos)));
+        commands.insert_resource(CharacterSpawned);
+    }
 }
 
 fn handle_input(

@@ -1,6 +1,6 @@
 use std::collections::BinaryHeap;
 
-use bevy::prelude::{IVec2, UVec2, Vec2};
+use bevy::prelude::*;
 use rand::Rng;
 use rg_core::{Grid, PoissonDiscSampling};
 use serde::Deserialize;
@@ -21,6 +21,8 @@ pub fn generate_rivers<R: Rng>(
     settings: &RiversSettings,
     progress: &WorldgenProgress,
 ) -> Grid<f32> {
+    let _scope = info_span!("generate_rivers").entered();
+
     progress.set(WorldgenStage::Rivers, 0);
 
     let size = elevation.size();

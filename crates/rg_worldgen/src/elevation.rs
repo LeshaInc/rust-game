@@ -1,4 +1,4 @@
-use bevy::prelude::IVec2;
+use bevy::prelude::*;
 use rg_core::Grid;
 use serde::Deserialize;
 
@@ -16,6 +16,8 @@ pub fn compute_elevation(
     settings: &ElevationSettings,
     progress: &WorldgenProgress,
 ) -> Grid<f32> {
+    let _scope = info_span!("compute_elevation").entered();
+
     progress.set(WorldgenStage::Elevation, 0);
 
     let edt = compute_edt(island);

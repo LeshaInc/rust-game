@@ -1,15 +1,15 @@
 mod elevation;
 mod island_shaping;
+mod progress;
 mod rivers;
 
-use std::sync::atomic::AtomicU16;
-use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
+use progress::WorldgenProgressUiPlugin;
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
 use rg_core::{DeserializedResource, DeserializedResourcePlugin, Grid};
@@ -20,31 +20,37 @@ use crate::elevation::compute_elevation;
 pub use crate::elevation::ElevationSettings;
 use crate::island_shaping::shape_island;
 pub use crate::island_shaping::IslandSettings;
+pub use crate::progress::{WorldgenProgress, WorldgenStage};
 use crate::rivers::generate_rivers;
 
 pub struct WorldgenPlugin;
 
 impl Plugin for WorldgenPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(DeserializedResourcePlugin::<WorldgenSettings>::new(
-            "default.worldgen.ron",
-        ))
-        .add_systems(
-            Update,
-            (
-                schedule_task
-                    .run_if(not(resource_exists::<WorldgenTask>()))
-                    .run_if(resource_exists::<WorldSeed>())
-                    .run_if(resource_exists::<WorldgenSettings>())
-                    .run_if(not(resource_exists::<WorldMaps>())),
-                print_progress.run_if(resource_exists::<WorldgenProgress>()),
-            ),
-        )
-        .add_systems(
-            PreUpdate,
-            update_task.run_if(resource_exists::<WorldgenTask>()),
-        );
+        app.add_state::<WorldgenState>()
+            .add_plugins(DeserializedResourcePlugin::<WorldgenSettings>::new(
+                "default.worldgen.ron",
+            ))
+            .add_plugins(WorldgenProgressUiPlugin)
+            .add_systems(
+                PreUpdate,
+                (
+                    schedule_task
+                        .run_if(resource_exists::<WorldSeed>())
+                        .run_if(resource_exists::<WorldgenSettings>())
+                        .run_if(not(resource_exists::<WorldgenTask>())),
+                    update_task.run_if(resource_exists::<WorldgenTask>()),
+                )
+                    .run_if(in_state(WorldgenState::InProgress)),
+            );
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, States)]
+pub enum WorldgenState {
+    #[default]
+    InProgress,
+    Done,
 }
 
 #[derive(Debug, Copy, Clone, Resource)]
@@ -60,35 +66,6 @@ pub struct WorldgenSettings {
 
 impl DeserializedResource for WorldgenSettings {
     const EXTENSION: &'static str = "worldgen.ron";
-}
-
-#[derive(Debug, Clone, Copy)]
-#[repr(u8)]
-pub enum WorldgenStage {
-    Island = 0,
-    Elevation,
-    Rivers,
-}
-
-#[derive(Debug, Default, Clone, Resource)]
-pub struct WorldgenProgress(Arc<AtomicU16>);
-
-impl WorldgenProgress {
-    pub fn set(&self, stage: WorldgenStage, progress: u8) {
-        let val = (stage as u16) << 8 | (progress as u16);
-        self.0.store(val, Relaxed)
-    }
-
-    pub fn get(&self) -> (WorldgenStage, u8) {
-        let val = self.0.load(Relaxed);
-        let stage = match val >> 8 {
-            0 => WorldgenStage::Island,
-            1 => WorldgenStage::Elevation,
-            _ => WorldgenStage::Rivers,
-        };
-        let progress = val as u8;
-        (stage, progress)
-    }
 }
 
 #[derive(Debug, Resource)]
@@ -107,6 +84,8 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
     commands.insert_resource(progress.clone());
 
     let task = pool.spawn(async move {
+        let _scope = info_span!("worldgen").entered();
+
         let mut rng = Pcg32::seed_from_u64(seed);
         let island = shape_island(&mut rng, &settings.island, &progress);
         let mut elevation = compute_elevation(&island, &settings.elevation, &progress);
@@ -124,14 +103,15 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
     commands.insert_resource(WorldgenTask(task));
 }
 
-fn update_task(mut task: ResMut<WorldgenTask>, mut commands: Commands) {
+fn update_task(
+    mut task: ResMut<WorldgenTask>,
+    mut next_state: ResMut<NextState<WorldgenState>>,
+    mut commands: Commands,
+) {
     if let Some(res) = future::block_on(future::poll_once(&mut task.0)) {
         commands.insert_resource(res);
         commands.remove_resource::<WorldgenTask>();
         commands.remove_resource::<WorldgenProgress>();
+        next_state.set(WorldgenState::Done);
     }
-}
-
-fn print_progress(progress: Res<WorldgenProgress>) {
-    println!("{:?}", progress.get());
 }

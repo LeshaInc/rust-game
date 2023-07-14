@@ -30,7 +30,7 @@ impl PoissonDiscSampling {
         min_dist: f32,
         max_tries: u32,
     ) -> PoissonDiscSampling {
-        let _span = info_span!("poisson disc sampling").entered();
+        let _span = info_span!("poisson_disc").entered();
 
         let mut rng =
             Pcg32::seed_from_u64(seed | (chunk_pos.x as u64) | (chunk_pos.y as u64) << 32);

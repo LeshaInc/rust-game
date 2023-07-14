@@ -1,4 +1,4 @@
-use bevy::prelude::{IVec2, UVec2, Vec2};
+use bevy::prelude::*;
 use rand::Rng;
 use rg_core::Grid;
 use serde::Deserialize;
@@ -22,6 +22,8 @@ pub fn shape_island<R: Rng>(
     settings: &IslandSettings,
     progress: &WorldgenProgress,
 ) -> Grid<bool> {
+    let _scope = info_span!("shape_island").entered();
+
     loop {
         progress.set(WorldgenStage::Island, 0);
 

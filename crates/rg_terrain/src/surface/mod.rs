@@ -10,7 +10,7 @@ use rg_worldgen::{WorldMaps, WorldSeed};
 use self::heightmap::HeightmapGenerator;
 use self::material::{DefaultTerrainMaterial, TerrainMaterialPlugin};
 use self::mesh::{MeshGenerator, MeshResult};
-use crate::{Chunk, ChunkPos};
+use crate::{Chunk, ChunkPos, ChunkSpawnCenter, CHUNK_SIZE};
 
 const MAX_TASKS_IN_FLIGHT: usize = 8;
 
@@ -37,12 +37,15 @@ fn schedule_tasks(
     q_in_flight: Query<(), (With<Chunk>, With<SurfaceTask>)>,
     world_maps: Res<WorldMaps>,
     seed: Res<WorldSeed>,
+    spawn_center: Res<ChunkSpawnCenter>,
     mut commands: Commands,
 ) {
     let task_pool = AsyncComputeTaskPool::get();
     let seed = seed.0;
+    let spawn_center = spawn_center.0;
 
     let mut in_flight = q_in_flight.iter().count();
+    let mut new_tasks = Vec::new();
 
     for (chunk_id, &ChunkPos(chunk_pos)) in q_chunks.iter() {
         if in_flight >= MAX_TASKS_IN_FLIGHT {
@@ -52,15 +55,24 @@ fn schedule_tasks(
         in_flight += 1;
 
         let world_elevation = world_maps.elevation.clone();
-
-        let task = task_pool.spawn(async move {
+        new_tasks.push((chunk_id, chunk_pos, async move {
             let heightmap_generator = HeightmapGenerator::new(seed, chunk_pos, world_elevation);
             let heightmap = heightmap_generator.generate();
             let mesh_generator = MeshGenerator::new(heightmap);
             mesh_generator.generate()
-        });
+        }));
+    }
 
-        commands.entity(chunk_id).insert(SurfaceTask(task));
+    new_tasks.sort_by(|a, b| {
+        let a = spawn_center.distance_squared((a.1.as_vec2() + Vec2::splat(0.5)) * CHUNK_SIZE);
+        let b = spawn_center.distance_squared((b.1.as_vec2() + Vec2::splat(0.5)) * CHUNK_SIZE);
+        a.total_cmp(&b)
+    });
+
+    for (chunk_id, _, task) in new_tasks {
+        commands
+            .entity(chunk_id)
+            .insert(SurfaceTask(task_pool.spawn(task)));
     }
 }
 

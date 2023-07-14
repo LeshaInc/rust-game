@@ -13,9 +13,7 @@ use rg_core::PoissonDiscSampling;
 use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
 use rg_worldgen::WorldSeed;
 
-use crate::{chunk_pos_to_world, Chunk, ChunkPos, CHUNK_SIZE};
-
-const MAX_UPDATES_PER_FRAME: usize = 1;
+use crate::{chunk_pos_to_world, Chunk, ChunkPos, ChunkSpawnCenter, CHUNK_SIZE};
 
 pub struct ScatterPlugin;
 
@@ -44,40 +42,49 @@ fn scatter(
     seed: Res<WorldSeed>,
     prototype: Res<Prototype>,
     physics_context: Res<RapierContext>,
+    spawn_center: Res<ChunkSpawnCenter>,
     mut commands: Commands,
 ) {
-    for (chunk, chunk_pos) in q_chunks.iter().take(MAX_UPDATES_PER_FRAME) {
-        let mut rng =
-            Pcg32::seed_from_u64(seed.0 ^ (chunk_pos.0.x as u64) ^ (chunk_pos.0.y as u64) << 32);
+    let spawn_center = spawn_center.0;
 
-        let size = Vec2::splat(CHUNK_SIZE);
-        let points = PoissonDiscSampling::new_tileable(seed.0, chunk_pos.0, size, 4.0, 64).points;
+    let Some((chunk_id, chunk_pos)) = q_chunks.iter().min_by(|a, b| {
+        let a = spawn_center.distance_squared(((a.1).0.as_vec2() + Vec2::splat(0.5)) * CHUNK_SIZE);
+        let b = spawn_center.distance_squared(((b.1).0.as_vec2() + Vec2::splat(0.5)) * CHUNK_SIZE);
+        a.total_cmp(&b)
+    }) else {
+        return;
+    };
 
-        let mut children = Vec::with_capacity(points.len());
+    let mut rng =
+        Pcg32::seed_from_u64(seed.0 ^ (chunk_pos.0.x as u64) ^ (chunk_pos.0.y as u64) << 32);
 
-        for pos in points {
-            let global_pos = chunk_pos_to_world(chunk_pos.0) + pos;
+    let size = Vec2::splat(CHUNK_SIZE);
+    let points = PoissonDiscSampling::new_tileable(seed.0, chunk_pos.0, size, 4.0, 64).points;
 
-            let Some((_, toi)) = physics_context.cast_ray(
-                global_pos.extend(1000.0),
-                -Vec3::Z,
-                2000.0,
-                false,
-                QueryFilter::new(),
-            ) else {
-                continue;
-            };
+    let mut children = Vec::with_capacity(points.len());
 
-            let z = 1000.0 - toi;
-            let entity = prototype.spawn(&mut rng, &mut commands, pos.extend(z));
-            children.push(entity);
-        }
+    for pos in points {
+        let global_pos = chunk_pos_to_world(chunk_pos.0) + pos;
 
-        commands
-            .entity(chunk)
-            .insert(ChunkScattered)
-            .push_children(&children);
+        let Some((_, toi)) = physics_context.cast_ray(
+            global_pos.extend(1000.0),
+            -Vec3::Z,
+            2000.0,
+            false,
+            QueryFilter::new(),
+        ) else {
+            continue;
+        };
+
+        let z = 1000.0 - toi;
+        let entity = prototype.spawn(&mut rng, &mut commands, pos.extend(z));
+        children.push(entity);
     }
+
+    commands
+        .entity(chunk_id)
+        .insert(ChunkScattered)
+        .push_children(&children);
 }
 
 #[derive(Resource)]

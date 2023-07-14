@@ -9,6 +9,7 @@ use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
 use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin, ScatterMultiBillboard};
 use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
+use rg_worldgen::{WorldMaps, WORLD_SCALE};
 
 use super::ScatterPrototype;
 
@@ -28,6 +29,14 @@ impl ScatterPrototype for TreePrototype {
 
     fn poisson_disc_min_radius(&self) -> f32 {
         4.0
+    }
+
+    fn density(&self, world_maps: &WorldMaps, pos: Vec2) -> f32 {
+        let elevation = world_maps.elevation.sample(pos / WORLD_SCALE);
+        if elevation <= 0.0 {
+            return 0.0;
+        }
+        1.0
     }
 
     fn spawn<R: Rng>(&self, rng: &mut R, commands: &mut Commands, mut pos: Vec3) -> Entity {

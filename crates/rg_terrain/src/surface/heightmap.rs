@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
 use bevy::prelude::*;
 use rg_core::{Grid, SimplexNoise2};
+use rg_worldgen::{SharedWorldMaps, WORLD_SCALE};
 
 use crate::chunk::CHUNK_TILES;
 use crate::tile_pos_to_world;
@@ -11,19 +10,19 @@ const OVERSCAN: u32 = 10;
 pub struct HeightmapGenerator {
     seed: u64,
     chunk_pos: IVec2,
-    world_elevation: Arc<Grid<f32>>,
+    world_maps: SharedWorldMaps,
     heightmap: Grid<f32>,
 }
 
 impl HeightmapGenerator {
-    pub fn new(seed: u64, chunk_pos: IVec2, world_elevation: Arc<Grid<f32>>) -> HeightmapGenerator {
+    pub fn new(seed: u64, chunk_pos: IVec2, world_maps: SharedWorldMaps) -> HeightmapGenerator {
         let heightmap = Grid::new_default(UVec2::splat(CHUNK_TILES) + OVERSCAN * 2)
             .with_origin(-IVec2::splat(OVERSCAN as i32));
 
         HeightmapGenerator {
             seed,
             chunk_pos,
-            world_elevation,
+            world_maps,
             heightmap,
         }
     }
@@ -36,7 +35,7 @@ impl HeightmapGenerator {
         for (cell, height) in self.heightmap.entries_mut() {
             let pos = tile_pos_to_world(self.chunk_pos, cell);
 
-            let elevation = self.world_elevation.sample(pos / 4.0);
+            let elevation = self.world_maps.elevation.sample(pos / WORLD_SCALE);
             *height = elevation * 160.0;
 
             let mut fbm = 0.0;

@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
 use rg_billboard::{MultiBillboard, MultiBillboardBundle};
-use rg_worldgen::{WorldMaps, WorldSeed};
+use rg_worldgen::{SharedWorldMaps, WorldSeed};
 
 use self::density::DensityMapGenerator;
 use self::generator::GrassResult;
@@ -22,7 +22,7 @@ impl Plugin for GrassPlugin {
         app.add_plugins(GrassMaterialPlugin).add_systems(
             Update,
             (update_chunks, schedule_tasks.after(update_chunks))
-                .run_if(resource_exists::<WorldMaps>()),
+                .run_if(resource_exists::<SharedWorldMaps>()),
         );
     }
 }
@@ -41,7 +41,7 @@ fn schedule_tasks(
     q_in_flight: Query<(), (With<Chunk>, With<GrassTask>)>,
     seed: Res<WorldSeed>,
     meshes: Res<Assets<Mesh>>,
-    world_maps: Res<WorldMaps>,
+    world_maps: Res<SharedWorldMaps>,
     mut commands: Commands,
 ) {
     let task_pool = AsyncComputeTaskPool::get();
@@ -60,10 +60,10 @@ fn schedule_tasks(
 
         in_flight += 1;
 
-        let world_elevation = world_maps.elevation.clone();
+        let world_maps = world_maps.clone();
 
         let task = task_pool.spawn(async move {
-            let density_map_generator = DensityMapGenerator::new(seed, chunk_pos, world_elevation);
+            let density_map_generator = DensityMapGenerator::new(seed, chunk_pos, world_maps);
             let density_map = density_map_generator.generate();
             generator::generate(seed, chunk_pos, mesh, density_map)
         });

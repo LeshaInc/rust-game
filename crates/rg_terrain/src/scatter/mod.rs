@@ -8,7 +8,7 @@ use bevy_rapier3d::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rg_core::PoissonDiscSampling;
-use rg_worldgen::WorldSeed;
+use rg_worldgen::{SharedWorldMaps, WorldMaps, WorldSeed};
 
 use self::tree::TreePrototype;
 use crate::{chunk_pos_to_world, Chunk, ChunkPos, ChunkSpawnCenter, CHUNK_SIZE};
@@ -26,13 +26,18 @@ pub trait ScatterPrototype: Resource + FromWorld + 'static {
         let _ = app;
     }
 
-    fn spawn<R: Rng>(&self, rng: &mut R, commands: &mut Commands, pos: Vec3) -> Entity;
-
     fn poisson_disc_min_radius(&self) -> f32;
 
     fn poisson_disc_max_tries(&self) -> u32 {
         64
     }
+
+    fn density(&self, world_maps: &WorldMaps, pos: Vec2) -> f32 {
+        let _ = (world_maps, pos);
+        1.0
+    }
+
+    fn spawn<R: Rng>(&self, rng: &mut R, commands: &mut Commands, pos: Vec3) -> Entity;
 }
 
 pub struct ScatterPlugin<T: ScatterPrototype>(PhantomData<T>);
@@ -46,7 +51,10 @@ impl<T: ScatterPrototype> Default for ScatterPlugin<T> {
 impl<T: ScatterPrototype> Plugin for ScatterPlugin<T> {
     fn build(&self, app: &mut App) {
         T::build_app(app);
-        app.add_systems(Update, scatter::<T>);
+        app.add_systems(
+            Update,
+            scatter::<T>.run_if(resource_exists::<SharedWorldMaps>()),
+        );
     }
 
     fn finish(&self, app: &mut App) {
@@ -60,6 +68,7 @@ struct ChunkScattered;
 fn scatter<T: ScatterPrototype>(
     q_chunks: Query<(Entity, &ChunkPos), (With<Chunk>, With<Collider>, Without<ChunkScattered>)>,
     seed: Res<WorldSeed>,
+    world_maps: Res<SharedWorldMaps>,
     prototype: Res<T>,
     physics_context: Res<RapierContext>,
     spawn_center: Res<ChunkSpawnCenter>,
@@ -87,10 +96,14 @@ fn scatter<T: ScatterPrototype>(
     );
     let points = sampling.points;
 
-    let mut children = Vec::with_capacity(points.len());
+    let mut children = Vec::new();
 
     for pos in points {
         let global_pos = chunk_pos_to_world(chunk_pos.0) + pos;
+        let density = prototype.density(&world_maps, global_pos);
+        if !rng.gen_bool(density as f64) {
+            continue;
+        }
 
         let Some((_, toi)) = physics_context.cast_ray(
             global_pos.extend(1000.0),

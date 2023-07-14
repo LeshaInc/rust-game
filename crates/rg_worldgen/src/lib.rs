@@ -23,6 +23,8 @@ pub use crate::island_shaping::IslandSettings;
 pub use crate::progress::{WorldgenProgress, WorldgenStage};
 use crate::rivers::generate_rivers;
 
+pub const WORLD_SCALE: f32 = 4.0;
+
 pub struct WorldgenPlugin;
 
 impl Plugin for WorldgenPlugin {
@@ -68,10 +70,14 @@ impl DeserializedResource for WorldgenSettings {
     const EXTENSION: &'static str = "worldgen.ron";
 }
 
-#[derive(Debug, Resource)]
+#[derive(Debug)]
 pub struct WorldMaps {
-    pub elevation: Arc<Grid<f32>>,
+    pub seed: u64,
+    pub elevation: Grid<f32>,
 }
+
+#[derive(Debug, Deref, Clone, Resource)]
+pub struct SharedWorldMaps(Arc<WorldMaps>);
 
 #[derive(Resource)]
 struct WorldgenTask(pub Task<WorldMaps>);
@@ -95,9 +101,7 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
         elevation.debug_save(&format!("/tmp/elevation.png"));
         rivers.debug_save(&format!("/tmp/rivers.png"));
 
-        WorldMaps {
-            elevation: Arc::new(elevation),
-        }
+        WorldMaps { seed, elevation }
     });
 
     commands.insert_resource(WorldgenTask(task));
@@ -109,7 +113,7 @@ fn update_task(
     mut commands: Commands,
 ) {
     if let Some(res) = future::block_on(future::poll_once(&mut task.0)) {
-        commands.insert_resource(res);
+        commands.insert_resource(SharedWorldMaps(Arc::new(res)));
         commands.remove_resource::<WorldgenTask>();
         commands.remove_resource::<WorldgenProgress>();
         next_state.set(WorldgenState::Done);

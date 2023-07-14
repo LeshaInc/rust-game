@@ -5,7 +5,7 @@ mod mesh;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
-use rg_worldgen::{WorldMaps, WorldSeed};
+use rg_worldgen::{SharedWorldMaps, WorldSeed};
 
 use self::heightmap::HeightmapGenerator;
 use self::material::{DefaultTerrainMaterial, TerrainMaterialPlugin};
@@ -21,7 +21,7 @@ impl Plugin for SurfacePlugin {
         app.add_plugins(TerrainMaterialPlugin).add_systems(
             Update,
             (update_chunks, schedule_tasks.after(update_chunks))
-                .run_if(resource_exists::<WorldMaps>()),
+                .run_if(resource_exists::<SharedWorldMaps>()),
         );
     }
 }
@@ -35,7 +35,7 @@ fn schedule_tasks(
         (With<Chunk>, Without<Handle<Mesh>>, Without<SurfaceTask>),
     >,
     q_in_flight: Query<(), (With<Chunk>, With<SurfaceTask>)>,
-    world_maps: Res<WorldMaps>,
+    world_maps: Res<SharedWorldMaps>,
     seed: Res<WorldSeed>,
     spawn_center: Res<ChunkSpawnCenter>,
     mut commands: Commands,
@@ -54,9 +54,9 @@ fn schedule_tasks(
 
         in_flight += 1;
 
-        let world_elevation = world_maps.elevation.clone();
+        let world_maps = world_maps.clone();
         new_tasks.push((chunk_id, chunk_pos, async move {
-            let heightmap_generator = HeightmapGenerator::new(seed, chunk_pos, world_elevation);
+            let heightmap_generator = HeightmapGenerator::new(seed, chunk_pos, world_maps);
             let heightmap = heightmap_generator.generate();
             let mesh_generator = MeshGenerator::new(heightmap);
             mesh_generator.generate()

@@ -8,6 +8,7 @@ on:
 
 env:
   BINARY: rg_main
+  NAME: rg
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -19,6 +20,8 @@ jobs:
       - uses: olegtarasov/get-tag@v2.1.2
         id: get_version
       - uses: actions/checkout@v3
+        with:
+          lfs: true
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-gnu
@@ -32,19 +35,18 @@ jobs:
 
       - name: Prepare package
         run: |
-          mkdir linux
-          cp target/x86_64-unknown-linux-gnu/release/${{ env.BINARY }} linux/
-          cp -r assets linux/
+          mkdir ${{ env.NAME }}-linux-x64
+          cp target/x86_64-unknown-linux-gnu/release/${{ env.BINARY }} ${{ env.NAME }}-linux-x64/${{ env.NAME }}
+          cp -r assets ${{ env.NAME }}-linux-x64/
 
       - name: Package as a zip
-        working-directory: ./linux
         run: |
-          zip --recurse-paths ../${{ env.BINARY }}.zip .
+          zip -r ${{ env.NAME }}-linux-x64.zip ${{ env.NAME }}-linux-x64/
 
       - name: Upload binaries to artifacts
         uses: actions/upload-artifact@v3
         with:
-          path: ${{ env.BINARY }}.zip
+          path: ${{ env.NAME }}-linux-x64.zip
           name: linux
 
   # Build for Windows
@@ -55,6 +57,8 @@ jobs:
       - uses: olegtarasov/get-tag@v2.1.2
         id: get_version
       - uses: actions/checkout@v3
+        with:
+          lfs: true
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
@@ -65,16 +69,16 @@ jobs:
 
       - name: Prepare package
         run: |
-          mkdir windows
-          cp target/x86_64-pc-windows-msvc/release/${{ env.BINARY }}.exe windows/
-          cp -r assets windows/
+          mkdir ${{ env.NAME }}-windows-x64
+          cp target/x86_64-pc-windows-msvc/release/${{ env.BINARY }}.exe ${{ env.NAME }}-windows-x64/${{ env.NAME }}.exe
+          cp -r assets ${{ env.NAME }}-windows-x64
 
       - name: Package as a zip
         run: |
-          Compress-Archive -Path windows/* -DestinationPath ${{ env.BINARY }}.zip
+          Compress-Archive -Path ${{ env.NAME }}-windows-x64/ -DestinationPath ${{ env.NAME}}-windows-x64.zip
 
       - name: Upload binaries to artifacts
         uses: actions/upload-artifact@v3
         with:
-          path: ${{ env.BINARY }}.zip
+          path: ${{ env.NAME }}-windows-x64.zip
           name: windows

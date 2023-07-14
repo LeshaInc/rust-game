@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  BINARY: rg_main
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Build for Linux
+  release-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: olegtarasov/get-tag@v2.1.2
+        id: get_version
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+      - name: install dependencies
+        run: |
+          sudo apt-get update; sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+
+      - name: Build
+        run: |
+          cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Prepare package
+        run: |
+          mkdir linux
+          cp target/x86_64-unknown-linux-gnu/release/${{ env.BINARY }} linux/
+          cp -r assets linux/
+
+      - name: Package as a zip
+        working-directory: ./linux
+        run: |
+          zip --recurse-paths ../${{ env.BINARY }}.zip .
+
+      - name: Upload binaries to artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          path: ${{ env.BINARY }}.zip
+          name: linux
+
+  # Build for Windows
+  release-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: olegtarasov/get-tag@v2.1.2
+        id: get_version
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build
+        run: |
+          cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Prepare package
+        run: |
+          mkdir windows
+          cp target/x86_64-pc-windows-msvc/release/${{ env.BINARY }}.exe windows/
+          cp -r assets windows/
+
+      - name: Package as a zip
+        run: |
+          Compress-Archive -Path windows/* -DestinationPath ${{ env.BINARY }}.zip
+
+      - name: Upload binaries to artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          path: ${{ env.BINARY }}.zip
+          name: windows

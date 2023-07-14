@@ -9,7 +9,7 @@ pub struct TerrainMaterialPlugin;
 impl Plugin for TerrainMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(MaterialPlugin::<TerrainMaterial>::default())
-            .add_systems(Update, update_globals);
+            .add_systems(PostUpdate, update_globals);
     }
 
     fn finish(&self, app: &mut App) {

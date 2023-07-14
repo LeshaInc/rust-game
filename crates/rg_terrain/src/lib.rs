@@ -14,7 +14,7 @@ pub use crate::chunk::{
     ChunkSpawnCenter, ChunkSpawnRadius, Chunks, CHUNK_SIZE, CHUNK_TILES, TILE_SIZE,
 };
 use crate::grass::GrassPlugin;
-use crate::scatter::ScatterPlugin;
+use crate::scatter::ScatterPlugins;
 use crate::surface::SurfacePlugin;
 
 pub struct TerrainPlugin;
@@ -24,6 +24,6 @@ impl Plugin for TerrainPlugin {
         app.add_plugins(ChunkPlugin)
             .add_plugins(SurfacePlugin)
             .add_plugins(GrassPlugin)
-            .add_plugins(ScatterPlugin);
+            .add_plugins(ScatterPlugins);
     }
 }

@@ -11,7 +11,7 @@ pub struct GrassMaterialPlugin;
 impl Plugin for GrassMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(BillboardMaterialPlugin::<GrassMaterial>::default())
-            .add_systems(Update, update_globals);
+            .add_systems(PostUpdate, update_globals);
     }
 
     fn finish(&self, app: &mut App) {

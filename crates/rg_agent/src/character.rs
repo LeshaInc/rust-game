@@ -1,3 +1,4 @@
+use bevy::ecs::system::SystemState;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::{
@@ -6,7 +7,7 @@ use bevy_rapier3d::prelude::{
 };
 use rg_camera_controller::CameraController;
 use rg_core::CollisionLayers;
-use rg_pixel_material::{GlobalFogHeight, PixelMaterial};
+use rg_pixel_material::{GlobalFogHeight, PixelMaterial, ReplaceStandardMaterial};
 use rg_terrain::ChunkSpawnCenter;
 
 use crate::MovementInput;
@@ -26,6 +27,33 @@ impl Plugin for CharacterPlugin {
 
         app.add_systems(Update, (update_camera, update_fog_height));
     }
+
+    fn finish(&self, app: &mut App) {
+        app.init_resource::<CharacterPrototype>();
+    }
+}
+
+#[derive(Resource)]
+struct CharacterPrototype {
+    scene: Handle<Scene>,
+    material: Handle<PixelMaterial>,
+}
+
+impl FromWorld for CharacterPrototype {
+    fn from_world(world: &mut World) -> Self {
+        let mut system_state: SystemState<(Res<AssetServer>, ResMut<Assets<PixelMaterial>>)> =
+            SystemState::new(world);
+
+        let (asset_server, mut materials) = system_state.get_mut(world);
+
+        CharacterPrototype {
+            scene: asset_server.load("character.glb#Scene0"),
+            material: materials.add(PixelMaterial {
+                dither_enabled: false,
+                ..default()
+            }),
+        }
+    }
 }
 
 #[derive(Component)]
@@ -34,23 +62,19 @@ pub struct SpawnCharacter;
 #[derive(Component)]
 pub struct ControlledCharacter;
 
+#[derive(Component)]
+pub struct CharacterModel;
+
 fn spawn_character(
     q_character: Query<(Entity, &Transform), With<SpawnCharacter>>,
     mut commands: Commands,
-    mut materials: ResMut<Assets<PixelMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    prototype: Res<CharacterPrototype>,
 ) {
-    for (entity, &transform) in &q_character {
-        let material = materials.add(PixelMaterial { ..default() });
-        let mesh = meshes.add(
-            shape::Capsule {
-                radius: 0.3,
-                depth: 1.6,
-                ..default()
-            }
-            .into(),
-        );
+    let height = 1.8;
+    let radius = 0.3;
+    let offset = 0.01;
 
+    for (entity, &transform) in &q_character {
         commands
             .entity(entity)
             .remove::<SpawnCharacter>()
@@ -58,7 +82,7 @@ fn spawn_character(
                 transform,
                 GlobalTransform::default(),
                 RigidBody::KinematicPositionBased,
-                Collider::capsule_z(0.9, 0.3),
+                Collider::capsule_z(height * 0.5 - radius, radius),
                 KinematicCharacterController {
                     up: Vec3::Z,
                     autostep: Some(CharacterAutostep {
@@ -67,7 +91,7 @@ fn spawn_character(
                         include_dynamic_bodies: false,
                     }),
                     snap_to_ground: Some(CharacterLength::Absolute(0.1)),
-                    offset: CharacterLength::Absolute(0.01),
+                    offset: CharacterLength::Absolute(offset),
                     ..default()
                 },
                 CollisionGroups::new(
@@ -80,13 +104,15 @@ fn spawn_character(
                 Visibility::Visible,
                 ComputedVisibility::default(),
             ))
-            .with_children(|parent| {
-                parent.spawn(MaterialMeshBundle {
-                    transform: Transform::from_rotation(Quat::from_rotation_x(-90f32.to_radians())),
-                    mesh,
-                    material,
-                    ..default()
-                });
+            .with_children(|commands| {
+                commands.spawn((
+                    SceneBundle {
+                        scene: prototype.scene.clone(),
+                        transform: Transform::from_xyz(0.0, 0.0, -height * 0.5 - offset),
+                        ..default()
+                    },
+                    ReplaceStandardMaterial(prototype.material.clone()),
+                ));
             });
     }
 }

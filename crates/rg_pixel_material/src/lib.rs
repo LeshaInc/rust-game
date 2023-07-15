@@ -1,3 +1,4 @@
+use bevy::ecs::query::Has;
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
@@ -14,7 +15,10 @@ impl Plugin for PixelMaterialPlugin {
             .init_resource::<GlobalDitherOffset>()
             .init_resource::<GlobalFogHeight>()
             .init_resource::<PixelMaterialShaders>()
-            .add_systems(PostUpdate, update_globals);
+            .add_systems(
+                PostUpdate,
+                (replace_standard_material::<PixelMaterial>, update_globals),
+            );
     }
 }
 
@@ -109,6 +113,39 @@ impl FromWorld for PixelMaterialShaders {
         let asset_server = world.resource::<AssetServer>();
         Self {
             pixel_funcs: asset_server.load("shaders/pixel_funcs.wgsl"),
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct ReplaceStandardMaterial<T: Material>(pub Handle<T>);
+
+pub fn replace_standard_material<T: Material>(
+    q_entities: Query<(
+        Entity,
+        &ReplaceStandardMaterial<T>,
+        Has<Handle<StandardMaterial>>,
+    )>,
+    q_replaceable: Query<(), With<Handle<StandardMaterial>>>,
+    q_children: Query<&Children>,
+    mut commands: Commands,
+) {
+    for (entity, new_material, has_old_material) in q_entities.iter() {
+        if has_old_material {
+            commands
+                .entity(entity)
+                .remove::<Handle<StandardMaterial>>()
+                .remove::<ReplaceStandardMaterial<T>>()
+                .insert(new_material.0.clone());
+        }
+
+        for descendant in q_children.iter_descendants(entity) {
+            if q_replaceable.contains(descendant) {
+                commands
+                    .entity(descendant)
+                    .remove::<Handle<StandardMaterial>>()
+                    .insert(new_material.0.clone());
+            }
         }
     }
 }

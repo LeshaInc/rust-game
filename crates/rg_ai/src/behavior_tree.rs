@@ -8,7 +8,7 @@ impl Plugin for BehaviorTreePlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<BehaviorTree>()
             .configure_sets(
-                FixedUpdate,
+                Update,
                 (
                     BehaviorTreeSystem::Process,
                     BehaviorTreeSystem::Transition,
@@ -19,7 +19,7 @@ impl Plugin for BehaviorTreePlugin {
                     .chain(),
             )
             .add_systems(
-                FixedUpdate,
+                Update,
                 (
                     initialize_agents.in_set(BehaviorTreeSystem::Transition),
                     apply_deferred.in_set(BehaviorTreeSystem::TransitionFlush),
@@ -136,7 +136,7 @@ impl AddAction for App {
         A::register(self);
 
         self.add_systems(
-            FixedUpdate,
+            Update,
             (
                 remove_stale_agents::<A>.in_set(BehaviorTreeSystem::Transition),
                 transition_behaviors::<A>.in_set(BehaviorTreeSystem::Transition),

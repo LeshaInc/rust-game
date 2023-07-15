@@ -7,7 +7,7 @@ pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, handle_movement_input);
+        app.add_systems(Update, handle_movement_input);
     }
 }
 

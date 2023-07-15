@@ -27,7 +27,7 @@ pub struct SequenceUntilFailure {
 impl Action for SequenceUntilFailure {
     fn register(app: &mut App) {
         app.add_systems(
-            FixedUpdate,
+            Update,
             process_sequence_until_failure.in_set(BehaviorTreeSystem::Process),
         );
     }
@@ -58,7 +58,7 @@ pub struct SequenceUntilSuccess {
 impl Action for SequenceUntilSuccess {
     fn register(app: &mut App) {
         app.add_systems(
-            FixedUpdate,
+            Update,
             process_sequence_until_success.in_set(BehaviorTreeSystem::Process),
         );
     }
@@ -87,7 +87,7 @@ pub struct AlwaysSucceed;
 impl Action for AlwaysSucceed {
     fn register(app: &mut App) {
         app.add_systems(
-            FixedUpdate,
+            Update,
             process_always_succeed.in_set(BehaviorTreeSystem::Process),
         );
     }
@@ -109,7 +109,7 @@ pub struct AlwaysFail;
 impl Action for AlwaysFail {
     fn register(app: &mut App) {
         app.add_systems(
-            FixedUpdate,
+            Update,
             process_always_fail.in_set(BehaviorTreeSystem::Process),
         );
     }
@@ -131,7 +131,7 @@ pub struct InvertResult;
 impl Action for InvertResult {
     fn register(app: &mut App) {
         app.add_systems(
-            FixedUpdate,
+            Update,
             process_invert_result.in_set(BehaviorTreeSystem::Process),
         );
     }
@@ -159,10 +159,7 @@ pub struct Sleep {
 
 impl Action for Sleep {
     fn register(app: &mut App) {
-        app.add_systems(
-            FixedUpdate,
-            process_sleep.in_set(BehaviorTreeSystem::Process),
-        );
+        app.add_systems(Update, process_sleep.in_set(BehaviorTreeSystem::Process));
     }
 }
 
@@ -184,7 +181,7 @@ pub struct LogMessage {
 impl Action for LogMessage {
     fn register(app: &mut App) {
         app.add_systems(
-            FixedUpdate,
+            Update,
             process_log_message.in_set(BehaviorTreeSystem::Process),
         );
     }

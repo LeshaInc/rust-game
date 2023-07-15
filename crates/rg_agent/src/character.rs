@@ -1,12 +1,15 @@
+use std::f32::consts::PI;
+
 use bevy::ecs::system::SystemState;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
+use bevy::transform::TransformSystem;
 use bevy_rapier3d::prelude::{
     CharacterAutostep, CharacterLength, Collider, CollisionGroups, KinematicCharacterController,
-    KinematicCharacterControllerOutput, RigidBody,
+    KinematicCharacterControllerOutput, PhysicsSet, RigidBody,
 };
 use rg_camera_controller::CameraController;
-use rg_core::CollisionLayers;
+use rg_core::{CollisionLayers, PrevTransform};
 use rg_pixel_material::{GlobalFogHeight, PixelMaterial, ReplaceStandardMaterial};
 use rg_terrain::ChunkSpawnCenter;
 
@@ -19,13 +22,19 @@ impl Plugin for CharacterPlugin {
         app.add_systems(
             Update,
             (
+                update_camera,
+                update_fog_height,
                 spawn_character,
                 control_character,
                 update_chunk_spawning_center,
             ),
+        )
+        .add_systems(
+            PostUpdate,
+            (update_rotation, update_models.after(update_rotation))
+                .after(PhysicsSet::Writeback)
+                .before(TransformSystem::TransformPropagate),
         );
-
-        app.add_systems(Update, (update_camera, update_fog_height));
     }
 
     fn finish(&self, app: &mut App) {
@@ -63,7 +72,7 @@ pub struct SpawnCharacter;
 pub struct ControlledCharacter;
 
 #[derive(Component)]
-pub struct CharacterModel;
+pub struct CharacterModel(pub Entity);
 
 fn spawn_character(
     q_character: Query<(Entity, &Transform), With<SpawnCharacter>>,
@@ -74,13 +83,14 @@ fn spawn_character(
     let radius = 0.3;
     let offset = 0.01;
 
-    for (entity, &transform) in &q_character {
+    for (character, &transform) in &q_character {
         commands
-            .entity(entity)
+            .entity(character)
             .remove::<SpawnCharacter>()
             .insert((
                 Name::new("Character"),
                 transform,
+                PrevTransform(transform),
                 GlobalTransform::default(),
                 RigidBody::KinematicPositionBased,
                 Collider::capsule_z(height * 0.5 - radius, radius),
@@ -104,10 +114,18 @@ fn spawn_character(
                 ControlledCharacter,
                 Visibility::Visible,
                 ComputedVisibility::default(),
+            ));
+
+        commands
+            .spawn((
+                Name::new("Character Model"),
+                CharacterModel(character),
+                transform,
+                GlobalTransform::default(),
+                VisibilityBundle::default(),
             ))
             .with_children(|commands| {
                 commands.spawn((
-                    Name::new("Character Model"),
                     SceneBundle {
                         scene: prototype.scene.clone(),
                         transform: Transform::from_xyz(0.0, 0.0, -height * 0.5 - offset),
@@ -149,6 +167,41 @@ fn control_character(
 
     dir = camera.rotation * dir.normalize_or_zero();
     movement.direction = dir;
+}
+
+fn update_rotation(mut q_agents: Query<(&mut Transform, &PrevTransform), Without<CharacterModel>>) {
+    for (mut transform, prev_transform) in q_agents.iter_mut() {
+        let velocity = (transform.translation - prev_transform.translation).xy();
+        if velocity.abs_diff_eq(Vec2::ZERO, 1e-3) {
+            continue;
+        }
+
+        let angle = velocity.y.atan2(velocity.x) + 0.5 * PI;
+        transform.rotation = Quat::from_rotation_z(angle);
+    }
+}
+
+fn update_models(
+    q_agents: Query<&Transform, Without<CharacterModel>>,
+    mut q_models: Query<(&CharacterModel, &mut Transform)>,
+    time: Res<Time>,
+) {
+    for (model, mut model_transform) in q_models.iter_mut() {
+        let agent = model.0;
+        let Ok(agent_transform) = q_agents.get(agent) else {
+            continue;
+        };
+
+        let alpha = 1.0 - 0.0001f32.powf(time.delta_seconds());
+        model_transform.translation = model_transform
+            .translation
+            .lerp(agent_transform.translation, alpha);
+
+        let alpha = 1.0 - 0.001f32.powf(time.delta_seconds());
+        model_transform.rotation = model_transform
+            .rotation
+            .slerp(agent_transform.rotation, alpha);
+    }
 }
 
 fn update_chunk_spawning_center(

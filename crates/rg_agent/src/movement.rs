@@ -23,10 +23,10 @@ fn handle_movement_input(
         &mut KinematicCharacterController,
         &KinematicCharacterControllerOutput,
     )>,
-    time: Res<FixedTime>,
+    time: Res<Time>,
 ) {
     for (movement, mut controller, controller_output) in &mut q_agents {
-        let mut translation = movement.direction * 32.0 * time.period.as_secs_f32();
+        let mut translation = movement.direction * 10.0 * time.delta_seconds();
 
         if !controller_output.grounded {
             translation.z -= 0.1;

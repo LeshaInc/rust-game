@@ -114,6 +114,7 @@ fn create_blit_target(
 
     let sprite = commands
         .spawn((
+            Name::new("Camera Blit Target"),
             SpriteBundle {
                 sprite: Sprite {
                     anchor: Anchor::TopLeft,

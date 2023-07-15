@@ -53,12 +53,15 @@ impl ScatterPrototype for TreePrototype {
         };
 
         commands
-            .spawn(MaterialMeshBundle {
-                transform,
-                mesh: self.trunk_mesh.clone(),
-                material: self.pixel_material.clone(),
-                ..default()
-            })
+            .spawn((
+                Name::new("Tree"),
+                MaterialMeshBundle {
+                    transform,
+                    mesh: self.trunk_mesh.clone(),
+                    material: self.pixel_material.clone(),
+                    ..default()
+                },
+            ))
             .with_children(|commands| {
                 // crown
                 commands.spawn(MaterialMeshBundle {

@@ -79,6 +79,7 @@ fn spawn_character(
             .entity(entity)
             .remove::<SpawnCharacter>()
             .insert((
+                Name::new("Character"),
                 transform,
                 GlobalTransform::default(),
                 RigidBody::KinematicPositionBased,
@@ -106,6 +107,7 @@ fn spawn_character(
             ))
             .with_children(|commands| {
                 commands.spawn((
+                    Name::new("Character Model"),
                     SceneBundle {
                         scene: prototype.scene.clone(),
                         transform: Transform::from_xyz(0.0, 0.0, -height * 0.5 - offset),

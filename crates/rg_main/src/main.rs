@@ -148,7 +148,7 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
     behavior_tree.add_child(sequence, message_1);
     behavior_tree.add_child(sequence, sleep_2);
     behavior_tree.add_child(sequence, message_2);
-    commands.spawn(behavior_trees.add(behavior_tree));
+    commands.spawn((Name::new("Agent"), behavior_trees.add(behavior_tree)));
 }
 
 #[derive(Resource)]

@@ -85,6 +85,7 @@ fn update_chunks(
 
         let grass_id = commands
             .spawn((
+                Name::new("Grass"),
                 material.0.clone(),
                 MultiBillboardBundle {
                     multi_billboard: multi_billboards.add(res.multi_billboard),

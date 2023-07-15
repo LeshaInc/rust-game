@@ -85,12 +85,31 @@ impl Chunks {
     }
 }
 
+#[derive(Resource)]
+pub struct ChunksParent(pub Entity);
+
 fn spawn_chunks(
     mut commands: Commands,
     mut chunks: ResMut<Chunks>,
+    parent: Option<Res<ChunksParent>>,
     center: Res<ChunkSpawnCenter>,
     radius: Res<ChunkSpawnRadius>,
 ) {
+    let parent = match parent {
+        Some(v) => v.0,
+        None => {
+            let id = commands
+                .spawn((
+                    Name::new("Chunks"),
+                    TransformBundle::default(),
+                    VisibilityBundle::default(),
+                ))
+                .id();
+            commands.insert_resource(ChunksParent(id));
+            id
+        }
+    };
+
     let center = center.0;
     let radius = radius.0;
 
@@ -110,16 +129,20 @@ fn spawn_chunks(
                 continue;
             }
 
-            let new_chunk = commands.spawn((
-                Chunk,
-                ChunkPos(chunk_pos),
-                Transform::from_translation(chunk_pos_to_world(chunk_pos).extend(0.0)),
-                GlobalTransform::default(),
-                Visibility::Visible,
-                ComputedVisibility::default(),
-            ));
+            let new_chunk = commands
+                .spawn((
+                    Name::new("Chunk"),
+                    Chunk,
+                    ChunkPos(chunk_pos),
+                    Transform::from_translation(chunk_pos_to_world(chunk_pos).extend(0.0)),
+                    GlobalTransform::default(),
+                    Visibility::Visible,
+                    ComputedVisibility::default(),
+                ))
+                .id();
 
-            chunks.insert(chunk_pos, new_chunk.id());
+            chunks.insert(chunk_pos, new_chunk);
+            commands.entity(parent).add_child(new_chunk);
         }
     }
 }

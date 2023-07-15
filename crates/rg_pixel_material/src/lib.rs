@@ -137,6 +137,10 @@ pub fn replace_standard_material<T: Material>(
                 .remove::<Handle<StandardMaterial>>()
                 .remove::<ReplaceStandardMaterial<T>>()
                 .insert(new_material.0.clone());
+        } else {
+            commands
+                .entity(entity)
+                .remove::<ReplaceStandardMaterial<T>>();
         }
 
         for descendant in q_children.iter_descendants(entity) {

@@ -6,6 +6,7 @@ use bevy::render::mesh::MeshVertexBufferLayout;
 use bevy::render::render_resource::{
     AsBindGroup, Face, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
 };
+use bevy::scene::SceneInstance;
 
 pub struct PixelMaterialPlugin;
 
@@ -125,12 +126,19 @@ pub fn replace_standard_material<T: Material>(
         Entity,
         &ReplaceStandardMaterial<T>,
         Has<Handle<StandardMaterial>>,
+        Has<Handle<Scene>>,
+        Has<SceneInstance>,
     )>,
     q_replaceable: Query<(), With<Handle<StandardMaterial>>>,
     q_children: Query<&Children>,
     mut commands: Commands,
 ) {
-    for (entity, new_material, has_old_material) in q_entities.iter() {
+    for (entity, new_material, has_old_material, is_scene, has_scene_instance) in q_entities.iter()
+    {
+        if is_scene && !has_scene_instance {
+            continue;
+        }
+
         if has_old_material {
             commands
                 .entity(entity)

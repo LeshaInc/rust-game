@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { workspace = true }
-bevy_rapier3d = { workspace = true }
+bevy_xpbd_3d = { workspace = true }
 bitflags = { workspace = true }
 edt = { workspace = true }
 image = { workspace = true }

@@ -5,16 +5,11 @@ use bevy::ecs::system::SystemState;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::transform::TransformSystem;
-use bevy_rapier3d::prelude::{
-    CharacterAutostep, CharacterLength, Collider, CollisionGroups, KinematicCharacterController,
-    KinematicCharacterControllerOutput, PhysicsSet, RigidBody,
-};
+use bevy_xpbd_3d::prelude::*;
 use rg_camera_controller::CameraController;
-use rg_core::{CollisionLayers, PrevTransform};
+use rg_core::{CollisionLayer, PrevTransform};
 use rg_pixel_material::{GlobalFogHeight, PixelMaterial, ReplaceStandardMaterial};
 use rg_terrain::ChunkSpawnCenter;
-
-use crate::MovementInput;
 
 pub struct CharacterPlugin;
 
@@ -34,7 +29,7 @@ impl Plugin for CharacterPlugin {
         .add_systems(
             PostUpdate,
             (update_rotation, update_models.after(update_rotation))
-                .after(PhysicsSet::Writeback)
+                .after(PhysicsSet::Sync)
                 .before(TransformSystem::TransformPropagate),
         );
     }
@@ -90,7 +85,6 @@ fn spawn_character(
 ) {
     let height = 1.8;
     let radius = 0.3;
-    let offset = 0.01;
 
     for (character, &transform) in &q_character {
         commands
@@ -101,25 +95,10 @@ fn spawn_character(
                 transform,
                 PrevTransform(transform),
                 GlobalTransform::default(),
-                RigidBody::KinematicPositionBased,
-                Collider::capsule_z(height * 0.5 - radius, radius),
-                KinematicCharacterController {
-                    up: Vec3::Z,
-                    autostep: Some(CharacterAutostep {
-                        max_height: CharacterLength::Absolute(0.5),
-                        min_width: CharacterLength::Absolute(0.1),
-                        include_dynamic_bodies: false,
-                    }),
-                    snap_to_ground: Some(CharacterLength::Absolute(0.1)),
-                    offset: CharacterLength::Absolute(offset),
-                    ..default()
-                },
-                CollisionGroups::new(
-                    CollisionLayers::CHARACTER.into(),
-                    (CollisionLayers::STATIC_GEOMETRY | CollisionLayers::DYNAMIC_GEOMETRY).into(),
-                ),
-                KinematicCharacterControllerOutput::default(),
-                MovementInput::default(),
+                RigidBody::Kinematic,
+                Collider::capsule_endpoints(radius * Vec3::Z, (height - radius) * Vec3::Z, radius),
+                CollisionLayers::new([CollisionLayer::Character], [CollisionLayer::Static]),
+                Position(transform.translation),
                 ControlledCharacter,
                 Visibility::Visible,
                 ComputedVisibility::default(),
@@ -137,7 +116,6 @@ fn spawn_character(
                 commands.spawn((
                     SceneBundle {
                         scene: prototype.scene.clone(),
-                        transform: Transform::from_xyz(0.0, 0.0, -height * 0.5 - offset),
                         ..default()
                     },
                     ReplaceStandardMaterial(prototype.material.clone()),
@@ -164,11 +142,12 @@ fn find_animation_player(
 }
 
 fn control_character(
-    mut q_character: Query<&mut MovementInput, With<ControlledCharacter>>,
+    mut q_character: Query<&mut Position, With<ControlledCharacter>>,
     q_camera: Query<&CameraController>,
     input: Res<Input<KeyCode>>,
+    time: Res<Time>,
 ) {
-    let Ok(mut movement) = q_character.get_single_mut() else {
+    let Ok(mut position) = q_character.get_single_mut() else {
         return;
     };
 
@@ -192,7 +171,7 @@ fn control_character(
     }
 
     dir = camera.rotation * dir.normalize_or_zero();
-    movement.direction = dir;
+    position.0 += 4.0 * dir * time.delta_seconds();
 }
 
 fn update_rotation(mut q_agents: Query<(&mut Transform, &PrevTransform), Without<CharacterModel>>) {

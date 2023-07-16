@@ -4,7 +4,7 @@ use bevy_egui::egui::plot::{Line, Plot};
 use bevy_egui::egui::{self, pos2, Color32, Frame, Rounding};
 use bevy_egui::EguiContext;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_rapier3d::render::DebugRenderContext as RapierDebugRenderContext;
+use bevy_xpbd_3d::prelude::*;
 
 pub struct DevOverlayPlugin;
 
@@ -20,6 +20,10 @@ impl Plugin for DevOverlayPlugin {
                 draw_all: false,
                 ..default()
             },
+            ..default()
+        })
+        .insert_resource(PhysicsDebugConfig {
+            enabled: false,
             ..default()
         })
         .insert_resource(FrameTimePoints::default())
@@ -53,7 +57,7 @@ fn handle_input(
     input: Res<Input<KeyCode>>,
     mut settings: ResMut<DevOverlaySettings>,
     mut gizmo_config: ResMut<GizmoConfig>,
-    mut rapier_config: ResMut<RapierDebugRenderContext>,
+    mut physics_debug_config: ResMut<PhysicsDebugConfig>,
 ) {
     if input.just_pressed(KeyCode::F3) {
         settings.enabled = !settings.enabled;
@@ -64,7 +68,7 @@ fn handle_input(
     }
 
     gizmo_config.enabled = settings.enabled;
-    rapier_config.enabled = settings.enabled && settings.show_colliders;
+    physics_debug_config.enabled = settings.show_colliders;
 }
 
 #[derive(Default, Resource)]

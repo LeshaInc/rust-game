@@ -7,4 +7,4 @@ edition = "2021"
 bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_egui = { workspace = true }
-bevy_rapier3d = { workspace = true }
+bevy_xpbd_3d = { workspace = true }

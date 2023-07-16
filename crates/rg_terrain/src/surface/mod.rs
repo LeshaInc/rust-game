@@ -4,7 +4,9 @@ mod mesh;
 
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
+use bevy_xpbd_3d::prelude::*;
 use futures_lite::future;
+use rg_core::CollisionLayer;
 use rg_worldgen::{SharedWorldMaps, WorldSeed};
 
 use self::heightmap::HeightmapGenerator;
@@ -89,8 +91,15 @@ fn update_chunks(
 
         commands.entity(chunk_id).remove::<SurfaceTask>().insert((
             meshes.add(res.mesh),
-            res.collider,
             material.0.clone(),
+            RigidBody::Static,
+            res.collider,
+            Friction::new(1.0),
+            DebugRender::none(),
+            CollisionLayers::new(
+                [CollisionLayer::Static],
+                [CollisionLayer::Dynamic, CollisionLayer::Character],
+            ),
         ));
     }
 }

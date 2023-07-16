@@ -8,7 +8,7 @@ members = [
   "crates/rg_camera_controller",
   "crates/rg_dev_overlay",
   "crates/rg_main",
-  "crates/rg_navigation",
+  # "crates/rg_navigation",
   "crates/rg_pixel_material",
   "crates/rg_terrain",
   "crates/rg_worldgen",
@@ -18,7 +18,6 @@ members = [
 bevy = { version = "0.11" }
 bevy-inspector-egui = "0.19"
 bevy_egui = "0.21"
-bevy_rapier3d = "0.22"
 bitflags = "2.3"
 bytemuck = "1.13"
 delaunator = "1.0"
@@ -32,6 +31,7 @@ rayon = "1.7"
 ron = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 tracing-tracy = { version = "0.10", features = ["ondemand"] }
+bevy_xpbd_3d = { git = "https://github.com/LeshaInc/bevy_xpbd.git", branch = "disable-debug-rendering", features = ["debug-plugin"] }
 
 [profile.dev]
 opt-level = 1

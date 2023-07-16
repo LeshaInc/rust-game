@@ -8,14 +8,13 @@ use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowResolution};
 use bevy_egui::EguiPlugin;
-use bevy_rapier3d::prelude::*;
+use bevy_xpbd_3d::prelude::*;
 use rg_agent::{AgentPlugin, SpawnCharacter};
 use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
 use rg_camera_controller::{CameraController, CameraControllerPlugin};
-use rg_core::{CollisionLayers, PrevTransformPlugin};
+use rg_core::{CollisionLayer, PrevTransformPlugin};
 use rg_dev_overlay::DevOverlayPlugin;
-use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::{ChunkSpawnCenter, TerrainPlugin};
 use rg_worldgen::{WorldSeed, WorldgenPlugin, WorldgenState};
@@ -47,29 +46,24 @@ fn main() {
                 }),
         )
         .add_plugins(EguiPlugin)
-        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugins(RapierDebugRenderPlugin::default().disabled())
+        .add_plugins(PhysicsPlugins::default())
         .add_plugins(PrevTransformPlugin)
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(BillboardPlugin)
         .add_plugins(WorldgenPlugin)
         .add_plugins(TerrainPlugin)
-        .add_plugins(NavigationPlugin)
         .add_plugins(CameraControllerPlugin)
         .add_plugins(AiPlugin)
         .add_plugins(AgentPlugin)
         .add_plugins(DevOverlayPlugin)
         .insert_resource(ClearColor(Color::rgb_linear(0.5, 0.5, 1.0)))
-        .insert_resource(RapierConfiguration {
-            gravity: Vec3::Z * -18.0,
-            ..default()
-        })
         .insert_resource(Msaa::Off)
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .insert_resource(AmbientLight {
             color: Color::rgb(0.8, 0.85, 1.0),
             brightness: 0.5,
         })
+        .insert_resource(Gravity(-18.0 * Vec3::Z))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -155,13 +149,13 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
 #[derive(Resource)]
 struct CharacterSpawned;
 
-fn spawn_character(physics_context: Res<RapierContext>, mut commands: Commands) {
+fn spawn_character(spatial_queries: SpatialQuery, mut commands: Commands) {
     let pos = Vec3::new(1024.0, 2048.0, 100.0);
     commands.insert_resource(ChunkSpawnCenter(pos.xy()));
-    if let Some((_, toi)) =
-        physics_context.cast_ray(pos, -Vec3::Z, 1000.0, false, QueryFilter::new())
+    if let Some(hit) =
+        spatial_queries.cast_ray(pos, -Vec3::Z, 1000.0, false, SpatialQueryFilter::new())
     {
-        let pos = pos - Vec3::Z * (toi - 2.0);
+        let pos = pos - Vec3::Z * (hit.time_of_impact - 5.0);
         commands.spawn((SpawnCharacter, Transform::from_translation(pos)));
         commands.insert_resource(CharacterSpawned);
     }
@@ -182,9 +176,6 @@ fn handle_input(
         commands.spawn((
             MaterialMeshBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-                transform: Transform::from_translation(
-                    camera.translation + Vec3::new(0.0, 0.0, 5.0),
-                ),
                 material: materials.add(PixelMaterial {
                     color: Color::rgb(0.3, 0.3, 0.7),
                     dither_enabled: true,
@@ -194,14 +185,17 @@ fn handle_input(
                 ..default()
             },
             RigidBody::Dynamic,
-            Collider::cuboid(0.5, 0.5, 0.5),
-            CollisionGroups::new(
-                CollisionLayers::DYNAMIC_GEOMETRY.into(),
-                (CollisionLayers::STATIC_GEOMETRY
-                    | CollisionLayers::DYNAMIC_GEOMETRY
-                    | CollisionLayers::CHARACTER)
-                    .into(),
-            ),
+            Collider::cuboid(1.0, 1.0, 1.0),
+            Friction::new(0.7),
+            Position(camera.translation + Vec3::new(0.0, 0.0, 5.0)),
+            // CollisionLayers::new(
+            //     [CollisionLayer::Dynamic],
+            //     [
+            //         CollisionLayer::Static,
+            //         CollisionLayer::Dynamic,
+            //         CollisionLayer::Character,
+            //     ],
+            // ),
         ));
     }
 }

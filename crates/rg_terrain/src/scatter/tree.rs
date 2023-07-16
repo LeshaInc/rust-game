@@ -5,7 +5,7 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::AsBindGroup;
-use bevy_rapier3d::prelude::Collider;
+use bevy_xpbd_3d::prelude::*;
 use rand::Rng;
 use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin, ScatterMultiBillboard};
 use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
@@ -88,12 +88,14 @@ impl ScatterPrototype for TreePrototype {
 
                 // trunk collider
                 commands.spawn((
-                    TransformBundle::from(Transform::from_xyz(0.0, 0.0, 1.28)),
-                    Collider::capsule_z(1.28, 0.32),
+                    TransformBundle::default(),
+                    RigidBody::Static,
+                    Collider::capsule_endpoints(0.32 * Vec3::Z, 1.6 * Vec3::Z, 0.32),
                 ));
 
                 // crown collider
                 commands.spawn((
+                    RigidBody::Static,
                     TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.5)),
                     Collider::ball(1.0),
                 ));

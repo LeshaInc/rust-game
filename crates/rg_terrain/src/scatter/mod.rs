@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::*;
+use bevy_xpbd_3d::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rg_core::PoissonDiscSampling;
@@ -70,7 +70,7 @@ fn scatter<T: ScatterPrototype>(
     seed: Res<WorldSeed>,
     world_maps: Res<SharedWorldMaps>,
     prototype: Res<T>,
-    physics_context: Res<RapierContext>,
+    spatial_queries: SpatialQuery,
     spawn_center: Res<ChunkSpawnCenter>,
     mut commands: Commands,
 ) {
@@ -105,17 +105,17 @@ fn scatter<T: ScatterPrototype>(
             continue;
         }
 
-        let Some((_, toi)) = physics_context.cast_ray(
+        let Some(hit) = spatial_queries.cast_ray(
             global_pos.extend(1000.0),
             -Vec3::Z,
             2000.0,
             false,
-            QueryFilter::new(),
+            SpatialQueryFilter::new(),
         ) else {
             continue;
         };
 
-        let z = 1000.0 - toi;
+        let z = 1000.0 - hit.time_of_impact;
         let entity = prototype.spawn(&mut rng, &mut commands, pos.extend(z));
         children.push(entity);
     }

@@ -10,7 +10,7 @@ rg_pixel_material = { path = "../rg_pixel_material" }
 rg_worldgen = { path = "../rg_worldgen" }
 
 bevy = { workspace = true }
-bevy_rapier3d = { workspace = true }
+bevy_xpbd_3d = { workspace = true }
 futures-lite = { workspace = true }
 rand = { workspace = true }
 rand_pcg = { workspace = true }

@@ -2,7 +2,7 @@ use bevy::math::{ivec2, vec2, vec3, Vec3Swizzles};
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::utils::HashMap;
-use bevy_rapier3d::prelude::*;
+use bevy_xpbd_3d::prelude::*;
 use rg_core::Grid;
 
 use crate::chunk::{CHUNK_TILES, TILE_SIZE};
@@ -314,11 +314,8 @@ impl MeshGenerator {
         for triangle in self.indices.chunks_exact(3) {
             indices.push([triangle[0], triangle[1], triangle[2]]);
         }
-        Collider::trimesh_with_flags(
-            self.positions.clone(),
-            indices,
-            TriMeshFlags::HALF_EDGE_TOPOLOGY | TriMeshFlags::CONNECTED_COMPONENTS,
-        )
+
+        Collider::trimesh(self.positions.clone(), indices)
     }
 
     fn create_mesh(self) -> Mesh {

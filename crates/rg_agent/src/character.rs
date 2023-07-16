@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+use std::time::Duration;
 
 use bevy::ecs::system::SystemState;
 use bevy::math::Vec3Swizzles;
@@ -26,6 +27,7 @@ impl Plugin for CharacterPlugin {
                 update_fog_height,
                 spawn_character,
                 control_character,
+                find_animation_player,
                 update_chunk_spawning_center,
             ),
         )
@@ -46,6 +48,8 @@ impl Plugin for CharacterPlugin {
 struct CharacterPrototype {
     scene: Handle<Scene>,
     material: Handle<PixelMaterial>,
+    idle_animation: Handle<AnimationClip>,
+    running_animation: Handle<AnimationClip>,
 }
 
 impl FromWorld for CharacterPrototype {
@@ -61,6 +65,8 @@ impl FromWorld for CharacterPrototype {
                 dither_enabled: false,
                 ..default()
             }),
+            idle_animation: asset_server.load("character.glb#Animation0"),
+            running_animation: asset_server.load("character.glb#Animation1"),
         }
     }
 }
@@ -73,6 +79,9 @@ pub struct ControlledCharacter;
 
 #[derive(Component)]
 pub struct CharacterModel(pub Entity);
+
+#[derive(Component)]
+pub struct CharacterAnimationPlayer(pub Entity);
 
 fn spawn_character(
     q_character: Query<(Entity, &Transform), With<SpawnCharacter>>,
@@ -137,6 +146,23 @@ fn spawn_character(
     }
 }
 
+fn find_animation_player(
+    q_model: Query<Entity, (With<CharacterModel>, Without<CharacterAnimationPlayer>)>,
+    q_has_animation_player: Query<(), With<AnimationPlayer>>,
+    q_children: Query<&Children>,
+    mut commands: Commands,
+) {
+    for entity in q_model.iter() {
+        for descendant in q_children.iter_descendants(entity) {
+            if q_has_animation_player.contains(descendant) {
+                commands
+                    .entity(entity)
+                    .insert(CharacterAnimationPlayer(descendant));
+            }
+        }
+    }
+}
+
 fn control_character(
     mut q_character: Query<&mut MovementInput, With<ControlledCharacter>>,
     q_camera: Query<&CameraController>,
@@ -182,15 +208,38 @@ fn update_rotation(mut q_agents: Query<(&mut Transform, &PrevTransform), Without
 }
 
 fn update_models(
-    q_agents: Query<&Transform, Without<CharacterModel>>,
-    mut q_models: Query<(&CharacterModel, &mut Transform)>,
+    q_agents: Query<(&Transform, &PrevTransform), Without<CharacterModel>>,
+    mut q_models: Query<(&CharacterModel, &mut Transform, &CharacterAnimationPlayer)>,
+    mut q_animation_player: Query<&mut AnimationPlayer>,
     time: Res<Time>,
+    prototype: Res<CharacterPrototype>,
 ) {
-    for (model, mut model_transform) in q_models.iter_mut() {
+    for (model, mut model_transform, animation_player) in q_models.iter_mut() {
         let agent = model.0;
-        let Ok(agent_transform) = q_agents.get(agent) else {
+        let Ok((agent_transform, agent_prev_transform)) = q_agents.get(agent) else {
             continue;
         };
+
+        let Ok(mut animation_player) = q_animation_player.get_mut(animation_player.0) else {
+            continue;
+        };
+
+        let agent_dir = agent_transform.translation - agent_prev_transform.translation;
+        let agent_velocity = agent_dir.xy().length() / time.delta_seconds();
+
+        if agent_velocity < 0.1 {
+            animation_player
+                .play_with_transition(prototype.idle_animation.clone(), Duration::from_millis(200))
+                .repeat();
+        } else {
+            animation_player
+                .play_with_transition(
+                    prototype.running_animation.clone(),
+                    Duration::from_millis(200),
+                )
+                .set_speed(2.0)
+                .repeat();
+        }
 
         let alpha = 1.0 - 0.0001f32.powf(time.delta_seconds());
         model_transform.translation = model_transform

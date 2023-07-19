@@ -20,10 +20,16 @@ struct GrassMaterial {
 
 @group(1) @binding(0)
 var<uniform> material: GrassMaterial;
+
 @group(1) @binding(1)
 var texture: texture_2d<f32>;
 @group(1) @binding(2)
 var texture_sampler: sampler;
+
+@group(1) @binding(3)
+var noise: texture_2d<f32>;
+@group(1) @binding(4)
+var noise_sampler: sampler;
 
 struct Uniforms {
     transform: mat4x4<f32>,  
@@ -44,6 +50,10 @@ struct VertexOutput {
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
+    let world_origin_pos = (uniforms.transform * vec4(vertex.i_pos, 1.0)).xyz;
+    let noise = textureSampleLevel(noise, noise_sampler, (world_origin_pos.xy + world_origin_pos.z) / 5.0 % 1.0, 0.0);
+    let translate = sin(2.0 * bindings::globals.time + noise.x * 10.0) * 0.1;
+
     let camera_dir = (bindings::view.view * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
     let facing = normalize(camera_dir * vec3(1.0, 1.0, 0.0));
 
@@ -53,9 +63,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         facing
     );
 
-    let world_origin_pos = (uniforms.transform * vec4(vertex.i_pos, 1.0)).xyz;
     let world_pos = world_origin_pos + instance_transform * vec3(
-        (vertex.uv.x - uniforms.anchor.x) * vertex.i_size.x,
+        (vertex.uv.x - uniforms.anchor.x + translate) * vertex.i_size.x,
         (-vertex.uv.y + uniforms.anchor.y) * vertex.i_size.y * 16.0 / 14.0,
         0.0,
     );
@@ -67,14 +76,14 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
     out.world_position = vec4(world_origin_pos + vec3(0.0, 0.0, 0.01), 1.0);
     out.world_normal = world_normal;
-    out.color = vertex.i_color;
+    out.color = vertex.i_color * (0.9 + (f32(vertex.i_random) / 4294967295.0) * 0.1);
     out.random = vertex.i_random;
     return out;
 }
 
 @fragment
 fn fragment(in: VertexOutput, @builtin(front_facing) front_facing: bool) -> @location(0) vec4<f32> {
-    let color = textureSample(texture, texture_sampler, in.uv);
+    let color = vec4(in.color, 1.0) * textureSample(texture, texture_sampler, in.uv);
     if color.a < 0.5 {
         discard;
     }

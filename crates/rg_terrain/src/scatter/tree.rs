@@ -121,6 +121,7 @@ impl FromWorld for TreePrototype {
 
         let leaves_material = leaves_materials.add(LeavesMaterial {
             texture: asset_server.load("images/leaf.png"),
+            noise: asset_server.load("images/noise.png"),
             dither_offset: UVec2::ZERO,
             fog_height: 0.0,
         });
@@ -144,6 +145,9 @@ pub struct LeavesMaterial {
     #[texture(1)]
     #[sampler(2)]
     pub texture: Handle<Image>,
+    #[texture(3)]
+    #[sampler(4)]
+    pub noise: Handle<Image>,
 }
 
 impl BillboardMaterial for LeavesMaterial {

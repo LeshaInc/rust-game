@@ -1,4 +1,4 @@
-use bevy::math::{ivec2, vec2, vec3, Vec3Swizzles};
+use bevy::math::{ivec2, uvec2, vec2, vec3, Vec3Swizzles};
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::utils::HashMap;
@@ -18,8 +18,10 @@ pub struct MeshGenerator {
     indices: Vec<u32>,
     height_step: f32,
     cell: IVec2,
-    cell_first_vertex_idx: usize,
+    cell_first_vertex: usize,
     cell_first_index: usize,
+    cell_indices: Grid<[usize; 2]>,
+    cell_vertices: Grid<[usize; 2]>,
     cell_walls: Grid<Vec<usize>>,
     height: f32,
     up_height: f32,
@@ -46,8 +48,10 @@ impl MeshGenerator {
             indices: Vec::with_capacity(INDICES_CAP),
             height_step: 0.25,
             cell: IVec2::ZERO,
-            cell_first_vertex_idx: 0,
+            cell_first_vertex: 0,
             cell_first_index: 0,
+            cell_indices: Grid::new(UVec2::splat(CHUNK_TILES + 1), [0, 0]),
+            cell_vertices: Grid::new(UVec2::splat(CHUNK_TILES + 1), [0, 0]),
             cell_walls: Grid::new(UVec2::splat(CHUNK_TILES + 1), Vec::new()),
             height: 0.0,
             up_height: 0.0,
@@ -64,9 +68,14 @@ impl MeshGenerator {
         let _span = info_span!("chunk mesh generator").entered();
 
         self.generate_cells();
-        self.cleanup_triangles();
         self.compute_colors();
         self.snap_normals();
+        self.merge_quads(16);
+        self.merge_quads(8);
+        self.merge_quads(4);
+        self.merge_quads(2);
+        self.remove_rejected_triangles();
+        self.cleanup_triangles();
         self.deduplicate();
         self.apply_scale();
 
@@ -81,21 +90,22 @@ impl MeshGenerator {
 
         for y in 0..CHUNK_TILES as i32 {
             for x in 0..CHUNK_TILES as i32 {
-                let first_vertex_idx = self.positions.len();
-
-                self.cell = IVec2::new(x, y);
-                self.cell_first_vertex_idx = first_vertex_idx;
+                self.cell = ivec2(x, y);
+                self.cell_first_vertex = self.positions.len();
                 self.cell_first_index = self.indices.len();
 
                 self.generate_cell(ivec2(x, y));
 
-                for pos in &mut self.positions[first_vertex_idx..] {
+                for pos in &mut self.positions[self.cell_first_vertex..] {
                     pos.x += x as f32;
                     pos.y += y as f32;
                 }
 
                 self.compute_cell_normals();
                 self.snap_cell_vertices();
+
+                self.cell_indices[self.cell] = [self.cell_first_index, self.indices.len()];
+                self.cell_vertices[self.cell] = [self.cell_first_vertex, self.positions.len()];
             }
         }
     }
@@ -143,7 +153,7 @@ impl MeshGenerator {
     }
 
     fn snap_cell_vertices(&mut self) {
-        for pos in &mut self.positions[self.cell_first_vertex_idx..] {
+        for pos in &mut self.positions[self.cell_first_vertex..] {
             let height = self.heightmap.sample(pos.xy());
             let grad = self.heightmap.sample_grad(pos.xy());
 
@@ -151,11 +161,11 @@ impl MeshGenerator {
             pos.z = pos.z * alpha + height * (1.0 - alpha);
         }
 
-        for i in self.cell_first_vertex_idx..self.positions.len() {
+        for i in self.cell_first_vertex..self.positions.len() {
             let pos = self.positions[i];
             let mut min_diff = f32::INFINITY;
 
-            for j in self.cell_first_vertex_idx..self.positions.len() {
+            for j in self.cell_first_vertex..self.positions.len() {
                 if i == j {
                     continue;
                 }
@@ -257,6 +267,80 @@ impl MeshGenerator {
             let target_normal = vec3(-grad.x, -grad.y, 1.0 * TILE_SIZE).normalize();
             *normal = (*normal * 0.7 + target_normal * 0.3).normalize();
         }
+    }
+
+    fn merge_quads(&mut self, size: usize) {
+        let _span = info_span!("merge quads {size}").entered();
+
+        let origins = (0..CHUNK_TILES).step_by(size).flat_map(move |x| {
+            (0..CHUNK_TILES)
+                .step_by(size)
+                .map(move |y| uvec2(x, y).as_ivec2())
+        });
+
+        'next_group: for origin in origins {
+            let cells = (origin.x..origin.x + size as i32)
+                .flat_map(move |x| (origin.y..origin.y + size as i32).map(move |y| ivec2(x, y)));
+
+            let mut group_z = None;
+
+            for cell in cells.clone() {
+                let [start_vertex, end_vertex] = self.cell_vertices[cell];
+                if end_vertex - start_vertex != 4 {
+                    continue 'next_group;
+                }
+
+                let z = self.positions[start_vertex].z;
+                if let Some(group_z) = group_z {
+                    if z != group_z {
+                        continue 'next_group;
+                    }
+                } else {
+                    group_z = Some(z);
+                }
+
+                if self.positions[start_vertex + 1..end_vertex]
+                    .iter()
+                    .any(|pos| pos.z != z)
+                {
+                    continue 'next_group;
+                }
+            }
+
+            for cell in cells {
+                let [start_idx, end_idx] = self.cell_indices[cell];
+                for idx in &mut self.indices[start_idx..end_idx] {
+                    *idx = u32::MAX;
+                }
+                self.cell_indices[cell] = [0, 0];
+                self.cell_vertices[cell] = [0, 0];
+            }
+
+            let Some(group_z) = group_z else {
+                continue;
+            };
+
+            let idx = self.positions.len() as u32;
+
+            for pos in [
+                ivec2(0, 0),
+                ivec2(size as i32, 0),
+                ivec2(size as i32, size as i32),
+                ivec2(0, size as i32),
+            ] {
+                self.positions
+                    .push((origin + pos).as_vec2().extend(group_z));
+                self.normals.push(Vec3::Z);
+                self.colors.push(Vec4::ZERO);
+            }
+
+            self.indices
+                .extend([idx, idx + 1, idx + 2, idx, idx + 2, idx + 3]);
+        }
+    }
+
+    fn remove_rejected_triangles(&mut self) {
+        self.indices.retain(|&v| v != u32::MAX);
     }
 
     fn deduplicate(&mut self) {
@@ -507,7 +591,7 @@ impl MeshGenerator {
         let a_tr = self.ms_transform_point(a.extend(self.height));
 
         let mut up_height = 1000.0;
-        for pos in &self.positions[self.cell_first_vertex_idx..] {
+        for pos in &self.positions[self.cell_first_vertex..] {
             if pos.xy() == a_tr.xy() && pos.z > self.height && pos.z < up_height {
                 up_height = pos.z;
             }

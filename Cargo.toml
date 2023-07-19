@@ -31,7 +31,7 @@ rayon = "1.7"
 ron = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 tracing-tracy = { version = "0.10", features = ["ondemand"] }
-bevy_xpbd_3d = { git = "https://github.com/LeshaInc/bevy_xpbd.git", branch = "disable-debug-rendering", features = ["debug-plugin"] }
+bevy_xpbd_3d = { git = "https://github.com/Jondolf/bevy_xpbd.git", features = ["debug-plugin"] }
 
 [profile.dev]
 opt-level = 1

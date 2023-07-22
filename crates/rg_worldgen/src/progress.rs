@@ -12,6 +12,7 @@ pub enum WorldgenStage {
     Island = 0,
     Elevation,
     Rivers,
+    Biomes,
 }
 
 #[derive(Debug, Default, Clone, Resource)]
@@ -34,9 +35,10 @@ impl WorldgenProgress {
 
         let frac = progress as f32 / 100.0;
         let total_progress = match stage {
-            WorldgenStage::Island => frac * 35.0,
-            WorldgenStage::Elevation => frac * 25.0 + 35.0,
-            WorldgenStage::Rivers => frac * 40.0 + 60.0,
+            WorldgenStage::Island => frac * 25.0,
+            WorldgenStage::Elevation => frac * 25.0 + 25.0,
+            WorldgenStage::Rivers => frac * 25.0 + 50.0,
+            WorldgenStage::Biomes => frac * 25.0 + 75.0,
         };
 
         (stage, progress, total_progress)
@@ -125,6 +127,7 @@ fn update_ui(
         WorldgenStage::Island => "Generating the island...",
         WorldgenStage::Elevation => "Raising mountains...",
         WorldgenStage::Rivers => "Forming rivers...",
+        WorldgenStage::Biomes => "Generating biomes...",
     }
     .into();
 

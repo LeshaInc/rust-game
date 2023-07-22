@@ -9,7 +9,7 @@ use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
 use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin, ScatterMultiBillboard};
 use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
-use rg_worldgen::{WorldMaps, WORLD_SCALE};
+use rg_worldgen::{Biome, WorldMaps, WORLD_SCALE};
 
 use super::ScatterPrototype;
 
@@ -36,7 +36,18 @@ impl ScatterPrototype for TreePrototype {
         if elevation <= 0.0 {
             return 0.0;
         }
-        1.0
+
+        let biome = world_maps
+            .biomes
+            .get((pos / WORLD_SCALE).as_ivec2())
+            .copied()
+            .unwrap_or(Biome::Ocean);
+
+        match biome {
+            Biome::Ocean => 0.0,
+            Biome::Forest => 1.0,
+            Biome::Plains => 0.1,
+        }
     }
 
     fn spawn<R: Rng>(&self, rng: &mut R, commands: &mut Commands, mut pos: Vec3) -> Entity {

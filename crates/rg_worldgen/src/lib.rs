@@ -1,3 +1,4 @@
+mod biomes;
 mod elevation;
 mod island_shaping;
 mod progress;
@@ -16,6 +17,8 @@ use rg_core::{DeserializedResource, DeserializedResourcePlugin, Grid};
 use rivers::RiversSettings;
 use serde::Deserialize;
 
+use crate::biomes::generate_biomes;
+pub use crate::biomes::Biome;
 use crate::elevation::compute_elevation;
 pub use crate::elevation::ElevationSettings;
 use crate::island_shaping::shape_island;
@@ -74,6 +77,7 @@ impl DeserializedResource for WorldgenSettings {
 pub struct WorldMaps {
     pub seed: u64,
     pub elevation: Grid<f32>,
+    pub biomes: Grid<Biome>,
 }
 
 #[derive(Debug, Deref, Clone, Resource)]
@@ -96,12 +100,17 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
         let island = shape_island(&mut rng, &settings.island, &progress);
         let mut elevation = compute_elevation(&island, &settings.elevation, &progress);
         let rivers = generate_rivers(&mut rng, &mut elevation, &settings.rivers, &progress);
+        let biomes = generate_biomes(&mut rng, &elevation);
 
         island.debug_save(&format!("/tmp/island.png"));
         elevation.debug_save(&format!("/tmp/elevation.png"));
         rivers.debug_save(&format!("/tmp/rivers.png"));
 
-        WorldMaps { seed, elevation }
+        WorldMaps {
+            seed,
+            elevation,
+            biomes,
+        }
     });
 
     commands.insert_resource(WorldgenTask(task));

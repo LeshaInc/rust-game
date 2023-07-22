@@ -1,6 +1,5 @@
 use std::f32::consts::TAU;
 use std::ops::{AddAssign, DivAssign, Index, IndexMut, MulAssign, SubAssign};
-use std::sync::Arc;
 
 use bevy::core::cast_slice;
 use bevy::prelude::{info_span, IVec2, UVec2, Vec2};
@@ -461,74 +460,6 @@ impl Grid<bool> {
 #[inline(never)]
 fn panic_oob(cell: IVec2, size: UVec2) -> ! {
     panic!("{} is outside grid of size {}", cell, size)
-}
-
-#[derive(Debug, Clone)]
-pub struct SharedGrid<T>(pub Arc<Grid<T>>);
-
-impl<T> SharedGrid<T> {
-    pub fn new(size: UVec2, fill: T) -> SharedGrid<T>
-    where
-        T: Clone,
-    {
-        SharedGrid(Arc::new(Grid::new(size, fill)))
-    }
-
-    pub fn new_default(size: UVec2) -> SharedGrid<T>
-    where
-        T: Default + Clone,
-    {
-        SharedGrid(Arc::new(Grid::new_default(size)))
-    }
-
-    pub fn size(&self) -> UVec2 {
-        self.0.size()
-    }
-
-    pub fn contains_cell(&self, cell: IVec2) -> bool {
-        self.0.contains_cell(cell)
-    }
-
-    pub fn cells(&self) -> impl Iterator<Item = IVec2> {
-        self.0.cells()
-    }
-
-    pub fn entries(&self) -> impl Iterator<Item = (IVec2, &T)> {
-        self.0.entries()
-    }
-
-    pub fn neighborhood_4(&self, center: IVec2) -> impl Iterator<Item = (usize, IVec2)> {
-        self.0.neighborhood_4(center)
-    }
-
-    pub fn neighborhood_8(&self, center: IVec2) -> impl Iterator<Item = (usize, IVec2)> {
-        self.0.neighborhood_8(center)
-    }
-
-    pub fn get(&self, cell: IVec2) -> Option<&T> {
-        self.0.get(cell)
-    }
-
-    pub fn make_mut(&mut self) -> &mut Grid<T>
-    where
-        T: Clone,
-    {
-        Arc::make_mut(&mut self.0)
-    }
-}
-
-impl<T> From<Grid<T>> for SharedGrid<T> {
-    fn from(value: Grid<T>) -> Self {
-        SharedGrid(Arc::new(value))
-    }
-}
-
-impl<T> Index<IVec2> for SharedGrid<T> {
-    type Output = T;
-
-    fn index(&self, cell: IVec2) -> &Self::Output {
-        &self.0[cell]
-    }
 }
 
 // TODO: move this somewhere else

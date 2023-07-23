@@ -65,6 +65,34 @@ impl<T> Grid<T> {
         }
     }
 
+    pub fn from_fn(size: UVec2, f: impl FnMut(IVec2) -> T) -> Grid<T> {
+        Grid::from_data(
+            size,
+            (0..size.y as i32)
+                .flat_map(move |y| (0..size.x as i32).map(move |x| IVec2::new(x, y)))
+                .map(f)
+                .collect::<Vec<T>>(),
+        )
+    }
+
+    pub fn par_from_fn(size: UVec2, f: impl (Fn(IVec2) -> T) + Send + Sync) -> Grid<T>
+    where
+        T: Send,
+    {
+        Grid::from_data(
+            size,
+            (0..(size.x as usize) * (size.y as usize))
+                .into_par_iter()
+                .map(move |idx| {
+                    let x = (idx % (size.x as usize)) as i32;
+                    let y = (idx / (size.x as usize)) as i32;
+                    IVec2::new(x, y)
+                })
+                .map(f)
+                .collect::<Vec<T>>(),
+        )
+    }
+
     pub fn with_origin(mut self, origin: IVec2) -> Grid<T> {
         self.origin = origin;
         self

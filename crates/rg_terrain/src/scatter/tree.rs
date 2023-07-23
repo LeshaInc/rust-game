@@ -8,6 +8,7 @@ use bevy::render::render_resource::AsBindGroup;
 use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
 use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin, ScatterMultiBillboard};
+use rg_core::CollisionLayers;
 use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
 use rg_worldgen::{Biome, WorldMaps, WORLD_SCALE};
 
@@ -101,12 +102,14 @@ impl ScatterPrototype for TreePrototype {
                 commands.spawn((
                     TransformBundle::from(Transform::from_xyz(0.0, 0.0, 1.28)),
                     Collider::capsule_z(1.28, 0.32),
+                    CollisionLayers::STATIC_GROUP,
                 ));
 
                 // crown collider
                 commands.spawn((
                     TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.5)),
                     Collider::ball(1.0),
+                    CollisionLayers::STATIC_GROUP,
                 ));
             })
             .id()

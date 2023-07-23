@@ -31,6 +31,9 @@ pub fn tile_pos_to_world(chunk: IVec2, tile: IVec2) -> Vec2 {
 pub struct Chunk;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Component)]
+pub struct ChunkFullyLoaded;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Component)]
 pub struct ChunkPos(pub IVec2);
 
 #[derive(Copy, Clone, Default, Resource)]

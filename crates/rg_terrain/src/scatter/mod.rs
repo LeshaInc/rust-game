@@ -11,6 +11,7 @@ use rg_core::PoissonDiscSampling;
 use rg_worldgen::{SharedWorldMaps, WorldMaps, WorldSeed};
 
 use self::tree::TreePrototype;
+use crate::chunk::ChunkFullyLoaded;
 use crate::{chunk_pos_to_world, Chunk, ChunkPos, ChunkSpawnCenter, CHUNK_SIZE};
 
 pub struct ScatterPlugins;
@@ -63,10 +64,10 @@ impl<T: ScatterPrototype> Plugin for ScatterPlugin<T> {
 }
 
 #[derive(Copy, Clone, Component)]
-struct ChunkScattered;
+struct ChunkScattered<T>(PhantomData<T>);
 
 fn scatter<T: ScatterPrototype>(
-    q_chunks: Query<(Entity, &ChunkPos), (With<Chunk>, With<Collider>, Without<ChunkScattered>)>,
+    q_chunks: Query<(Entity, &ChunkPos), (With<Chunk>, With<Collider>, Without<ChunkScattered<T>>)>,
     seed: Res<WorldSeed>,
     world_maps: Res<SharedWorldMaps>,
     prototype: Res<T>,
@@ -122,6 +123,6 @@ fn scatter<T: ScatterPrototype>(
 
     commands
         .entity(chunk_id)
-        .insert(ChunkScattered)
+        .insert((ChunkScattered::<T>(PhantomData), ChunkFullyLoaded))
         .push_children(&children);
 }

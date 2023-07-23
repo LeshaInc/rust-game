@@ -5,6 +5,7 @@ mod mesh;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
+use rg_core::CollisionLayers;
 use rg_worldgen::{SharedWorldMaps, WorldSeed};
 
 use self::heightmap::HeightmapGenerator;
@@ -90,6 +91,7 @@ fn update_chunks(
         commands.entity(chunk_id).remove::<SurfaceTask>().insert((
             meshes.add(res.mesh),
             res.collider,
+            CollisionLayers::STATIC_WALKABLE_GROUP,
             material.0.clone(),
         ));
     }

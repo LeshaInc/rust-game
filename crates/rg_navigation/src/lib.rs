@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy_rapier3d::na::Isometry3;
-use bevy_rapier3d::parry::shape::Cuboid;
+use bevy_rapier3d::parry::shape::Capsule;
 use bevy_rapier3d::prelude::*;
 use bevy_rapier3d::rapier::prelude::{
     Aabb, ColliderBuilder, ColliderHandle, ColliderSet, QueryFilter, QueryPipeline, Ray,
@@ -10,7 +10,9 @@ use bevy_rapier3d::rapier::prelude::{
 use futures_lite::future;
 use rg_core::{CollisionLayers, Grid};
 use rg_dev_overlay::DevOverlaySettings;
-use rg_terrain::{chunk_pos_to_world, tile_pos_to_world, Chunk, ChunkPos, CHUNK_TILES};
+use rg_terrain::{
+    chunk_pos_to_world, tile_pos_to_world, Chunk, ChunkFullyLoaded, ChunkPos, CHUNK_TILES,
+};
 
 const MAX_UPDATES_PER_FRAME: usize = 32;
 
@@ -18,7 +20,8 @@ pub const MIN_HEIGHT: f32 = -200.0;
 pub const MAX_HEIGHT: f32 = 200.0;
 pub const CLIMB_HEIGHT: f32 = 0.5;
 pub const AGENT_HEIGHT: f32 = 1.8;
-pub const AGENT_RADIUS: f32 = 0.1;
+pub const AGENT_RADIUS: f32 = 0.3;
+pub const AGENT_OFFSET: f32 = 0.2;
 
 pub struct NavigationPlugin;
 
@@ -46,10 +49,10 @@ fn schedule_tasks(
     q_chunks: Query<
         (Entity, &ChunkPos),
         (
+            With<Chunk>,
+            With<ChunkFullyLoaded>,
             Without<NavMeshTask>,
             Without<NavMeshGenerated>,
-            With<Collider>,
-            With<Chunk>,
         ),
     >,
     physics_context: Res<RapierContext>,
@@ -68,7 +71,7 @@ fn schedule_tasks(
                 let affects_navmesh = collider
                     .collision_groups()
                     .memberships
-                    .contains(CollisionLayers::NAVMESH.into());
+                    .contains(CollisionLayers::STATIC.into());
                 if !affects_navmesh {
                     return true; // continue search
                 }
@@ -160,7 +163,10 @@ impl NavMeshGenerator {
             let ray_origin = pos.extend(MIN_HEIGHT);
             let max_toi = MAX_HEIGHT - MIN_HEIGHT;
             let solid = false;
-            let filter = QueryFilter::new();
+            let filter = QueryFilter {
+                groups: Some(CollisionLayers::STATIC_WALKABLE_GROUP.into()),
+                ..Default::default()
+            };
 
             cell_heights.clear();
 
@@ -183,16 +189,24 @@ impl NavMeshGenerator {
             cell_heights.sort_by(f32::total_cmp);
 
             for &height in &cell_heights {
-                let cuboid =
-                    Cuboid::new(Vec3::new(AGENT_RADIUS, AGENT_RADIUS, AGENT_HEIGHT * 0.5).into());
-                let cuboid_pos = Isometry3::translation(pos.x, pos.y, height + AGENT_HEIGHT);
+                let capsule = Capsule::new_z(AGENT_HEIGHT * 0.5 - AGENT_RADIUS, AGENT_RADIUS);
+                let capsule_pos = Isometry3::translation(
+                    pos.x,
+                    pos.y,
+                    height + AGENT_HEIGHT * 0.5 + AGENT_OFFSET,
+                );
+
+                let filter = QueryFilter {
+                    groups: Some(CollisionLayers::STATIC_GROUP.into()),
+                    ..Default::default()
+                };
 
                 let is_collided = query_pipeline
                     .intersection_with_shape(
                         &rigid_bodies,
                         &self.colliders,
-                        &cuboid_pos,
-                        &cuboid,
+                        &capsule_pos,
+                        &capsule,
                         filter,
                     )
                     .is_some();

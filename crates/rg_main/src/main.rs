@@ -195,13 +195,7 @@ fn handle_input(
             },
             RigidBody::Dynamic,
             Collider::cuboid(0.5, 0.5, 0.5),
-            CollisionGroups::new(
-                CollisionLayers::DYNAMIC_GEOMETRY.into(),
-                (CollisionLayers::STATIC_GEOMETRY
-                    | CollisionLayers::DYNAMIC_GEOMETRY
-                    | CollisionLayers::CHARACTER)
-                    .into(),
-            ),
+            CollisionLayers::DYNAMIC_GROUP,
         ));
     }
 }

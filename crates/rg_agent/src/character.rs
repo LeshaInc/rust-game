@@ -6,7 +6,7 @@ use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::transform::TransformSystem;
 use bevy_rapier3d::prelude::{
-    CharacterAutostep, CharacterLength, Collider, CollisionGroups, KinematicCharacterController,
+    CharacterAutostep, CharacterLength, Collider, KinematicCharacterController,
     KinematicCharacterControllerOutput, PhysicsSet, RigidBody,
 };
 use rg_camera_controller::CameraController;
@@ -114,10 +114,7 @@ fn spawn_character(
                     offset: CharacterLength::Absolute(offset),
                     ..default()
                 },
-                CollisionGroups::new(
-                    CollisionLayers::CHARACTER.into(),
-                    (CollisionLayers::STATIC_GEOMETRY | CollisionLayers::DYNAMIC_GEOMETRY).into(),
-                ),
+                CollisionLayers::CHARACTER_GROUP,
                 KinematicCharacterControllerOutput::default(),
                 MovementInput::default(),
                 ControlledCharacter,

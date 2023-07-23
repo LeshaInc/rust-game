@@ -1,3 +1,5 @@
+#![allow(clippy::excessive_precision)]
+
 use std::num::Wrapping;
 
 use bevy::math::Vec2;

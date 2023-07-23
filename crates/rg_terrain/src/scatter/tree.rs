@@ -9,7 +9,7 @@ use bevy_xpbd_3d::prelude::*;
 use rand::Rng;
 use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin, ScatterMultiBillboard};
 use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
-use rg_worldgen::{WorldMaps, WORLD_SCALE};
+use rg_worldgen::{Biome, WorldMaps, WORLD_SCALE};
 
 use super::ScatterPrototype;
 
@@ -36,7 +36,18 @@ impl ScatterPrototype for TreePrototype {
         if elevation <= 0.0 {
             return 0.0;
         }
-        1.0
+
+        let biome = world_maps
+            .biomes
+            .get((pos / WORLD_SCALE).as_ivec2())
+            .copied()
+            .unwrap_or(Biome::Ocean);
+
+        match biome {
+            Biome::Ocean => 0.0,
+            Biome::Forest => 1.0,
+            Biome::Plains => 0.1,
+        }
     }
 
     fn spawn<R: Rng>(&self, rng: &mut R, commands: &mut Commands, mut pos: Vec3) -> Entity {
@@ -123,6 +134,7 @@ impl FromWorld for TreePrototype {
 
         let leaves_material = leaves_materials.add(LeavesMaterial {
             texture: asset_server.load("images/leaf.png"),
+            noise: asset_server.load("images/noise.png"),
             dither_offset: UVec2::ZERO,
             fog_height: 0.0,
         });
@@ -146,6 +158,9 @@ pub struct LeavesMaterial {
     #[texture(1)]
     #[sampler(2)]
     pub texture: Handle<Image>,
+    #[texture(3)]
+    #[sampler(4)]
+    pub noise: Handle<Image>,
 }
 
 impl BillboardMaterial for LeavesMaterial {

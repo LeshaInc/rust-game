@@ -20,10 +20,16 @@ struct GrassMaterial {
 
 @group(1) @binding(0)
 var<uniform> material: GrassMaterial;
+
 @group(1) @binding(1)
 var texture: texture_2d<f32>;
 @group(1) @binding(2)
 var texture_sampler: sampler;
+
+@group(1) @binding(3)
+var noise: texture_2d<f32>;
+@group(1) @binding(4)
+var noise_sampler: sampler;
 
 struct Uniforms {
     transform: mat4x4<f32>,  
@@ -44,6 +50,10 @@ struct VertexOutput {
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
+    let world_origin_pos = (uniforms.transform * vec4(vertex.i_pos, 1.0)).xyz;
+    let noise = textureSampleLevel(noise, noise_sampler, (world_origin_pos.xy + world_origin_pos.z) / 5.0 % 1.0, 0.0);
+    let shear = sin(2.0 * bindings::globals.time + noise.x * 10.0) * 0.4;
+
     let camera_dir = (bindings::view.view * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
     let facing = normalize(camera_dir * vec3(1.0, 1.0, 0.0));
 
@@ -53,9 +63,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         facing
     );
 
-    let world_origin_pos = (uniforms.transform * vec4(vertex.i_pos, 1.0)).xyz;
     let world_pos = world_origin_pos + instance_transform * vec3(
-        (vertex.uv.x - uniforms.anchor.x) * vertex.i_size.x,
+        (vertex.uv.x - uniforms.anchor.x + (1.0 - vertex.uv.y) * shear) * vertex.i_size.x,
         (-vertex.uv.y + uniforms.anchor.y) * vertex.i_size.y * 16.0 / 14.0,
         0.0,
     );
@@ -63,7 +72,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     out.position = bindings::view.view_proj * vec4(world_pos, 1.0);
     out.uv = vertex.uv;
-    out.world_position = vec4(world_origin_pos + vec3(0.0, 0.0, 0.01), 1.0);
+    out.world_position = vec4(world_pos, 1.0);
     out.world_normal = vertex.i_normal;
     out.color = vertex.i_color;
     out.random = vertex.i_random;

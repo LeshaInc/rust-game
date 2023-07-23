@@ -23,7 +23,10 @@ impl Plugin for DevOverlayPlugin {
             ..default()
         })
         .insert_resource(FrameTimePoints::default())
-        .add_plugins(WorldInspectorPlugin::new().run_if(|s: Res<DevOverlaySettings>| s.enabled))
+        .add_plugins(
+            WorldInspectorPlugin::new()
+                .run_if(|s: Res<DevOverlaySettings>| s.enabled && s.show_inspector),
+        )
         .add_systems(
             Update,
             (
@@ -44,6 +47,7 @@ impl Plugin for DevOverlayPlugin {
 pub struct DevOverlaySettings {
     pub enabled: bool,
     pub show_settings: bool,
+    pub show_inspector: bool,
     pub show_frame_statistics: bool,
     pub show_navmesh: bool,
     pub show_colliders: bool,
@@ -147,6 +151,7 @@ fn ui_settings(
     window.show(ctx.get_mut(), |ui| {
         ui.checkbox(&mut settings.enabled, "Enabled");
         ui.set_enabled(settings.enabled);
+        ui.checkbox(&mut settings.show_inspector, "Show inspector");
         ui.checkbox(&mut settings.show_frame_statistics, "Show frame statistics");
         ui.checkbox(&mut gizmo_config.aabb.draw_all, "Show bounding boxes");
         ui.checkbox(&mut settings.show_navmesh, "Show navigation mesh");

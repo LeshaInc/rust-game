@@ -3,6 +3,9 @@ use std::marker::PhantomData;
 
 use bevy::asset::{AssetPath, HandleId};
 use bevy::core_pipeline::core_3d::AlphaMask3d;
+use bevy::core_pipeline::prepass::{
+    AlphaMask3dPrepass, DEPTH_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+};
 use bevy::ecs::query::ROQueryItem;
 use bevy::ecs::system::lifetimeless::{Read, SRes};
 use bevy::ecs::system::SystemParamItem;
@@ -12,6 +15,7 @@ use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::extract_component::{
     ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin,
 };
+use bevy::render::globals::{GlobalsBuffer, GlobalsUniform};
 use bevy::render::mesh::MeshVertexBufferLayout;
 use bevy::render::render_asset::{PrepareAssetSet, RenderAssets};
 use bevy::render::render_phase::{
@@ -20,14 +24,17 @@ use bevy::render::render_phase::{
 };
 use bevy::render::render_resource::{
     AsBindGroup, AsBindGroupError, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, IndexFormat,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType,
+    ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, IndexFormat,
     OwnedBindingResource, PipelineCache, PrimitiveState, PrimitiveTopology,
     RenderPipelineDescriptor, ShaderStages, ShaderType, SpecializedMeshPipeline,
-    SpecializedMeshPipelineError, SpecializedMeshPipelines,
+    SpecializedMeshPipelineError, SpecializedMeshPipelines, StencilFaceState, StencilState,
 };
 use bevy::render::renderer::RenderDevice;
 use bevy::render::texture::FallbackImage;
-use bevy::render::view::{ExtractedView, VisibleEntities};
+use bevy::render::view::{
+    ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities,
+};
 use bevy::render::{Extract, Render, RenderApp, RenderSet};
 use bevy::utils::{HashMap, HashSet};
 
@@ -72,9 +79,12 @@ where
 
         app.sub_app_mut(RenderApp)
             .init_resource::<SpecializedMeshPipelines<BillboardMaterialPipeline<M>>>()
+            .init_resource::<SpecializedMeshPipelines<BillboardPrepassPipeline<M>>>()
             .init_resource::<ExtractedBillboardMaterials<M>>()
             .init_resource::<PreparedBillboardMaterials<M>>()
+            .init_resource::<PrepassViewBindGroup>()
             .add_render_command::<AlphaMask3d, DrawMultiBillboard<M>>()
+            .add_render_command::<AlphaMask3dPrepass, DrawMultiBillboardPrepass<M>>()
             .add_systems(ExtractSchedule, extract_materials::<M>)
             .add_systems(
                 Render,
@@ -82,6 +92,7 @@ where
                     prepare_materials::<M>
                         .in_set(RenderSet::Prepare)
                         .after(PrepareAssetSet::PreAssetPrepare),
+                    queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
                     queue_billboard_uniform_bind_groups::<M>.in_set(RenderSet::Queue),
                     queue_billboard_batches::<M>.in_set(RenderSet::Queue),
                 ),
@@ -90,7 +101,8 @@ where
 
     fn finish(&self, app: &mut App) {
         app.sub_app_mut(RenderApp)
-            .init_resource::<BillboardMaterialPipeline<M>>();
+            .init_resource::<BillboardMaterialPipeline<M>>()
+            .init_resource::<BillboardPrepassPipeline<M>>();
     }
 }
 
@@ -121,20 +133,29 @@ pub fn queue_billboard_batches<M>(
     mut q_views: Query<(
         &ExtractedView,
         &VisibleEntities,
+        &mut RenderPhase<AlphaMask3dPrepass>,
         &mut RenderPhase<AlphaMask3d>,
     )>,
     q_multi_billboards: Query<(Entity, &MultiBillboardUniform, &Handle<M>)>,
-    draw_functions: Res<DrawFunctions<AlphaMask3d>>,
+    main_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
+    prepass_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
     meshes: Res<RenderAssets<Mesh>>,
     materials: Res<PreparedBillboardMaterials<M>>,
-    pipeline: Res<BillboardMaterialPipeline<M>>,
+    main_pipeline: Res<BillboardMaterialPipeline<M>>,
+    prepass_pipeline: Res<BillboardPrepassPipeline<M>>,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<BillboardMaterialPipeline<M>>>,
+    mut main_pipelines: ResMut<SpecializedMeshPipelines<BillboardMaterialPipeline<M>>>,
+    mut prepass_pipelines: ResMut<SpecializedMeshPipelines<BillboardPrepassPipeline<M>>>,
 ) where
     M: BillboardMaterial,
     M::Data: Eq + Hash + Clone,
 {
-    let draw_function = draw_functions
+    let prepass_draw_function = prepass_draw_functions
+        .read()
+        .get_id::<DrawMultiBillboardPrepass<M>>()
+        .unwrap();
+
+    let main_draw_function = main_draw_functions
         .read()
         .get_id::<DrawMultiBillboard<M>>()
         .unwrap();
@@ -144,7 +165,7 @@ pub fn queue_billboard_batches<M>(
         return;
     };
 
-    for (view, visible_entities, mut opaque_phase) in &mut q_views {
+    for (view, visible_entities, mut prepass_phase, mut main_phase) in &mut q_views {
         let mesh_key = MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
 
@@ -154,21 +175,44 @@ pub fn queue_billboard_batches<M>(
                 continue;
             };
 
-            let key = BillboardMaterialKey {
-                mesh_key,
-                bind_group_data: material.key.clone(),
-            };
+            let distance = rangefinder.distance(&uniform.transform);
 
-            let pipeline = pipelines
-                .specialize(&pipeline_cache, &pipeline, key, &dummy_mesh.layout)
+            let prepass_pipeline = prepass_pipelines
+                .specialize(
+                    &pipeline_cache,
+                    &prepass_pipeline,
+                    BillboardMaterialKey {
+                        mesh_key,
+                        bind_group_data: material.key.clone(),
+                    },
+                    &dummy_mesh.layout,
+                )
                 .unwrap();
 
-            let distance = rangefinder.distance(&uniform.transform);
-            opaque_phase.add(AlphaMask3d {
+            prepass_phase.add(AlphaMask3dPrepass {
                 distance,
-                pipeline,
+                pipeline_id: prepass_pipeline,
                 entity,
-                draw_function,
+                draw_function: prepass_draw_function,
+            });
+
+            let main_pipeline = main_pipelines
+                .specialize(
+                    &pipeline_cache,
+                    &main_pipeline,
+                    BillboardMaterialKey {
+                        mesh_key,
+                        bind_group_data: material.key.clone(),
+                    },
+                    &dummy_mesh.layout,
+                )
+                .unwrap();
+
+            main_phase.add(AlphaMask3d {
+                distance,
+                pipeline: main_pipeline,
+                entity,
+                draw_function: main_draw_function,
             });
         }
     }
@@ -234,6 +278,19 @@ pub struct BillboardMaterialPipeline<M: BillboardMaterial> {
     marker: PhantomData<M>,
 }
 
+impl<M: BillboardMaterial> Clone for BillboardMaterialPipeline<M> {
+    fn clone(&self) -> Self {
+        BillboardMaterialPipeline {
+            mesh_pipeline: self.mesh_pipeline.clone(),
+            uniform_layout: self.uniform_layout.clone(),
+            material_layout: self.material_layout.clone(),
+            vertex_shader: self.vertex_shader.clone(),
+            fragment_shader: self.fragment_shader.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<M: BillboardMaterial> FromWorld for BillboardMaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
@@ -293,10 +350,181 @@ where
         descriptor.layout.push(self.uniform_layout.clone());
         descriptor.fragment.as_mut().unwrap().shader = self.fragment_shader.clone();
         descriptor.primitive = PrimitiveState::default();
+        descriptor.label = Some("billboard_main".into());
 
         Ok(descriptor)
     }
 }
+
+#[derive(Resource)]
+pub struct BillboardPrepassPipeline<M: BillboardMaterial> {
+    pub material_pipeline: BillboardMaterialPipeline<M>,
+    pub view_layout: BindGroupLayout,
+    _marker: PhantomData<M>,
+}
+
+impl<M: BillboardMaterial> FromWorld for BillboardPrepassPipeline<M> {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+
+        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                // View
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(ViewUniform::min_size()),
+                    },
+                    count: None,
+                },
+                // Globals
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
+                    },
+                    count: None,
+                },
+            ],
+            label: Some("billboard_prepass_view_layout"),
+        });
+
+        let material_pipeline = world.resource::<BillboardMaterialPipeline<M>>().clone();
+
+        BillboardPrepassPipeline {
+            view_layout,
+            material_pipeline,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<M: BillboardMaterial> SpecializedMeshPipeline for BillboardPrepassPipeline<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
+    type Key = BillboardMaterialKey<M>;
+
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descripor =
+            SpecializedMeshPipeline::specialize(&self.material_pipeline, key, layout)?;
+
+        descripor.layout[0] = self.view_layout.clone();
+        descripor.vertex.shader_defs.push("PREPASS".into());
+
+        if let Some(fragment) = &mut descripor.fragment {
+            fragment.shader_defs.push("PREPASS".into());
+            fragment.targets = vec![
+                Some(ColorTargetState {
+                    format: NORMAL_PREPASS_FORMAT,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                }),
+                None,
+            ];
+        }
+
+        descripor.depth_stencil = Some(DepthStencilState {
+            format: DEPTH_PREPASS_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::GreaterEqual,
+            stencil: StencilState {
+                front: StencilFaceState::IGNORE,
+                back: StencilFaceState::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
+            },
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
+        });
+
+        descripor.label = Some("billboard_prepass".into());
+
+        Ok(descripor)
+    }
+}
+
+#[derive(Default, Resource)]
+pub struct PrepassViewBindGroup {
+    bind_group: Option<BindGroup>,
+}
+
+pub fn queue_prepass_view_bind_group<M: BillboardMaterial>(
+    render_device: Res<RenderDevice>,
+    prepass_pipeline: Res<BillboardPrepassPipeline<M>>,
+    view_uniforms: Res<ViewUniforms>,
+    globals_buffer: Res<GlobalsBuffer>,
+    mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
+) {
+    if let (Some(view_binding), Some(globals_binding)) = (
+        view_uniforms.uniforms.binding(),
+        globals_buffer.buffer.binding(),
+    ) {
+        prepass_view_bind_group.bind_group =
+            Some(render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: view_binding.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: globals_binding.clone(),
+                    },
+                ],
+                label: Some("billboard_prepass_view_bind_group"),
+                layout: &prepass_pipeline.view_layout,
+            }));
+    }
+}
+
+pub struct SetPrepassViewBindGroup<const I: usize>;
+
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
+    type Param = SRes<PrepassViewBindGroup>;
+    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type ItemWorldQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        view_uniform_offset: &'_ ViewUniformOffset,
+        _entity: (),
+        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let prepass_view_bind_group = prepass_view_bind_group.into_inner();
+
+        pass.set_bind_group(
+            I,
+            prepass_view_bind_group.bind_group.as_ref().unwrap(),
+            &[view_uniform_offset.offset],
+        );
+
+        RenderCommandResult::Success
+    }
+}
+
+pub type DrawMultiBillboardPrepass<M> = (
+    SetItemPipeline,
+    SetPrepassViewBindGroup<0>,
+    SetBillboardMaterialBindGroup<1, M>,
+    SetBillboardUniformBindGroup<2>,
+    DrawBillboardBatch,
+);
 
 pub type DrawMultiBillboard<M> = (
     SetItemPipeline,

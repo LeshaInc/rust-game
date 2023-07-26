@@ -217,6 +217,14 @@ impl<T> Grid<T> {
         }
     }
 
+    pub fn clamped_get(&self, mut cell: IVec2) -> &T {
+        cell = cell
+            .max(self.origin)
+            .min(self.origin + self.size.as_ivec2() - 1);
+        let index = self.index(cell);
+        &self.data[index]
+    }
+
     pub fn get_mut(&mut self, cell: IVec2) -> Option<&mut T> {
         if self.contains_cell(cell) {
             let index = self.index(cell);
@@ -348,10 +356,15 @@ impl Grid<f32> {
         let ipos = pos.as_ivec2();
         let fpos = pos - ipos.as_vec2();
 
-        let tl = *self.get(ipos + IVec2::new(0, 0)).unwrap_or(&0.0);
-        let tr = *self.get(ipos + IVec2::new(1, 0)).unwrap_or(&0.0);
-        let bl = *self.get(ipos + IVec2::new(0, 1)).unwrap_or(&0.0);
-        let br = *self.get(ipos + IVec2::new(1, 1)).unwrap_or(&0.0);
+        let tl = *self.clamped_get(ipos + IVec2::new(0, 0));
+        let tr = *self.clamped_get(ipos + IVec2::new(1, 0));
+        let bl = *self.clamped_get(ipos + IVec2::new(0, 1));
+        let br = *self.clamped_get(ipos + IVec2::new(1, 1));
+
+        let vals = [tl, tr, bl, br];
+        if vals.iter().any(|v| v.is_nan()) {
+            return *vals.iter().find(|v| !v.is_nan()).unwrap_or(&f32::NAN);
+        }
 
         lerp(lerp(tl, tr, fpos.x), lerp(bl, br, fpos.x), fpos.y)
     }

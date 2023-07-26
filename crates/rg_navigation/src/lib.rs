@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy_rapier3d::prelude::RapierContext;
 use futures_lite::future;
-use generator::NAVMESH_SIZE;
+use generator::{node_pos_to_world, node_pos_to_world_f32, NAVMESH_SIZE};
 use rg_dev_overlay::DevOverlaySettings;
 use rg_terrain::{chunk_pos_to_world, Chunk, ChunkFullyLoaded, ChunkPos, CHUNK_SIZE};
 
@@ -89,9 +89,7 @@ fn draw_nav_mesh_gizmos(
                 continue;
             }
 
-            let pos = (chunk_pos_to_world(chunk_pos)
-                + cell.as_vec2() / (NAVMESH_SIZE as f32) * CHUNK_SIZE)
-                .extend(height + 0.1);
+            let _pos = node_pos_to_world(chunk_pos, cell).extend(height + 0.1);
 
             for (i, neighbor) in nav_grid.heightmap.neighborhood_4(cell) {
                 if nav_grid.connections[cell] & (1 << i) as u8 == 0 {
@@ -103,12 +101,21 @@ fn draw_nav_mesh_gizmos(
                     continue;
                 }
 
-                let neighbor_pos = (chunk_pos_to_world(chunk_pos)
-                    + neighbor.as_vec2() / (NAVMESH_SIZE as f32) * CHUNK_SIZE)
-                    .extend(neighbor_height + 0.1);
+                let _neighbor_pos =
+                    node_pos_to_world(chunk_pos, neighbor).extend(neighbor_height + 0.1);
 
-                gizmos.line(pos, neighbor_pos, Color::GREEN);
+                // gizmos.line(pos, neighbor_pos, Color::GREEN);
             }
+        }
+
+        for &(start, end) in &nav_grid.contour {
+            let start_z = nav_grid.heightmap.sample(start) + 0.1;
+            let end_z = nav_grid.heightmap.sample(end) + 0.1;
+
+            let start = node_pos_to_world_f32(chunk_pos, start).extend(start_z);
+            let end = node_pos_to_world_f32(chunk_pos, end).extend(end_z);
+
+            gizmos.line(start, end, Color::RED);
         }
     }
 }

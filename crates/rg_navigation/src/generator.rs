@@ -27,7 +27,7 @@ impl Default for NavMeshSettings {
             min_world_z: -200.0,
             max_world_z: 200.0,
             climb_height: 0.5,
-            agent_height: 1.8,
+            agent_height: 1.5,
             agent_radius: 0.3,
             agent_offset: 0.2,
         }
@@ -38,6 +38,7 @@ impl Default for NavMeshSettings {
 pub struct ChunkNavMesh {
     pub heightmap: Grid<f32>,
     pub connections: Grid<u8>,
+    pub contour: Vec<(Vec2, Vec2)>,
 }
 
 pub fn extract_colliders(
@@ -85,11 +86,22 @@ pub fn generate_navmesh(
 
     let heightmap = generate_heightmap(settings, chunk_pos, colliders);
     let connections = generate_connections(settings, &heightmap);
+    let contour = generate_contour(&connections);
 
     ChunkNavMesh {
         heightmap,
         connections,
+        contour,
     }
+}
+
+pub fn node_pos_to_world(chunk_pos: IVec2, cell: IVec2) -> Vec2 {
+    node_pos_to_world_f32(chunk_pos, cell.as_vec2())
+}
+
+pub fn node_pos_to_world_f32(chunk_pos: IVec2, cell: Vec2) -> Vec2 {
+    chunk_pos_to_world(chunk_pos)
+        + (cell + Vec2::new(0.5, 0.5)) / (NAVMESH_SIZE as f32) * CHUNK_SIZE
 }
 
 fn generate_heightmap(
@@ -105,8 +117,7 @@ fn generate_heightmap(
 
     let size = UVec2::splat(NAVMESH_SIZE);
     Grid::par_from_fn(size, |cell| {
-        let pos =
-            chunk_pos_to_world(chunk_pos) + cell.as_vec2() / (NAVMESH_SIZE as f32) * CHUNK_SIZE;
+        let pos = node_pos_to_world(chunk_pos, cell);
 
         let ray_origin = pos.extend(settings.min_world_z);
         let max_toi = settings.max_world_z - settings.min_world_z;
@@ -190,4 +201,75 @@ fn generate_connections(settings: &NavMeshSettings, heightmap: &Grid<f32>) -> Gr
 
         connections
     })
+}
+
+fn generate_contour(connections: &Grid<u8>) -> Vec<(Vec2, Vec2)> {
+    let _span = info_span!("generate_contour").entered();
+
+    let mut edges = Vec::new();
+
+    let cells = (-1..=connections.size().y as i32)
+        .flat_map(move |y| (-1..=connections.size().x as i32).map(move |x| IVec2::new(x, y)));
+
+    for cell in cells {
+        let mut add_edge = |x1, y1, x2, y2| {
+            edges.push((
+                cell.as_vec2() + Vec2::new(x1, y1),
+                cell.as_vec2() + Vec2::new(x2, y2),
+            ));
+        };
+
+        let get = |sx, sy| u8::from(connections.get(cell + IVec2::new(sx, sy)).unwrap_or(&0) > &0);
+        let case = get(0, 0) | get(1, 0) << 1 | get(1, 1) << 2 | get(0, 1) << 3;
+
+        match case {
+            1 => {
+                add_edge(0.0, 0.5, 0.5, 0.0);
+            }
+            2 => {
+                add_edge(0.5, 0.0, 1.0, 0.5);
+            }
+            3 => {
+                add_edge(0.0, 0.5, 1.0, 0.5);
+            }
+            4 => {
+                add_edge(1.0, 0.5, 0.5, 1.0);
+            }
+            5 => {
+                add_edge(0.0, 0.5, 0.5, 0.0);
+                add_edge(1.0, 0.5, 0.5, 1.0);
+            }
+            6 => {
+                add_edge(0.5, 0.0, 0.5, 1.0);
+            }
+            7 => {
+                add_edge(0.0, 0.5, 0.5, 1.0);
+            }
+            8 => {
+                add_edge(0.5, 1.0, 0.0, 0.5);
+            }
+            9 => {
+                add_edge(0.5, 1.0, 0.5, 0.0);
+            }
+            10 => {
+                add_edge(0.5, 0.0, 1.0, 0.5);
+                add_edge(0.5, 1.0, 0.0, 0.5);
+            }
+            11 => {
+                add_edge(0.5, 1.0, 1.0, 0.5);
+            }
+            12 => {
+                add_edge(1.0, 0.5, 0.0, 0.5);
+            }
+            13 => {
+                add_edge(1.0, 0.5, 0.5, 0.0);
+            }
+            14 => {
+                add_edge(0.5, 0.0, 0.0, 0.5);
+            }
+            _ => {}
+        }
+    }
+
+    edges
 }

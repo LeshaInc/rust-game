@@ -44,8 +44,9 @@ impl HeightmapGenerator {
             fbm += noise.get(pos / 25.0) / 4.0;
             fbm += noise.get(pos / 12.5) / 8.0;
             fbm += noise.get(pos / 6.25) / 16.0;
+            fbm += noise.get(pos / 3.125) / 32.0;
 
-            *height += 8.0 * fbm * elevation.max(0.0).powf(0.5);
+            *height += 14.0 * fbm * elevation.max(0.0).powf(0.5);
 
             *height /= 2.0;
             *height = height.floor() + (70.0 * (height.fract() - 0.5)).tanh() * 0.5 + 0.5;

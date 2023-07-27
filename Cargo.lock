@@ -3463,6 +3463,7 @@ dependencies = [
  "rg_dev_overlay",
  "rg_terrain",
  "smallvec",
+ "spade",
 ]
 
 [[package]]

@@ -5,12 +5,9 @@ use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy_rapier3d::prelude::RapierContext;
 use futures_lite::future;
 use rg_dev_overlay::DevOverlaySettings;
-use rg_terrain::{Chunk, ChunkFullyLoaded, ChunkPos};
+use rg_terrain::{chunk_pos_to_world, Chunk, ChunkFullyLoaded, ChunkPos};
 
-use crate::generator::{
-    extract_colliders, generate_navmesh, node_pos_to_world, node_pos_to_world_f32, ChunkNavMesh,
-    NavMeshSettings,
-};
+use crate::generator::{extract_colliders, generate_navmesh, ChunkNavMesh, NavMeshSettings};
 
 const MAX_UPDATES_PER_FRAME: usize = 32;
 
@@ -81,61 +78,30 @@ fn draw_nav_mesh_gizmos(
     q_chunks: Query<(&ChunkPos, &ChunkNavMesh, &ComputedVisibility)>,
     mut gizmos: Gizmos,
 ) {
-    for (&ChunkPos(chunk_pos), nav_grid, visibility) in &q_chunks {
-        if chunk_pos.x % 2 != 0 || chunk_pos.y % 2 != 0 {
-            continue;
-        }
+    for (&ChunkPos(chunk_pos), nav_mesh, visibility) in &q_chunks {
+        // if chunk_pos.x % 2 != 0 || chunk_pos.y % 2 != 0 {
+        //     continue;
+        // }
 
         if !visibility.is_visible() {
             continue;
         }
 
-        for (cell, height) in nav_grid.heightmap.entries() {
-            if height.is_nan() {
-                continue;
-            }
+        let chunk_pos_world = chunk_pos_to_world(chunk_pos);
 
-            let _pos = node_pos_to_world(chunk_pos, cell).extend(height + 0.1);
+        for &(start, end) in &nav_mesh.triangulation_edges {
+            let start_z = nav_mesh.sample_height(start) + 0.1;
+            let end_z = nav_mesh.sample_height(end) + 0.1;
 
-            for (i, neighbor) in nav_grid.heightmap.neighborhood_4(cell) {
-                if nav_grid.connections[cell] & (1 << i) as u8 == 0 {
-                    continue;
-                }
+            // let start_z = 25.0;
+            // let end_z = 25.0;
 
-                let neighbor_height = nav_grid.heightmap[neighbor];
-                if neighbor_height.is_nan() {
-                    continue;
-                }
+            let start = (chunk_pos_world + start).extend(start_z);
+            let end = (chunk_pos_world + end).extend(end_z);
+            gizmos.line(start, end, Color::RED);
 
-                let _neighbor_pos =
-                    node_pos_to_world(chunk_pos, neighbor).extend(neighbor_height + 0.1);
-
-                // gizmos.line(pos, neighbor_pos, Color::GREEN);
-            }
-        }
-
-        for &(start, end) in &nav_grid.edges {
-            let start_z = 25.0; // nav_grid.heightmap.sample(start) + 0.1;
-            let end_z = 25.0; //nav_grid.heightmap.sample(end) + 0.1;
-
-            let start = node_pos_to_world_f32(chunk_pos, start).extend(start_z);
-            let end = node_pos_to_world_f32(chunk_pos, end).extend(end_z);
-
-            let color = Color::RED;
-
-            gizmos.line(start, end, color);
-            gizmos.line(
-                end,
-                end + (start - end).normalize() * 0.1
-                    + (start - end).normalize().cross(Vec3::Z) * 0.05,
-                color,
-            );
-            gizmos.line(
-                end,
-                end + (start - end).normalize() * 0.1
-                    - (start - end).normalize().cross(Vec3::Z) * 0.05,
-                color,
-            );
+            gizmos.circle(start, Vec3::Z, 0.05, Color::RED);
+            gizmos.circle(end, Vec3::Z, 0.05, Color::RED);
         }
     }
 }

@@ -53,8 +53,8 @@ impl HeightmapGenerator {
             *height *= 2.0;
         }
 
-        self.heightmap.blur(1);
-        self.heightmap.blur(1);
+        self.heightmap.blur(3);
+        self.heightmap.blur(3);
 
         self.heightmap
     }

@@ -27,6 +27,7 @@ pub use crate::progress::{WorldgenProgress, WorldgenStage};
 use crate::rivers::generate_rivers;
 
 pub const WORLD_SCALE: f32 = 4.0;
+pub const RIVER_MAP_SCALE: f32 = 2.0;
 
 pub struct WorldgenPlugin;
 
@@ -77,6 +78,7 @@ impl DeserializedResource for WorldgenSettings {
 pub struct WorldMaps {
     pub seed: u64,
     pub elevation: Grid<f32>,
+    pub rivers: Grid<f32>,
     pub biomes: Grid<Biome>,
 }
 
@@ -109,6 +111,7 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
         WorldMaps {
             seed,
             elevation,
+            rivers,
             biomes,
         }
     });

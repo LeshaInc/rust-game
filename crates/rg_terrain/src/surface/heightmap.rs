@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use rg_core::{Grid, SimplexNoise2};
-use rg_worldgen::{SharedWorldMaps, WORLD_SCALE};
+use rg_worldgen::{SharedWorldMaps, RIVER_MAP_SCALE, WORLD_SCALE};
 
 use crate::chunk::CHUNK_TILES;
 use crate::tile_pos_to_world;
@@ -36,6 +36,8 @@ impl HeightmapGenerator {
             let pos = tile_pos_to_world(self.chunk_pos, cell);
 
             let elevation = self.world_maps.elevation.sample(pos / WORLD_SCALE);
+            let river = self.world_maps.rivers.sample(pos / RIVER_MAP_SCALE);
+
             *height = elevation * 160.0;
 
             let mut fbm = 0.0;
@@ -46,15 +48,27 @@ impl HeightmapGenerator {
             fbm += noise.get(pos / 6.25) / 16.0;
             fbm += noise.get(pos / 3.125) / 32.0;
 
-            *height += 14.0 * fbm * elevation.max(0.0).powf(0.5);
+            *height += (1.0 - river) * 14.0 * fbm * elevation.max(0.0).powf(0.5);
 
-            *height /= 2.0;
-            *height = height.floor() + (70.0 * (height.fract() - 0.5)).tanh() * 0.5 + 0.5;
-            *height *= 2.0;
+            let mut snap = *height;
+            snap /= 2.0;
+            snap = snap.floor() + (70.0 * (snap.fract() - 0.5)).tanh() * 0.5 + 0.5;
+            snap *= 2.0;
+
+            *height = snap * (1.0 - river) + *height * river;
         }
 
         self.heightmap.blur(3);
         self.heightmap.blur(3);
+
+        for (cell, height) in self.heightmap.entries_mut() {
+            let pos = tile_pos_to_world(self.chunk_pos, cell);
+            let river = self.world_maps.rivers.sample(pos / RIVER_MAP_SCALE);
+            *height -= river * 2.0;
+        }
+
+        self.heightmap.blur(1);
+        self.heightmap.blur(1);
 
         self.heightmap
     }

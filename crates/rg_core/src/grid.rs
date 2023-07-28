@@ -434,6 +434,14 @@ impl Grid<f32> {
         res
     }
 
+    pub fn remap_inplace(&mut self, new_min: f32, new_max: f32) {
+        let min = self.min_value();
+        let max = self.max_value();
+        for val in self.data.iter_mut() {
+            *val = (*val - min) / (max - min) * (new_max - new_min) + new_min;
+        }
+    }
+
     pub fn debug_save(&self, path: &str) {
         let min = self.min_value();
         let max = self.max_value();
@@ -464,8 +472,13 @@ impl Grid<bool> {
         res
     }
 
-    pub fn compute_edt(&self) -> Grid<f32> {
-        let _scope = info_span!("compute_edt").entered();
+    pub fn inverse(&self) -> Grid<bool> {
+        Grid::from_data(self.size, self.data.iter().map(|&v| !v).collect::<Vec<_>>())
+            .with_origin(self.origin)
+    }
+
+    pub fn compute_edt_exact(&self) -> Grid<f32> {
+        let _scope = info_span!("compute_edt_exact").entered();
 
         let data = edt::edt(
             self.data(),
@@ -473,13 +486,20 @@ impl Grid<bool> {
             false,
         );
 
-        let max = data.iter().copied().fold(0.0, f64::max);
+        let data = data.into_iter().map(|v| v as f32).collect::<Vec<_>>();
+        Grid::from_data(self.size(), data).with_origin(self.origin)
+    }
 
-        let data = data
-            .into_iter()
-            .map(|v| (v / max) as f32)
-            .collect::<Vec<_>>();
+    pub fn compute_edt_approx(&self) -> Grid<f32> {
+        let _scope = info_span!("compute_edt_approx").entered();
 
+        let data = edt::edt_fmm(
+            self.data(),
+            (self.size().x as usize, self.size().y as usize),
+            false,
+        );
+
+        let data = data.into_iter().map(|v| v as f32).collect::<Vec<_>>();
         Grid::from_data(self.size(), data).with_origin(self.origin)
     }
 

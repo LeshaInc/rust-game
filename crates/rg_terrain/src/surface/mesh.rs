@@ -694,6 +694,13 @@ impl MeshGenerator {
             self.ms_triangle(vec2(0.25, 0.25), vec2(0.75, 0.25), vec2(0.5, 0.5));
 
             self.ms_quad(
+                vec2(0.00, 0.00),
+                vec2(1.00, 0.00),
+                vec2(0.75, 0.25),
+                vec2(0.25, 0.25),
+            );
+
+            self.ms_quad(
                 vec2(0.50, 0.50),
                 vec2(0.75, 0.25),
                 vec2(1.00, 0.50),

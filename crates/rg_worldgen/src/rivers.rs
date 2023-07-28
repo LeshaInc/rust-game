@@ -49,7 +49,11 @@ pub fn generate_rivers<R: Rng>(
     apply_erosion(&volume_map, elevation, settings);
     progress.set(WorldgenStage::Rivers, 100);
 
-    elevation.clone()
+    let strahler = compute_strahler(&points, &upstream);
+
+    let river_map = generate_river_map(&points, size, &downstream, &strahler);
+
+    river_map
 }
 
 #[derive(Default)]
@@ -296,6 +300,141 @@ fn generate_volume_map(
     }
 
     volume_map
+}
+
+fn compute_strahler(points: &Points, upstream: &[Vec<usize>]) -> Vec<u8> {
+    let _scope = info_span!("compute_strahler").entered();
+
+    let mut volume = vec![0; points.count];
+
+    for i in 0..points.count {
+        compute_strahler_at_point(&mut volume, upstream, i);
+    }
+
+    volume
+}
+
+fn compute_strahler_at_point(strahler: &mut [u8], upstream: &[Vec<usize>], i: usize) {
+    if strahler[i] > 0 {
+        return;
+    }
+
+    if upstream[i].is_empty() {
+        strahler[i] = 1;
+        return;
+    }
+
+    for &up in &upstream[i] {
+        compute_strahler_at_point(strahler, upstream, up);
+    }
+
+    let max_idx = upstream[i]
+        .iter()
+        .copied()
+        .max_by_key(|&idx| strahler[idx])
+        .unwrap();
+    let max_val = strahler[max_idx];
+
+    strahler[i] = if upstream[i]
+        .iter()
+        .any(|&idx| idx != max_idx && strahler[idx] == max_val)
+    {
+        max_val + 1
+    } else {
+        max_val
+    };
+}
+
+fn generate_river_map(
+    points: &Points,
+    size: UVec2,
+    downstream: &[Option<usize>],
+    strahler: &[u8],
+) -> Grid<f32> {
+    let _scope = info_span!("generate_river_map").entered();
+
+    let mut river_map = Grid::new(size * 2, false);
+
+    for start_i in 0..points.count {
+        let Some(end_i) = downstream[start_i] else {
+            continue;
+        };
+
+        let start = points.positions[start_i] * 2.0;
+        let end = points.positions[end_i] * 2.0;
+
+        if strahler[start_i] <= 2 {
+            continue;
+        }
+
+        line(start, end, |cell| {
+            if !river_map.contains_cell(cell) {
+                return;
+            }
+
+            river_map[cell] = true;
+        });
+    }
+
+    let mut blurred = river_map.to_f32();
+    blurred.blur(3);
+    blurred.blur(3);
+    blurred.remap_inplace(0.0, 1.0);
+
+    for cell in blurred.cells() {
+        if river_map[cell] {
+            blurred[cell] = 1.0;
+        }
+    }
+
+    blurred
+}
+
+fn line(start: Vec2, end: Vec2, mut callback: impl FnMut(IVec2)) {
+    let mut plot = |x, y| callback(IVec2::new(x, y));
+
+    let start_x = start.x as i32;
+    let start_y = start.y as i32;
+    let end_x = end.x as i32;
+    let end_y = end.y as i32;
+
+    if start_x == end_x && start_y == end_y {
+        plot(start_x, end_x);
+        return;
+    }
+
+    let min_x = start_x.min(end_x);
+    let (max_x, min_y, max_y) = if min_x == start_x {
+        (end_x, start_y, end_y)
+    } else {
+        (start_x, end_y, start_y)
+    };
+
+    let diff_x = max_x - min_x;
+    let diff_y = max_y - min_y;
+
+    if diff_x > diff_y.abs() {
+        let mut y = min_y as f32;
+        let dy = (diff_y as f32) / (diff_x as f32);
+        for x in min_x..=max_x {
+            plot(x, y.round() as i32);
+            y += dy;
+        }
+    } else {
+        let mut x = min_x as f32;
+        let dx = (diff_x as f32) / (diff_y as f32);
+        if max_y >= min_y {
+            for y in min_y..=max_y {
+                plot(x.round() as i32, y);
+                x += dx;
+            }
+        } else {
+            for y in (max_y..=min_y).rev() {
+                plot(x.round() as i32, y);
+                x -= dx;
+            }
+        }
+    }
 }
 
 fn aa_line(start: Vec2, end: Vec2, mut callback: impl FnMut(IVec2, f32)) {

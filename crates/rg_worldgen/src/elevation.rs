@@ -40,9 +40,10 @@ pub fn compute_elevation(
 
 fn compute_edt(island: &Grid<bool>) -> Grid<f32> {
     let _scope = info_span!("compute_edt").entered();
-
     let bitmap = island.to_f32().resize(island.size() / 4).to_bool(0.5);
-    bitmap.compute_edt().resize(island.size())
+    let mut edt = bitmap.compute_edt_exact().resize(island.size());
+    edt.remap_inplace(0.0, 1.0);
+    edt
 }
 
 fn compute_inv_edt(island: &Grid<bool>) -> Grid<f32> {
@@ -55,12 +56,14 @@ fn compute_inv_edt(island: &Grid<bool>) -> Grid<f32> {
         grid[cell] = 1.0 - island_f32.sample(cell.as_vec2() * 4.0);
     }
 
-    let edt = grid.to_bool(0.5).compute_edt();
+    let edt = grid.to_bool(0.5).compute_edt_exact();
     let mut res = Grid::new(island.size(), 0.0);
 
     for cell in res.cells() {
         res[cell] = edt.sample(cell.as_vec2() / 4.0);
     }
+
+    res.remap_inplace(0.0, 1.0);
 
     res
 }

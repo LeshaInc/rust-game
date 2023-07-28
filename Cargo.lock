@@ -3414,6 +3414,7 @@ dependencies = [
  "bitflags 2.3.3",
  "edt",
  "image",
+ "num-traits",
  "parking_lot",
  "rand",
  "rand_pcg",

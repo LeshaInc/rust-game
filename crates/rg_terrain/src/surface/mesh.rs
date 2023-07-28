@@ -10,8 +10,17 @@ use crate::chunk::{CHUNK_TILES, TILE_SIZE};
 const VERTICES_CAP: usize = 128 * 1024;
 const INDICES_CAP: usize = 128 * 1024;
 
-pub struct MeshGenerator {
-    heightmap: Grid<f32>,
+pub struct MeshResult {
+    pub mesh: Mesh,
+    pub collider: Collider,
+}
+
+pub fn generate_mesh(heightmap: &Grid<f32>) -> MeshResult {
+    MeshGenerator::new(heightmap).generate()
+}
+
+struct MeshGenerator<'a> {
+    heightmap: &'a Grid<f32>,
     positions: Vec<Vec3>,
     normals: Vec<Vec3>,
     colors: Vec<Vec4>,
@@ -33,13 +42,8 @@ pub struct MeshGenerator {
     rotate: bool,
 }
 
-pub struct MeshResult {
-    pub mesh: Mesh,
-    pub collider: Collider,
-}
-
-impl MeshGenerator {
-    pub fn new(heightmap: Grid<f32>) -> MeshGenerator {
+impl MeshGenerator<'_> {
+    fn new(heightmap: &Grid<f32>) -> MeshGenerator<'_> {
         MeshGenerator {
             heightmap,
             positions: Vec::with_capacity(VERTICES_CAP),
@@ -64,7 +68,7 @@ impl MeshGenerator {
         }
     }
 
-    pub fn generate(mut self) -> MeshResult {
+    fn generate(mut self) -> MeshResult {
         let _span = info_span!("chunk mesh generator").entered();
 
         self.generate_cells();

@@ -19,8 +19,8 @@ pub struct IslandSettings {
 
 pub fn shape_island<R: Rng>(
     rng: &mut R,
-    settings: &IslandSettings,
     progress: &WorldgenProgress,
+    settings: &IslandSettings,
 ) -> Grid<bool> {
     let _scope = info_span!("shape_island").entered();
 
@@ -101,7 +101,7 @@ fn keep_one_island(grid: &mut Grid<bool>) {
     let _scope = info_span!("keep_one_island").entered();
 
     loop {
-        let (freq, labels) = connected_components(&grid);
+        let (freq, labels) = connected_components(grid);
         if freq.len() <= 2 {
             break;
         }

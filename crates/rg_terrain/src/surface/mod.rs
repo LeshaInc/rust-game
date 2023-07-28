@@ -8,9 +8,9 @@ use futures_lite::future;
 use rg_core::CollisionLayers;
 use rg_worldgen::{SharedWorldMaps, WorldSeed};
 
-use self::heightmap::HeightmapGenerator;
+use self::heightmap::generate_heightmap;
 use self::material::{DefaultTerrainMaterial, TerrainMaterialPlugin};
-use self::mesh::{MeshGenerator, MeshResult};
+use self::mesh::{generate_mesh, MeshResult};
 use crate::{Chunk, ChunkPos, ChunkSpawnCenter, CHUNK_SIZE};
 
 const MAX_TASKS_IN_FLIGHT: usize = 8;
@@ -57,10 +57,8 @@ fn schedule_tasks(
 
         let world_maps = world_maps.clone();
         new_tasks.push((chunk_id, chunk_pos, async move {
-            let heightmap_generator = HeightmapGenerator::new(seed, chunk_pos, world_maps);
-            let heightmap = heightmap_generator.generate();
-            let mesh_generator = MeshGenerator::new(heightmap);
-            mesh_generator.generate()
+            let heightmap = generate_heightmap(seed, chunk_pos, &world_maps);
+            generate_mesh(&heightmap)
         }));
     }
 

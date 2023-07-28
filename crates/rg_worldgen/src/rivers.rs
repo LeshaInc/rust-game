@@ -1,3 +1,6 @@
+#![allow(clippy::type_complexity)]
+#![allow(clippy::too_many_arguments)]
+
 use std::collections::BinaryHeap;
 
 use bevy::prelude::*;
@@ -17,9 +20,9 @@ pub struct RiversSettings {
 
 pub fn generate_rivers<R: Rng>(
     rng: &mut R,
-    elevation: &mut Grid<f32>,
-    settings: &RiversSettings,
     progress: &WorldgenProgress,
+    settings: &RiversSettings,
+    elevation: &mut Grid<f32>,
 ) -> Grid<f32> {
     let _scope = info_span!("generate_rivers").entered();
 
@@ -27,7 +30,7 @@ pub fn generate_rivers<R: Rng>(
 
     let size = elevation.size();
 
-    let points = generate_points(rng, &elevation, settings);
+    let points = generate_points(rng, elevation, settings);
     progress.set(WorldgenStage::Rivers, 20);
 
     let mut queue = BinaryHeap::new();
@@ -35,23 +38,25 @@ pub fn generate_rivers<R: Rng>(
     progress.set(WorldgenStage::Rivers, 30);
 
     let downstream = generate_downstream_map(&mut queue, &points, settings);
-    progress.set(WorldgenStage::Rivers, 50);
+    progress.set(WorldgenStage::Rivers, 40);
 
     let upstream = generate_upstream_map(&points, &downstream);
-    progress.set(WorldgenStage::Rivers, 60);
+    progress.set(WorldgenStage::Rivers, 50);
 
     let volume = compute_volume(&points, &upstream, settings);
-    progress.set(WorldgenStage::Rivers, 70);
+    progress.set(WorldgenStage::Rivers, 60);
 
     let volume_map = generate_volume_map(&points, size, &downstream, &volume);
-    progress.set(WorldgenStage::Rivers, 80);
+    progress.set(WorldgenStage::Rivers, 70);
 
     apply_erosion(&volume_map, elevation, settings);
-    progress.set(WorldgenStage::Rivers, 100);
+    progress.set(WorldgenStage::Rivers, 80);
 
     let strahler = compute_strahler(&points, &upstream);
+    progress.set(WorldgenStage::Rivers, 90);
 
     let river_map = generate_river_map(&points, size, &downstream, &strahler);
+    progress.set(WorldgenStage::Rivers, 100);
 
     river_map
 }
@@ -379,7 +384,7 @@ fn generate_river_map(
     let mut blurred = river_map.to_f32();
     blurred.blur(3);
     blurred.blur(3);
-    blurred.remap_inplace(0.0, 1.0);
+    blurred.map_range_inplace(0.0, 1.0);
 
     for cell in blurred.cells() {
         if river_map[cell] {

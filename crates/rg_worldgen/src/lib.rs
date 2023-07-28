@@ -91,7 +91,7 @@ struct WorldgenTask(pub Task<WorldMaps>);
 fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut commands: Commands) {
     let pool = AsyncComputeTaskPool::get();
     let seed = seed.0;
-    let settings = settings.clone();
+    let settings = *settings;
     let progress = WorldgenProgress::default();
     commands.insert_resource(progress.clone());
 
@@ -99,10 +99,10 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
         let _scope = info_span!("worldgen").entered();
 
         let mut rng = Pcg32::seed_from_u64(seed);
-        let island = shape_island(&mut rng, &settings.island, &progress);
-        let mut elevation = compute_elevation(&island, &settings.elevation, &progress);
-        let rivers = generate_rivers(&mut rng, &mut elevation, &settings.rivers, &progress);
-        let biomes = generate_biomes(&mut rng, &elevation);
+        let island = shape_island(&mut rng, &progress, &settings.island);
+        let mut elevation = compute_elevation(&progress, &settings.elevation, &island);
+        let rivers = generate_rivers(&mut rng, &progress, &settings.rivers, &mut elevation);
+        let biomes = generate_biomes(&mut rng, &progress, &elevation);
 
         island.debug_save(&format!("/tmp/island.png"));
         elevation.debug_save(&format!("/tmp/elevation.png"));

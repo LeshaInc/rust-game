@@ -92,7 +92,6 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
             shadows_enabled: true,
             shadow_depth_bias: 0.01,
             shadow_normal_bias: 0.3,
-            ..default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,
@@ -118,10 +117,7 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
             },
             ..default()
         },
-        UiCameraConfig {
-            show_ui: false,
-            ..default()
-        },
+        UiCameraConfig { show_ui: false },
         CameraController::default(),
         DepthPrepass,
         NormalPrepass,

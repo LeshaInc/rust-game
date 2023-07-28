@@ -8,8 +8,8 @@ use futures_lite::future;
 use rg_billboard::{MultiBillboard, MultiBillboardBundle};
 use rg_worldgen::{SharedWorldMaps, WorldSeed};
 
-use self::density::DensityMapGenerator;
-use self::generator::GrassResult;
+use self::density::generate_grass_density_map;
+use self::generator::{generate, GrassResult};
 use self::material::{DefaultGrassMaterial, GrassMaterialPlugin};
 use crate::{Chunk, ChunkPos};
 
@@ -63,9 +63,8 @@ fn schedule_tasks(
         let world_maps = world_maps.clone();
 
         let task = task_pool.spawn(async move {
-            let density_map_generator = DensityMapGenerator::new(seed, chunk_pos, world_maps);
-            let density_map = density_map_generator.generate();
-            generator::generate(seed, chunk_pos, mesh, density_map)
+            let density_map = generate_grass_density_map(seed, chunk_pos, &world_maps);
+            generate(seed, chunk_pos, mesh, density_map)
         });
 
         commands.entity(chunk_id).insert(GrassTask(task));

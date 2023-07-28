@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rg_core::Grid;
+use rg_core::{EdtSettings, Grid};
 use serde::Deserialize;
 
 use crate::{WorldgenProgress, WorldgenStage};
@@ -12,18 +12,32 @@ pub struct ElevationSettings {
 }
 
 pub fn compute_elevation(
-    island: &Grid<bool>,
-    settings: &ElevationSettings,
     progress: &WorldgenProgress,
+    settings: &ElevationSettings,
+    island: &Grid<bool>,
 ) -> Grid<f32> {
     let _scope = info_span!("compute_elevation").entered();
 
     progress.set(WorldgenStage::Elevation, 0);
 
-    let edt = compute_edt(island);
+    let edt = island.compute_edt(EdtSettings {
+        exact: true,
+        invert: false,
+        normalize: true,
+        downsample: 4,
+        padding: 0,
+    });
+
     progress.set(WorldgenStage::Elevation, 25);
 
-    let inv_edt = compute_inv_edt(island);
+    let inv_edt = island.compute_edt(EdtSettings {
+        exact: true,
+        invert: true,
+        normalize: true,
+        downsample: 4,
+        padding: 32,
+    });
+
     progress.set(WorldgenStage::Elevation, 50);
 
     let mut elevation = shape(island, &edt, &inv_edt, settings);
@@ -36,33 +50,6 @@ pub fn compute_elevation(
     progress.set(WorldgenStage::Elevation, 100);
 
     elevation
-}
-
-fn compute_edt(island: &Grid<bool>) -> Grid<f32> {
-    let _scope = info_span!("compute_edt").entered();
-
-    let bitmap = island.to_f32().resize(island.size() / 4).to_bool(0.5);
-    bitmap.compute_edt().resize(island.size())
-}
-
-fn compute_inv_edt(island: &Grid<bool>) -> Grid<f32> {
-    let _scope = info_span!("compute_inv_edt").entered();
-
-    let island_f32 = island.to_f32();
-
-    let mut grid = Grid::new(island.size() / 4 + 128, 1.0).with_origin(-IVec2::splat(64));
-    for cell in grid.cells() {
-        grid[cell] = 1.0 - island_f32.sample(cell.as_vec2() * 4.0);
-    }
-
-    let edt = grid.to_bool(0.5).compute_edt();
-    let mut res = Grid::new(island.size(), 0.0);
-
-    for cell in res.cells() {
-        res[cell] = edt.sample(cell.as_vec2() / 4.0);
-    }
-
-    res
 }
 
 fn shape(

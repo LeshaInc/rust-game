@@ -22,6 +22,8 @@ pub struct TreePrototype {
 }
 
 impl ScatterPrototype for TreePrototype {
+    const SEED: u64 = 8008601448057192775;
+
     fn build_app(app: &mut App) {
         app.add_plugins(BillboardMaterialPlugin::<LeavesMaterial>::default())
             .add_systems(PostUpdate, update_globals);

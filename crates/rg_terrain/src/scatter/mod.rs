@@ -1,3 +1,4 @@
+pub mod bush;
 pub mod tree;
 
 use std::marker::PhantomData;
@@ -10,18 +11,24 @@ use rand_pcg::Pcg32;
 use rg_core::PoissonDiscSampling;
 use rg_worldgen::{SharedWorldMaps, WorldMaps, WorldSeed};
 
+use self::bush::BushPrototype;
 use self::tree::TreePrototype;
+use crate::chunk::ChunkFullyLoaded;
 use crate::{chunk_pos_to_world, Chunk, ChunkPos, ChunkSpawnCenter, CHUNK_SIZE};
 
 pub struct ScatterPlugins;
 
 impl PluginGroup for ScatterPlugins {
     fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::start::<ScatterPlugins>().add(ScatterPlugin::<TreePrototype>::default())
+        PluginGroupBuilder::start::<ScatterPlugins>()
+            .add(ScatterPlugin::<TreePrototype>::default())
+            .add(ScatterPlugin::<BushPrototype>::default())
     }
 }
 
 pub trait ScatterPrototype: Resource + FromWorld + 'static {
+    const SEED: u64;
+
     fn build_app(app: &mut App) {
         let _ = app;
     }
@@ -63,10 +70,10 @@ impl<T: ScatterPrototype> Plugin for ScatterPlugin<T> {
 }
 
 #[derive(Copy, Clone, Component)]
-struct ChunkScattered;
+struct ChunkScattered<T>(PhantomData<T>);
 
 fn scatter<T: ScatterPrototype>(
-    q_chunks: Query<(Entity, &ChunkPos), (With<Chunk>, With<Collider>, Without<ChunkScattered>)>,
+    q_chunks: Query<(Entity, &ChunkPos), (With<Chunk>, With<Collider>, Without<ChunkScattered<T>>)>,
     seed: Res<WorldSeed>,
     world_maps: Res<SharedWorldMaps>,
     prototype: Res<T>,
@@ -84,16 +91,18 @@ fn scatter<T: ScatterPrototype>(
         return;
     };
 
-    let mut rng =
-        Pcg32::seed_from_u64(seed.0 ^ (chunk_pos.0.x as u64) ^ (chunk_pos.0.y as u64) << 32);
+    let mut rng = Pcg32::seed_from_u64(
+        T::SEED ^ seed.0 ^ (chunk_pos.0.x as u64) ^ (chunk_pos.0.y as u64) << 32,
+    );
 
     let sampling = PoissonDiscSampling::new_tileable(
-        seed.0,
+        T::SEED ^ seed.0,
         chunk_pos.0,
         Vec2::splat(CHUNK_SIZE),
         prototype.poisson_disc_min_radius(),
         prototype.poisson_disc_max_tries(),
     );
+
     let points = sampling.points;
 
     let mut children = Vec::new();
@@ -122,6 +131,6 @@ fn scatter<T: ScatterPrototype>(
 
     commands
         .entity(chunk_id)
-        .insert(ChunkScattered)
+        .insert((ChunkScattered::<T>(PhantomData), ChunkFullyLoaded))
         .push_children(&children);
 }

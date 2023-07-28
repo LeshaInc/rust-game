@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use rand::Rng;
-use rayon::prelude::*;
 use rg_core::Grid;
 use serde::Deserialize;
 
@@ -20,8 +19,8 @@ pub struct IslandSettings {
 
 pub fn shape_island<R: Rng>(
     rng: &mut R,
-    settings: &IslandSettings,
     progress: &WorldgenProgress,
+    settings: &IslandSettings,
 ) -> Grid<bool> {
     let _scope = info_span!("shape_island").entered();
 
@@ -102,7 +101,7 @@ fn keep_one_island(grid: &mut Grid<bool>) {
     let _scope = info_span!("keep_one_island").entered();
 
     loop {
-        let (freq, labels) = connected_components(&grid);
+        let (freq, labels) = connected_components(grid);
         if freq.len() <= 2 {
             break;
         }
@@ -198,45 +197,35 @@ fn random_zoom<R: Rng>(rng: &mut R, grid: &mut Grid<bool>) {
 
 fn erode(grid: &mut Grid<bool>) {
     let _scope = info_span!("erode").entered();
-    *grid = Grid::from_data(
-        grid.size(),
-        grid.par_cells()
-            .map(|cell| {
-                if !grid[cell] {
-                    return false;
-                }
+    *grid = Grid::par_from_fn(grid.size(), |cell| {
+        if !grid[cell] {
+            return false;
+        }
 
-                for (_, neighbor) in grid.neighborhood_4(cell) {
-                    if !grid[neighbor] {
-                        return false;
-                    }
-                }
+        for (_, neighbor) in grid.neighborhood_4(cell) {
+            if !grid[neighbor] {
+                return false;
+            }
+        }
 
-                true
-            })
-            .collect::<Vec<bool>>(),
-    );
+        true
+    });
 }
 
 fn smooth(grid: &mut Grid<bool>) {
     let _scope = info_span!("smooth").entered();
-    *grid = Grid::from_data(
-        grid.size(),
-        grid.par_cells()
-            .map(|cell| {
-                let mut num_true = 0;
-                let mut num_false = 0;
+    *grid = Grid::par_from_fn(grid.size(), |cell| {
+        let mut num_true = 0;
+        let mut num_false = 0;
 
-                for (_, neighbor) in grid.neighborhood_8(cell) {
-                    if grid[neighbor] {
-                        num_true += 1;
-                    } else {
-                        num_false += 1;
-                    }
-                }
+        for (_, neighbor) in grid.neighborhood_8(cell) {
+            if grid[neighbor] {
+                num_true += 1;
+            } else {
+                num_false += 1;
+            }
+        }
 
-                num_true > num_false
-            })
-            .collect::<Vec<bool>>(),
-    );
+        num_true > num_false
+    });
 }

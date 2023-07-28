@@ -13,7 +13,7 @@ use rg_agent::{AgentPlugin, SpawnCharacter};
 use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
 use rg_camera_controller::{CameraController, CameraControllerPlugin};
-use rg_core::{CollisionLayer, PrevTransformPlugin};
+use rg_core::PrevTransformPlugin;
 use rg_dev_overlay::DevOverlayPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::{ChunkSpawnCenter, TerrainPlugin};
@@ -86,7 +86,6 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
             shadows_enabled: true,
             shadow_depth_bias: 0.01,
             shadow_normal_bias: 0.3,
-            ..default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,
@@ -112,10 +111,7 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
             },
             ..default()
         },
-        UiCameraConfig {
-            show_ui: false,
-            ..default()
-        },
+        UiCameraConfig { show_ui: false },
         CameraController::default(),
         DepthPrepass,
         NormalPrepass,

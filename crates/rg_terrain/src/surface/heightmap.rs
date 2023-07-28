@@ -1,60 +1,58 @@
 use bevy::prelude::*;
 use rg_core::{Grid, SimplexNoise2};
-use rg_worldgen::{SharedWorldMaps, WORLD_SCALE};
+use rg_worldgen::{WorldMaps, RIVER_MAP_SCALE, WORLD_SCALE};
 
 use crate::chunk::CHUNK_TILES;
 use crate::tile_pos_to_world;
 
 const OVERSCAN: u32 = 10;
 
-pub struct HeightmapGenerator {
-    seed: u64,
-    chunk_pos: IVec2,
-    world_maps: SharedWorldMaps,
-    heightmap: Grid<f32>,
-}
+pub fn generate_heightmap(seed: u64, chunk_pos: IVec2, world_maps: &WorldMaps) -> Grid<f32> {
+    let _span = info_span!("generate_heightmap").entered();
 
-impl HeightmapGenerator {
-    pub fn new(seed: u64, chunk_pos: IVec2, world_maps: SharedWorldMaps) -> HeightmapGenerator {
-        let heightmap = Grid::new_default(UVec2::splat(CHUNK_TILES) + OVERSCAN * 2)
-            .with_origin(-IVec2::splat(OVERSCAN as i32));
+    let noise = SimplexNoise2::new(seed);
 
-        HeightmapGenerator {
-            seed,
-            chunk_pos,
-            world_maps,
-            heightmap,
-        }
+    let size = UVec2::splat(CHUNK_TILES) + OVERSCAN * 2;
+    let origin = -IVec2::splat(OVERSCAN as i32);
+
+    let mut heightmap = Grid::from_fn_with_origin(size, origin, |cell| {
+        let pos = tile_pos_to_world(chunk_pos, cell);
+
+        let elevation = world_maps.elevation.sample(pos / WORLD_SCALE);
+        let river = world_maps.rivers.sample(pos / RIVER_MAP_SCALE);
+
+        let mut height = elevation * 160.0;
+
+        let mut fbm = 0.0;
+        fbm += noise.get(pos / 100.0);
+        fbm += noise.get(pos / 50.0) / 2.0;
+        fbm += noise.get(pos / 25.0) / 4.0;
+        fbm += noise.get(pos / 12.5) / 8.0;
+        fbm += noise.get(pos / 6.25) / 16.0;
+        fbm += noise.get(pos / 3.125) / 32.0;
+
+        height += (1.0 - river) * 14.0 * fbm * elevation.max(0.0).powf(0.5);
+
+        let mut snap = height;
+        snap /= 2.0;
+        snap = snap.floor() + (70.0 * (snap.fract() - 0.5)).tanh() * 0.5 + 0.5;
+        snap *= 2.0;
+
+        height = snap * (1.0 - river) + height * river;
+        height
+    });
+
+    heightmap.blur(3);
+    heightmap.blur(3);
+
+    for (cell, height) in heightmap.entries_mut() {
+        let pos = tile_pos_to_world(chunk_pos, cell);
+        let river = world_maps.rivers.sample(pos / RIVER_MAP_SCALE);
+        *height -= river * 2.0;
     }
 
-    pub fn generate(mut self) -> Grid<f32> {
-        let _span = info_span!("chunk heightmap generator").entered();
+    heightmap.blur(1);
+    heightmap.blur(1);
 
-        let noise = SimplexNoise2::new(self.seed);
-
-        for (cell, height) in self.heightmap.entries_mut() {
-            let pos = tile_pos_to_world(self.chunk_pos, cell);
-
-            let elevation = self.world_maps.elevation.sample(pos / WORLD_SCALE);
-            *height = elevation * 160.0;
-
-            let mut fbm = 0.0;
-            fbm += noise.get(pos / 100.0);
-            fbm += noise.get(pos / 50.0) / 2.0;
-            fbm += noise.get(pos / 25.0) / 4.0;
-            fbm += noise.get(pos / 12.5) / 8.0;
-            fbm += noise.get(pos / 6.25) / 16.0;
-
-            *height += 8.0 * fbm * elevation.max(0.0).powf(0.5);
-
-            *height /= 2.0;
-            *height = height.floor() + (70.0 * (height.fract() - 0.5)).tanh() * 0.5 + 0.5;
-            *height *= 2.0;
-        }
-
-        self.heightmap.blur(3);
-        self.heightmap.blur(3);
-
-        self.heightmap
-    }
+    heightmap
 }

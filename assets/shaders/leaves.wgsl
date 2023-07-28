@@ -1,7 +1,11 @@
 #define DITHER_ENABLED
 
+#ifdef PREPASS
+#import bevy_pbr::prepass_bindings as bindings
+#else
 #import bevy_pbr::mesh_view_bindings as bindings
 #import rg::pixel_funcs as pixel
+#endif
 
 struct Vertex {
     @location(0) uv: vec2<f32>,
@@ -13,13 +17,13 @@ struct Vertex {
     @location(5) i_random: u32,
 };
 
-struct GrassMaterial {
+struct LeavesMaterial {
     dither_offset: vec2<u32>,
     fog_height: f32,
 };
 
 @group(1) @binding(0)
-var<uniform> material: GrassMaterial;
+var<uniform> material: LeavesMaterial;
 
 @group(1) @binding(1)
 var texture: texture_2d<f32>;
@@ -74,7 +78,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     out.position = bindings::view.view_proj * vec4(world_pos, 1.0);
     out.uv = vertex.uv;
-    out.world_position = vec4(world_origin_pos + vec3(0.0, 0.0, 0.01), 1.0);
+    out.world_position = vec4(world_pos, 1.0);
     out.world_normal = world_normal;
     out.color = vertex.i_color * (0.9 + (f32(vertex.i_random) / 4294967295.0) * 0.1);
     out.random = vertex.i_random;
@@ -87,17 +91,26 @@ fn fragment(in: VertexOutput, @builtin(front_facing) front_facing: bool) -> @loc
     if color.a < 0.5 {
         discard;
     }
-    
+
+    var normal = in.world_normal;
+    if front_facing {
+        normal = -normal;
+    }
+
+#ifdef PREPASS
+    return vec4(normal * 0.5 + 0.5, 1.0);
+#else
+    let depth_samples = pixel::get_depth_samples(in.position.xy);
+    let is_edge = pixel::check_depth_edge(depth_samples, 1.0);
+
+    var albedo = color.rgb;
+    albedo = mix(albedo, albedo * 0.5, f32(is_edge));
+
     var pixel_input: pixel::PixelInput;
     pixel_input.frag_coord = in.position;
     pixel_input.mesh_position = in.world_position;
-    if front_facing {
-        // TODO: this is backwards
-        pixel_input.mesh_normal = -in.world_normal;
-    } else {
-        pixel_input.mesh_normal = in.world_normal;
-    }
-    pixel_input.mesh_albedo = color.rgb;
+    pixel_input.mesh_normal = normal;
+    pixel_input.mesh_albedo = albedo;
     pixel_input.bands = 4u;
     pixel_input.dither = true;
     pixel_input.dither_offset = material.dither_offset;
@@ -105,4 +118,5 @@ fn fragment(in: VertexOutput, @builtin(front_facing) front_facing: bool) -> @loc
 
     var out_color = pixel::process_all_lights(pixel_input);
     return vec4<f32>(out_color, 1.0);
+#endif
 }

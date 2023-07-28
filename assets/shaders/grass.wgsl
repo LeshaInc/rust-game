@@ -1,7 +1,11 @@
 #define DITHER_ENABLED
 
+#ifdef PREPASS
+#import bevy_pbr::prepass_bindings as bindings
+#else
 #import bevy_pbr::mesh_view_bindings as bindings
 #import rg::pixel_funcs as pixel
+#endif
 
 struct Vertex {
     @location(0) uv: vec2<f32>,
@@ -92,6 +96,9 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
+#ifdef PREPASS
+    return vec4(in.world_normal * 0.5 + 0.5, 1.0);
+#else
     let albedo = color.rgb;
 
     var pixel_input: pixel::PixelInput;
@@ -106,4 +113,5 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var out_color = pixel::process_all_lights(pixel_input);
     return vec4(out_color, 1.0);
+#endif
 }

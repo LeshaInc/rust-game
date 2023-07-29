@@ -18,19 +18,19 @@ pub struct RiversSettings {
     pub erosion: f32,
 }
 
-pub fn generate_rivers<R: Rng>(
+pub fn generate_river_map<R: Rng>(
     rng: &mut R,
     progress: &WorldgenProgress,
     settings: &RiversSettings,
-    elevation: &mut Grid<f32>,
+    height_map: &mut Grid<f32>,
 ) -> Grid<f32> {
-    let _scope = info_span!("generate_rivers").entered();
+    let _scope = info_span!("generate_river_map").entered();
 
     progress.set(WorldgenStage::Rivers, 0);
 
-    let size = elevation.size();
+    let size = height_map.size();
 
-    let points = generate_points(rng, elevation, settings);
+    let points = generate_points(rng, height_map, settings);
     progress.set(WorldgenStage::Rivers, 20);
 
     let mut queue = BinaryHeap::new();
@@ -49,13 +49,13 @@ pub fn generate_rivers<R: Rng>(
     let volume_map = generate_volume_map(&points, size, &downstream, &volume);
     progress.set(WorldgenStage::Rivers, 70);
 
-    apply_erosion(&volume_map, elevation, settings);
+    apply_erosion(&volume_map, height_map, settings);
     progress.set(WorldgenStage::Rivers, 80);
 
     let strahler = compute_strahler(&points, &upstream);
     progress.set(WorldgenStage::Rivers, 90);
 
-    let river_map = generate_river_map(&points, size, &downstream, &strahler);
+    let river_map = draw_rivers(&points, size, &downstream, &strahler);
     progress.set(WorldgenStage::Rivers, 100);
 
     river_map
@@ -71,7 +71,7 @@ struct Points {
 
 fn generate_points<R: Rng>(
     rng: &mut R,
-    elevation: &Grid<f32>,
+    height_map: &Grid<f32>,
     settings: &RiversSettings,
 ) -> Points {
     let _scope = info_span!("generate_points").entered();
@@ -79,7 +79,7 @@ fn generate_points<R: Rng>(
     let mut points = Points::default();
 
     points.positions =
-        PoissonDiscSampling::new(rng, elevation.size().as_vec2(), settings.point_radius, 8).points;
+        PoissonDiscSampling::new(rng, height_map.size().as_vec2(), settings.point_radius, 8).points;
     points.count = points.positions.len();
 
     let iter = points.positions.iter();
@@ -96,7 +96,7 @@ fn generate_points<R: Rng>(
     };
 
     let it = points.positions.iter();
-    points.heights = it.map(|pt| elevation[pt.as_ivec2()]).collect::<Vec<_>>();
+    points.heights = it.map(|pt| height_map[pt.as_ivec2()]).collect::<Vec<_>>();
 
     points.neighbors = vec![vec![]; points.count];
 
@@ -350,13 +350,13 @@ fn compute_strahler_at_point(strahler: &mut [u8], upstream: &[Vec<usize>], i: us
     };
 }
 
-fn generate_river_map(
+fn draw_rivers(
     points: &Points,
     size: UVec2,
     downstream: &[Option<usize>],
     strahler: &[u8],
 ) -> Grid<f32> {
-    let _scope = info_span!("generate_river_map").entered();
+    let _scope = info_span!("draw_rivers").entered();
 
     let mut river_map = Grid::new(size * 2, false);
 
@@ -368,7 +368,7 @@ fn generate_river_map(
         let start = points.positions[start_i] * 2.0;
         let end = points.positions[end_i] * 2.0;
 
-        if strahler[start_i] <= 2 {
+        if strahler[start_i] <= 3 {
             continue;
         }
 
@@ -382,8 +382,8 @@ fn generate_river_map(
     }
 
     let mut blurred = river_map.to_f32();
-    blurred.blur(3);
-    blurred.blur(3);
+    blurred.blur(1);
+    blurred.blur(1);
     blurred.map_range_inplace(0.0, 1.0);
 
     for cell in blurred.cells() {
@@ -512,7 +512,7 @@ fn aa_line(start: Vec2, end: Vec2, mut callback: impl FnMut(IVec2, f32)) {
     }
 }
 
-fn apply_erosion(volume_map: &Grid<f32>, elevation: &mut Grid<f32>, settings: &RiversSettings) {
+fn apply_erosion(volume_map: &Grid<f32>, height_map: &mut Grid<f32>, settings: &RiversSettings) {
     let _scope = info_span!("apply_erosion").entered();
 
     let mut erosion_map = volume_map.clone();
@@ -520,9 +520,9 @@ fn apply_erosion(volume_map: &Grid<f32>, elevation: &mut Grid<f32>, settings: &R
     erosion_map.blur(2);
     erosion_map.blur(2);
 
-    for (cell, elevation) in elevation.entries_mut() {
+    for (cell, height_map) in height_map.entries_mut() {
         let unscaled = 1.0 / (1.0 + erosion_map[cell].powf(1.1));
         let fac = unscaled * settings.erosion + (1.0 - settings.erosion);
-        *elevation *= fac;
+        *height_map *= fac;
     }
 }

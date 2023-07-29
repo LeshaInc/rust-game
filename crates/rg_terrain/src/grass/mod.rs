@@ -11,9 +11,7 @@ use rg_worldgen::{SharedWorldMaps, WorldSeed};
 use self::density::generate_grass_density_map;
 use self::generator::{generate, GrassResult};
 use self::material::{DefaultGrassMaterial, GrassMaterialPlugin};
-use crate::{Chunk, ChunkPos};
-
-const MAX_TASKS_IN_FLIGHT: usize = 8;
+use crate::{Chunk, ChunkPos, MAX_TASKS_IN_FLIGHT};
 
 pub struct GrassPlugin;
 
@@ -21,8 +19,10 @@ impl Plugin for GrassPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(GrassMaterialPlugin).add_systems(
             Update,
-            (update_chunks, schedule_tasks.after(update_chunks))
-                .run_if(resource_exists::<SharedWorldMaps>()),
+            (
+                schedule_tasks.run_if(resource_exists::<SharedWorldMaps>()),
+                update_tasks.run_if(|q: Query<&GrassTask>| !q.is_empty()),
+            ),
         );
     }
 }
@@ -38,7 +38,7 @@ fn schedule_tasks(
         (Entity, &ChunkPos, &Handle<Mesh>),
         (With<Chunk>, Without<ChunkGrass>, Without<GrassTask>),
     >,
-    q_in_flight: Query<(), (With<Chunk>, With<GrassTask>)>,
+    q_in_flight: Query<(), With<GrassTask>>,
     seed: Res<WorldSeed>,
     meshes: Res<Assets<Mesh>>,
     world_maps: Res<SharedWorldMaps>,
@@ -71,8 +71,8 @@ fn schedule_tasks(
     }
 }
 
-fn update_chunks(
-    mut q_chunks: Query<(Entity, &mut GrassTask), With<Chunk>>,
+fn update_tasks(
+    mut q_chunks: Query<(Entity, &mut GrassTask)>,
     mut multi_billboards: ResMut<Assets<MultiBillboard>>,
     material: Res<DefaultGrassMaterial>,
     mut commands: Commands,

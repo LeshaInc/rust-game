@@ -11,16 +11,16 @@ pub enum Biome {
     Forest,
 }
 
-pub fn generate_biomes<R: Rng>(
+pub fn generate_biome_map<R: Rng>(
     rng: &mut R,
     progress: &WorldgenProgress,
-    elevation: &Grid<f32>,
+    height_map: &Grid<f32>,
 ) -> Grid<Biome> {
-    let _scope = info_span!("generate_biomes").entered();
+    let _scope = info_span!("generate_biome_map").entered();
 
     progress.set(WorldgenStage::Biomes, 0);
 
-    let size = elevation.size();
+    let size = height_map.size();
 
     let mut biomes = Grid::new(size, Biome::Ocean);
     let mut noise = Grid::new(size, 0.0);
@@ -29,7 +29,7 @@ pub fn generate_biomes<R: Rng>(
     progress.set(WorldgenStage::Biomes, 50);
 
     for cell in biomes.cells() {
-        if elevation[cell] < 0.0 {
+        if height_map[cell] < 0.0 {
             continue;
         }
 

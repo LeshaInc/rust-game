@@ -17,12 +17,12 @@ pub struct IslandSettings {
     pub max_area: f32,
 }
 
-pub fn shape_island<R: Rng>(
+pub fn generate_island_map<R: Rng>(
     rng: &mut R,
     progress: &WorldgenProgress,
     settings: &IslandSettings,
 ) -> Grid<bool> {
-    let _scope = info_span!("shape_island").entered();
+    let _scope = info_span!("generate_island_map").entered();
 
     loop {
         progress.set(WorldgenStage::Island, 0);

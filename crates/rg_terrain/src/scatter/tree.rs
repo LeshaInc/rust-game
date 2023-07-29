@@ -35,13 +35,13 @@ impl ScatterPrototype for TreePrototype {
     }
 
     fn density(&self, world_maps: &WorldMaps, pos: Vec2) -> f32 {
-        let elevation = world_maps.elevation.sample(pos / WORLD_SCALE);
-        if elevation <= 0.0 {
+        let height = world_maps.height_map.sample(pos / WORLD_SCALE);
+        if height <= 0.0 {
             return 0.0;
         }
 
         let biome = world_maps
-            .biomes
+            .biome_map
             .get((pos / WORLD_SCALE).as_ivec2())
             .copied()
             .unwrap_or(Biome::Ocean);

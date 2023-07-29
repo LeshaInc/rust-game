@@ -1,6 +1,6 @@
 mod biomes;
-mod elevation;
-mod island_shaping;
+mod height;
+mod island;
 mod progress;
 mod rivers;
 
@@ -17,14 +17,14 @@ use rg_core::{DeserializedResource, DeserializedResourcePlugin, Grid};
 use rivers::RiversSettings;
 use serde::Deserialize;
 
-use crate::biomes::generate_biomes;
+use crate::biomes::generate_biome_map;
 pub use crate::biomes::Biome;
-use crate::elevation::compute_elevation;
-pub use crate::elevation::ElevationSettings;
-use crate::island_shaping::shape_island;
-pub use crate::island_shaping::IslandSettings;
+use crate::height::generate_height_map;
+pub use crate::height::HeightSettings;
+use crate::island::generate_island_map;
+pub use crate::island::IslandSettings;
 pub use crate::progress::{WorldgenProgress, WorldgenStage};
-use crate::rivers::generate_rivers;
+use crate::rivers::generate_river_map;
 
 pub const WORLD_SCALE: f32 = 4.0;
 pub const RIVER_MAP_SCALE: f32 = 2.0;
@@ -66,7 +66,7 @@ pub struct WorldSeed(pub u64);
 #[uuid = "9642a5f8-7606-4775-b5bc-6fda6d73bd84"]
 pub struct WorldgenSettings {
     pub island: IslandSettings,
-    pub elevation: ElevationSettings,
+    pub height: HeightSettings,
     pub rivers: RiversSettings,
 }
 
@@ -77,13 +77,13 @@ impl DeserializedResource for WorldgenSettings {
 #[derive(Debug)]
 pub struct WorldMaps {
     pub seed: u64,
-    pub elevation: Grid<f32>,
-    pub rivers: Grid<f32>,
-    pub biomes: Grid<Biome>,
+    pub height_map: Grid<f32>,
+    pub river_map: Grid<f32>,
+    pub biome_map: Grid<Biome>,
 }
 
 #[derive(Debug, Deref, Clone, Resource)]
-pub struct SharedWorldMaps(Arc<WorldMaps>);
+pub struct SharedWorldMaps(pub Arc<WorldMaps>);
 
 #[derive(Resource)]
 struct WorldgenTask(pub Task<WorldMaps>);
@@ -99,20 +99,20 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
         let _scope = info_span!("worldgen").entered();
 
         let mut rng = Pcg32::seed_from_u64(seed);
-        let island = shape_island(&mut rng, &progress, &settings.island);
-        let mut elevation = compute_elevation(&progress, &settings.elevation, &island);
-        let rivers = generate_rivers(&mut rng, &progress, &settings.rivers, &mut elevation);
-        let biomes = generate_biomes(&mut rng, &progress, &elevation);
+        let island_map = generate_island_map(&mut rng, &progress, &settings.island);
+        let mut height_map = generate_height_map(&progress, &settings.height, &island_map);
+        let river_map = generate_river_map(&mut rng, &progress, &settings.rivers, &mut height_map);
+        let biome_map = generate_biome_map(&mut rng, &progress, &height_map);
 
-        island.debug_save(&format!("/tmp/island.png"));
-        elevation.debug_save(&format!("/tmp/elevation.png"));
-        rivers.debug_save(&format!("/tmp/rivers.png"));
+        island_map.debug_save(&format!("/tmp/island_map.png"));
+        height_map.debug_save(&format!("/tmp/height_map.png"));
+        river_map.debug_save(&format!("/tmp/river_map.png"));
 
         WorldMaps {
             seed,
-            elevation,
-            rivers,
-            biomes,
+            height_map,
+            river_map,
+            biome_map,
         }
     });
 

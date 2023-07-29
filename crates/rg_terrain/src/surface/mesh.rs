@@ -15,12 +15,13 @@ pub struct MeshResult {
     pub collider: Collider,
 }
 
-pub fn generate_mesh(heightmap: &Grid<f32>) -> MeshResult {
-    MeshGenerator::new(heightmap).generate()
+pub fn generate_mesh(height_map: &Grid<f32>) -> MeshResult {
+    let _span = info_span!("generate_mesh").entered();
+    MeshGenerator::new(height_map).generate()
 }
 
 struct MeshGenerator<'a> {
-    heightmap: &'a Grid<f32>,
+    height_map: &'a Grid<f32>,
     positions: Vec<Vec3>,
     normals: Vec<Vec3>,
     colors: Vec<Vec4>,
@@ -43,9 +44,9 @@ struct MeshGenerator<'a> {
 }
 
 impl MeshGenerator<'_> {
-    fn new(heightmap: &Grid<f32>) -> MeshGenerator<'_> {
+    fn new(height_map: &Grid<f32>) -> MeshGenerator<'_> {
         MeshGenerator {
-            heightmap,
+            height_map,
             positions: Vec::with_capacity(VERTICES_CAP),
             normals: Vec::with_capacity(VERTICES_CAP),
             colors: Vec::with_capacity(VERTICES_CAP),
@@ -69,8 +70,6 @@ impl MeshGenerator<'_> {
     }
 
     fn generate(mut self) -> MeshResult {
-        let _span = info_span!("chunk mesh generator").entered();
-
         self.generate_cells();
         self.compute_colors();
         self.snap_normals();
@@ -90,7 +89,7 @@ impl MeshGenerator<'_> {
     }
 
     fn generate_cells(&mut self) {
-        let _span = info_span!("generate cells").entered();
+        let _span = info_span!("generate_cells").entered();
 
         for y in 0..CHUNK_TILES as i32 {
             for x in 0..CHUNK_TILES as i32 {
@@ -158,8 +157,8 @@ impl MeshGenerator<'_> {
 
     fn snap_cell_vertices(&mut self) {
         for pos in &mut self.positions[self.cell_first_vertex..] {
-            let height = self.heightmap.sample(pos.xy());
-            let grad = self.heightmap.sample_grad(pos.xy());
+            let height = self.height_map.sample(pos.xy());
+            let grad = self.height_map.sample_grad(pos.xy());
 
             let alpha = (grad.length() * 3.0).clamp(0.0, 1.0).powf(3.0);
             pos.z = pos.z * alpha + height * (1.0 - alpha);
@@ -186,7 +185,7 @@ impl MeshGenerator<'_> {
     }
 
     fn compute_colors(&mut self) {
-        let _span = info_span!("compute colors").entered();
+        let _span = info_span!("compute_colors").entered();
 
         let positions = self.positions.iter();
         let normals = self.normals.iter();
@@ -229,7 +228,7 @@ impl MeshGenerator<'_> {
     }
 
     fn cleanup_triangles(&mut self) {
-        let _span = info_span!("cleanup triangles").entered();
+        let _span = info_span!("cleanup_triangles").entered();
 
         let mut idx = 0;
         while idx < self.indices.len() {
@@ -260,21 +259,21 @@ impl MeshGenerator<'_> {
     }
 
     fn snap_normals(&mut self) {
-        let _span = info_span!("snap normals").entered();
+        let _span = info_span!("snap_normals").entered();
 
         for (pos, normal) in self.positions.iter_mut().zip(&mut self.normals) {
             if normal.z.abs() < 0.1 {
                 continue;
             }
 
-            let grad = self.heightmap.sample_grad(pos.xy());
+            let grad = self.height_map.sample_grad(pos.xy());
             let target_normal = vec3(-grad.x, -grad.y, 1.0 * TILE_SIZE).normalize();
             *normal = (*normal * 0.7 + target_normal * 0.3).normalize();
         }
     }
 
     fn merge_quads(&mut self, size: usize) {
-        let _span = info_span!("merge quads {size}").entered();
+        let _span = info_span!("merge_quads", size).entered();
 
         let origins = (0..CHUNK_TILES).step_by(size).flat_map(move |x| {
             (0..CHUNK_TILES)
@@ -387,7 +386,7 @@ impl MeshGenerator<'_> {
     }
 
     fn apply_scale(&mut self) {
-        let _span = info_span!("apply scale").entered();
+        let _span = info_span!("apply_scale").entered();
 
         for pos in &mut self.positions {
             pos.x *= TILE_SIZE;
@@ -396,7 +395,7 @@ impl MeshGenerator<'_> {
     }
 
     fn create_collider(&self) -> Collider {
-        let _span = info_span!("create collider").entered();
+        let _span = info_span!("create_collider").entered();
 
         let mut indices = Vec::with_capacity(self.indices.len() / 3);
         for triangle in self.indices.chunks_exact(3) {
@@ -848,6 +847,6 @@ impl MeshGenerator<'_> {
     }
 
     fn get_quantized_height(&self, pos: IVec2) -> f32 {
-        (self.heightmap[pos] / self.height_step).floor() * self.height_step
+        (self.height_map[pos] / self.height_step).floor() * self.height_step
     }
 }

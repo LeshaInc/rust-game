@@ -10,7 +10,7 @@ use crate::WorldgenState;
 #[repr(u8)]
 pub enum WorldgenStage {
     Island = 0,
-    Elevation,
+    Height,
     Rivers,
     Biomes,
 }
@@ -28,7 +28,7 @@ impl WorldgenProgress {
         let val = self.0.load(Relaxed);
         let stage = match val >> 8 {
             0 => WorldgenStage::Island,
-            1 => WorldgenStage::Elevation,
+            1 => WorldgenStage::Height,
             2 => WorldgenStage::Rivers,
             _ => WorldgenStage::Biomes,
         };
@@ -37,7 +37,7 @@ impl WorldgenProgress {
         let frac = progress as f32 / 100.0;
         let total_progress = match stage {
             WorldgenStage::Island => frac * 25.0,
-            WorldgenStage::Elevation => frac * 25.0 + 25.0,
+            WorldgenStage::Height => frac * 25.0 + 25.0,
             WorldgenStage::Rivers => frac * 25.0 + 50.0,
             WorldgenStage::Biomes => frac * 25.0 + 75.0,
         };
@@ -126,7 +126,7 @@ fn update_ui(
     let mut stage_text = q_stage_text.single_mut();
     stage_text.sections[0].value = match stage {
         WorldgenStage::Island => "Generating the island...",
-        WorldgenStage::Elevation => "Raising mountains...",
+        WorldgenStage::Height => "Raising mountains...",
         WorldgenStage::Rivers => "Forming rivers...",
         WorldgenStage::Biomes => "Generating biomes...",
     }

@@ -19,8 +19,8 @@ pub fn generate_grass_density_map(
     Grid::from_fn_with_origin(size, origin, |cell| {
         let pos = tile_pos_to_world(chunk_pos, cell);
 
-        let elevation = world_maps.elevation.sample(pos / WORLD_SCALE);
-        if elevation <= 0.0 {
+        let height = world_maps.height_map.sample(pos / WORLD_SCALE);
+        if height <= 0.0 {
             return 0.0;
         }
 

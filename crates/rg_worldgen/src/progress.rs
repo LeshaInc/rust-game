@@ -29,7 +29,8 @@ impl WorldgenProgress {
         let stage = match val >> 8 {
             0 => WorldgenStage::Island,
             1 => WorldgenStage::Elevation,
-            _ => WorldgenStage::Rivers,
+            2 => WorldgenStage::Rivers,
+            _ => WorldgenStage::Biomes,
         };
         let progress = val as u8;
 

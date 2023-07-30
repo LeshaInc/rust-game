@@ -50,10 +50,10 @@ pub fn generate_river_map<R: Rng>(
     let volume = compute_volume(&points, &upstream, settings);
     progress.set(WorldgenStage::Rivers, 60);
 
-    let volume_map = generate_volume_map(&points, size, &downstream, &volume);
+    let erosion_map = generate_erosion_map(&points, height_map, &downstream, &volume);
     progress.set(WorldgenStage::Rivers, 70);
 
-    apply_erosion(&volume_map, height_map, settings);
+    apply_erosion(&erosion_map, height_map, settings);
     progress.set(WorldgenStage::Rivers, 80);
 
     let strahler = compute_strahler(&points, &upstream);
@@ -272,15 +272,17 @@ fn compute_volume_at_point(
     volume[i] = v * (1.0 - settings.evaporation);
 }
 
-fn generate_volume_map(
+fn generate_erosion_map(
     points: &Points,
-    size: UVec2,
+    height_map: &Grid<f32>,
     downstream: &[Option<usize>],
     volume: &[f32],
 ) -> Grid<f32> {
-    let _scope = info_span!("generate_volume_map").entered();
+    let _scope = info_span!("generate_erosion_map").entered();
 
-    let mut volume_map = Grid::new(size, 0.0);
+    let max_height = height_map.max_value();
+
+    let mut erosion_map = Grid::new(height_map.size(), 0.0);
 
     for start_i in 0..points.count {
         let Some(end_i) = downstream[start_i] else {
@@ -296,28 +298,31 @@ fn generate_volume_map(
         let end_volume = volume[end_i];
 
         aa_line(start, end, |cell, alpha| {
-            if !volume_map.contains_cell(cell) {
+            if !erosion_map.contains_cell(cell) {
                 return;
             }
+
+            let height = (height_map[cell] / max_height).max(0.0);
+            let alpha = alpha * (height.powi(2) * 0.95 + 0.05);
 
             let proj = cell.as_vec2() + Vec2::splat(0.5) - start;
             let dist = proj.dot(dir).max(0.0);
             let t = dist / len;
             let volume = start_volume * (1.0 - t) + end_volume * t;
-            volume_map[cell] += volume * alpha;
+            erosion_map[cell] += volume * alpha;
         });
     }
 
-    volume_map
+    erosion_map.blur(3);
+    erosion_map.blur(3);
+
+    erosion_map.debug_save("/tmp/erosion.png");
+
+    erosion_map
 }
 
-fn apply_erosion(volume_map: &Grid<f32>, height_map: &mut Grid<f32>, settings: &RiversSettings) {
+fn apply_erosion(erosion_map: &Grid<f32>, height_map: &mut Grid<f32>, settings: &RiversSettings) {
     let _scope = info_span!("apply_erosion").entered();
-
-    let mut erosion_map = volume_map.clone();
-
-    erosion_map.blur(2);
-    erosion_map.blur(2);
 
     for (cell, height_map) in height_map.entries_mut() {
         let unscaled = 1.0 / (1.0 + erosion_map[cell].powf(1.1));
@@ -378,9 +383,8 @@ fn draw_rivers(
 ) -> Grid<f32> {
     let _scope = info_span!("draw_rivers").entered();
 
-    let min_strahler = 3;
-    let scale = 2;
-    let mut target = DrawTarget::new((size.x * 2) as i32, (size.y * 2) as i32);
+    let min_strahler = 4;
+    let mut target = DrawTarget::new(size.x as i32, size.y as i32);
 
     target.clear(SolidSource {
         r: 0,
@@ -405,7 +409,7 @@ fn draw_rivers(
         }
 
         spline.clear();
-        spline.push(points.positions[start_i] * (scale as f32));
+        spline.push(points.positions[start_i]);
 
         let mut cur_i = start_i;
         while strahler[cur_i] == cur_strahler {
@@ -413,7 +417,7 @@ fn draw_rivers(
                 break;
             };
 
-            spline.push(points.positions[next_i] * (scale as f32));
+            spline.push(points.positions[next_i]);
             cur_i = next_i;
         }
 
@@ -449,7 +453,7 @@ fn draw_rivers(
         .iter()
         .map(|&v| (v as u8) as f32 / 255.0)
         .collect::<Vec<_>>();
-    Grid::from_data(size * scale, data)
+    Grid::from_data(size, data)
 }
 
 fn points_to_path(points: &[Vec2]) -> Path {

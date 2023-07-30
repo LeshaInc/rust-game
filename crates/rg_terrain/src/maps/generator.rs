@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bevy::prelude::*;
 use rg_core::{Grid, SimplexNoise2};
-use rg_worldgen::{WorldMaps, RIVER_MAP_SCALE, WORLD_SCALE};
+use rg_worldgen::{WorldMaps, WORLD_SCALE};
 
 use super::{ChunkMaps, SharedChunkMaps};
 use crate::{tile_pos_to_world, Tile, CHUNK_TILES};
@@ -32,7 +32,7 @@ fn generate_height_map(seed: u64, chunk_pos: IVec2, world_maps: &WorldMaps) -> G
         let pos = tile_pos_to_world(chunk_pos, cell);
 
         let mut height = world_maps.height_map.sample(pos / WORLD_SCALE) * 160.0;
-        let river = world_maps.river_map.sample(pos / RIVER_MAP_SCALE);
+        let river = world_maps.river_map.sample(pos / WORLD_SCALE);
 
         let mut fbm = 0.0;
         fbm += noise.get(pos / 100.0);
@@ -53,12 +53,12 @@ fn generate_height_map(seed: u64, chunk_pos: IVec2, world_maps: &WorldMaps) -> G
         height
     });
 
-    height_map.blur(3);
-    height_map.blur(3);
+    height_map.blur(1);
+    height_map.blur(1);
 
     for (cell, height) in height_map.entries_mut() {
         let pos = tile_pos_to_world(chunk_pos, cell);
-        let river = world_maps.river_map.sample(pos / RIVER_MAP_SCALE);
+        let river = world_maps.river_map.sample(pos / WORLD_SCALE);
         *height -= river * 2.0;
     }
 
@@ -82,7 +82,7 @@ fn generate_tile_map(
         }
 
         let pos = tile_pos_to_world(chunk_pos, cell);
-        let river = world_maps.river_map.sample(pos / RIVER_MAP_SCALE);
+        let river = world_maps.river_map.sample(pos / WORLD_SCALE);
 
         if river > 0.5 {
             return Tile::Sand;

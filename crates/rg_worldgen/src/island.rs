@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use rand::Rng;
-use rg_core::Grid;
+use rg_core::{EdtSettings, Grid};
 use serde::Deserialize;
 
 use crate::{WorldgenProgress, WorldgenStage};
@@ -21,15 +21,15 @@ pub fn generate_island_map<R: Rng>(
     rng: &mut R,
     progress: &WorldgenProgress,
     settings: &IslandSettings,
-) -> Grid<bool> {
+) -> Grid<f32> {
     let _scope = info_span!("generate_island_map").entered();
 
     loop {
         progress.set(WorldgenStage::Island, 0);
 
-        let size = settings.size;
+        let size = settings.size / 8;
         let mut grid = Grid::new(size, 0.0);
-        let scale = size.x.min(size.y) as f32 / settings.noise_scale;
+        let scale = settings.size.x.min(settings.size.y) as f32 / settings.noise_scale;
 
         grid.add_fbm_noise(rng, scale, 1.0, 8);
         progress.set(WorldgenStage::Island, 10);
@@ -45,28 +45,34 @@ pub fn generate_island_map<R: Rng>(
         progress.set(WorldgenStage::Island, 40);
 
         random_zoom(rng, &mut grid);
+        progress.set(WorldgenStage::Island, 45);
+
+        random_zoom(rng, &mut grid);
         progress.set(WorldgenStage::Island, 50);
 
         erode(&mut grid);
         progress.set(WorldgenStage::Island, 60);
 
         erode(&mut grid);
+        progress.set(WorldgenStage::Island, 65);
+
+        smooth(&mut grid);
         progress.set(WorldgenStage::Island, 70);
 
         smooth(&mut grid);
-        progress.set(WorldgenStage::Island, 80);
-
-        smooth(&mut grid);
-        progress.set(WorldgenStage::Island, 90);
+        progress.set(WorldgenStage::Island, 75);
 
         keep_one_island(&mut grid);
-        progress.set(WorldgenStage::Island, 100);
+        progress.set(WorldgenStage::Island, 80);
 
         if !is_island_area_good(&grid, settings) {
             continue;
         }
 
-        return grid;
+        let sdf = generate_sdf(&grid);
+        progress.set(WorldgenStage::Island, 100);
+
+        return sdf;
     }
 }
 
@@ -228,4 +234,32 @@ fn smooth(grid: &mut Grid<bool>) {
 
         num_true > num_false
     });
+}
+
+fn generate_sdf(island: &Grid<bool>) -> Grid<f32> {
+    let _scope = info_span!("generate_sdf").entered();
+
+    let edt = island.compute_edt(EdtSettings {
+        exact: false,
+        invert: false,
+        normalize: false,
+        downsample: 1,
+        padding: 0,
+    });
+
+    let inv_edt = island.compute_edt(EdtSettings {
+        exact: false,
+        invert: true,
+        normalize: false,
+        downsample: 1,
+        padding: 128,
+    });
+
+    Grid::from_fn(island.size(), |cell| {
+        if island[cell] {
+            edt[cell]
+        } else {
+            -inv_edt[cell]
+        }
+    })
 }

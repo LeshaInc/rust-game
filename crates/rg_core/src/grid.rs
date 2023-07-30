@@ -2,7 +2,7 @@ use std::f32::consts::TAU;
 use std::ops::*;
 
 use bevy::core::cast_slice;
-use bevy::prelude::{info_span, IVec2, UVec2, Vec2};
+use bevy::prelude::{info_span, Color, IVec2, UVec2, Vec2};
 use rand::Rng;
 use rayon::prelude::*;
 
@@ -532,13 +532,33 @@ impl Grid<f32> {
     }
 
     pub fn debug_save(&self, path: &str) {
-        let mapped = self.map_range(0.0, 65535.0).map(|_, &v| v as u16);
+        let min_value = self.min_value();
+        let max_value = self.max_value();
+
+        let colors = self.map(|_, &v| {
+            let min_color = Color::rgb_u8(40, 138, 183).as_rgba_linear();
+            let mid_color = Color::rgb_u8(0, 0, 0).as_rgba_linear();
+            let max_color = Color::rgb_u8(255, 255, 255).as_rgba_linear();
+
+            let color = if v >= 0.0 {
+                mid_color * (1.0 - v / max_value) + max_color * (v / max_value)
+            } else {
+                mid_color * (1.0 - v / min_value) + min_color * (v / min_value)
+            };
+
+            [
+                (color.r() * 65535.0) as u16,
+                (color.g() * 65535.0) as u16,
+                (color.b() * 65535.0) as u16,
+            ]
+        });
+
         image::save_buffer(
             path,
-            cast_slice(&mapped.data),
+            cast_slice(&colors.data),
             self.size.x,
             self.size.y,
-            image::ColorType::L16,
+            image::ColorType::Rgb16,
         )
         .unwrap();
     }

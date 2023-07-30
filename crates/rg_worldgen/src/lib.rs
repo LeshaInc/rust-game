@@ -26,8 +26,7 @@ pub use crate::island::IslandSettings;
 pub use crate::progress::{WorldgenProgress, WorldgenStage};
 use crate::rivers::generate_river_map;
 
-pub const WORLD_SCALE: f32 = 4.0;
-pub const RIVER_MAP_SCALE: f32 = 2.0;
+pub const WORLD_SCALE: f32 = 2.0;
 
 pub struct WorldgenPlugin;
 
@@ -100,11 +99,15 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
 
         let mut rng = Pcg32::seed_from_u64(seed);
         let island_map = generate_island_map(&mut rng, &progress, &settings.island);
-        let mut height_map = generate_height_map(&progress, &settings.height, &island_map);
+        island_map.debug_save(&format!("/tmp/island_map.png"));
+
+        let mut height_map =
+            generate_height_map(&mut rng, &progress, &settings.height, &island_map);
+        height_map.debug_save(&format!("/tmp/init_height_map.png"));
+
         let river_map = generate_river_map(&mut rng, &progress, &settings.rivers, &mut height_map);
         let biome_map = generate_biome_map(&mut rng, &progress, &height_map);
 
-        island_map.debug_save(&format!("/tmp/island_map.png"));
         height_map.debug_save(&format!("/tmp/height_map.png"));
         river_map.debug_save(&format!("/tmp/river_map.png"));
 

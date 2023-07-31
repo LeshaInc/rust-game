@@ -1,10 +1,12 @@
 use bevy::prelude::*;
+use bytemuck::{CheckedBitPattern, NoUninit};
 use rand::Rng;
 use rg_core::Grid;
 
 use crate::{WorldgenProgress, WorldgenStage};
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, NoUninit, CheckedBitPattern)]
+#[repr(u8)]
 pub enum Biome {
     Ocean,
     Plains,

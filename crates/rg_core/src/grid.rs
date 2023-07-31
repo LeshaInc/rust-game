@@ -1,8 +1,10 @@
 use std::f32::consts::TAU;
+use std::io::{self, Read, Write};
 use std::ops::*;
 
 use bevy::core::cast_slice;
 use bevy::prelude::{info_span, Color, IVec2, UVec2, Vec2};
+use bytemuck::{CheckedBitPattern, NoUninit};
 use rand::Rng;
 use rayon::prelude::*;
 
@@ -409,12 +411,101 @@ macro_rules! impl_unary_op {
 impl_unary_op!(Neg, neg);
 impl_unary_op!(Not, not);
 
+impl<T: NoUninit + CheckedBitPattern> Grid<T> {
+    const SIGNATURE: &[u8; 7] = b"RG_GRID";
+
+    pub fn decode<R: Read>(reader: &mut R) -> io::Result<Grid<T>> {
+        let _scope = info_span!("decode").entered();
+
+        let mut buf = [0; 7];
+        reader.read_exact(&mut buf)?;
+        if &buf != Self::SIGNATURE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid signature",
+            ));
+        }
+
+        let mut buf = [0; 4];
+
+        reader.read_exact(&mut buf)?;
+        let width = u32::from_ne_bytes(buf);
+        reader.read_exact(&mut buf)?;
+        let height = u32::from_ne_bytes(buf);
+        reader.read_exact(&mut buf)?;
+        let origin_x = i32::from_ne_bytes(buf);
+        reader.read_exact(&mut buf)?;
+        let origin_y = i32::from_ne_bytes(buf);
+
+        let area = (width as usize) * (height as usize);
+        let cell_size = std::mem::size_of::<T>();
+        let uncompressed_size = area * cell_size;
+
+        let mut buf = [0; 8];
+        reader.read_exact(&mut buf)?;
+        let compressed_size = u64::from_ne_bytes(buf) as usize;
+
+        if compressed_size > 512 * 1024 * 1024 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "data is too large",
+            ));
+        }
+
+        let mut compressed_data = vec![0; compressed_size];
+        reader.read_exact(&mut compressed_data)?;
+
+        let mut reader = zstd::Decoder::new(compressed_data.as_slice())?;
+
+        let mut uncompressed_data = vec![0; uncompressed_size];
+        reader.read_exact(&mut uncompressed_data)?;
+
+        drop(compressed_data);
+
+        let mut data = Vec::with_capacity(area);
+        for i in 0..area {
+            let bytes = &uncompressed_data[i * cell_size..(i + 1) * cell_size];
+            data.push(
+                bytemuck::checked::try_pod_read_unaligned(bytes)
+                    .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid data"))?,
+            );
+        }
+
+        let size = UVec2::new(width, height);
+        let origin = IVec2::new(origin_x, origin_y);
+        Ok(Grid::from_data(size, data).with_origin(origin))
+    }
+
+    pub fn encode<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        let _scope = info_span!("encode").entered();
+
+        writer.write_all(Self::SIGNATURE)?;
+
+        writer.write_all(&self.size.x.to_ne_bytes())?;
+        writer.write_all(&self.size.y.to_ne_bytes())?;
+        writer.write_all(&self.origin.x.to_ne_bytes())?;
+        writer.write_all(&self.origin.y.to_ne_bytes())?;
+
+        let data_size = self.data.len() * std::mem::size_of::<T>();
+        let mut buf = Vec::with_capacity(2 * data_size);
+        let mut encoder = zstd::Encoder::new(&mut buf, 0)?;
+        encoder.set_pledged_src_size(Some(data_size as u64))?;
+        encoder.write_all(bytemuck::cast_slice(&self.data))?;
+        encoder.finish()?;
+
+        writer.write_all(&(buf.len() as u64).to_ne_bytes())?;
+        writer.write_all(&buf)?;
+
+        Ok(())
+    }
+}
+
 impl Grid<f32> {
     pub fn add_noise(&mut self, noise: &SimplexNoise2, rotation: f32, scale: f32, amplitude: f32) {
-        for (cell, value) in self.entries_mut() {
+        self.par_map_inplace(|cell, value| {
             let pos = Vec2::from_angle(rotation).rotate(cell.as_vec2());
             *value += noise.get(pos * scale) * amplitude;
-        }
+        });
     }
 
     pub fn add_fbm_noise<R: Rng>(
@@ -532,6 +623,12 @@ impl Grid<f32> {
     }
 
     pub fn debug_save(&self, path: &str) {
+        if !cfg!(debug_assertions) {
+            return;
+        }
+
+        let _scope = info_span!("debug_save").entered();
+
         let min_value = self.min_value();
         let max_value = self.max_value();
 

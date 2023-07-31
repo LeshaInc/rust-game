@@ -3441,6 +3441,7 @@ dependencies = [
  "bevy",
  "bevy_rapier3d",
  "bitflags 2.3.3",
+ "bytemuck",
  "edt",
  "image",
  "num-traits",
@@ -3450,6 +3451,7 @@ dependencies = [
  "rayon",
  "ron",
  "serde",
+ "zstd",
 ]
 
 [[package]]
@@ -3523,6 +3525,7 @@ name = "rg_worldgen"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bytemuck",
  "delaunator",
  "edt",
  "futures-lite",
@@ -4691,6 +4694,36 @@ name = "xml-rs"
 version = "0.8.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a56c84a8ccd4258aed21c92f70c0f6dea75356b6892ae27c24139da456f9336"
+
+[[package]]
+name = "zstd"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a27595e173641171fc74a1232b7b1c7a7cb6e18222c11e9dfb9888fa424c53c"
+dependencies = [
+ "zstd-safe",
+]
+
+[[package]]
+name = "zstd-safe"
+version = "6.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee98ffd0b48ee95e6c5168188e44a54550b1564d9d530ee21d5f0eaed1069581"
+dependencies = [
+ "libc",
+ "zstd-sys",
+]
+
+[[package]]
+name = "zstd-sys"
+version = "2.0.8+zstd.1.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5556e6ee25d32df2586c098bbfa278803692a20d0ab9565e049480d52707ec8c"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
+]
 
 [[package]]
 name = "zune-inflate"

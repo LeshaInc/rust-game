@@ -316,8 +316,6 @@ fn generate_erosion_map(
     erosion_map.blur(3);
     erosion_map.blur(3);
 
-    erosion_map.debug_save("/tmp/erosion.png");
-
     erosion_map
 }
 

@@ -4,6 +4,9 @@ mod island;
 mod progress;
 mod rivers;
 
+use std::fs::File;
+use std::io::{self, BufReader, BufWriter, Read, Write};
+use std::path::Path;
 use std::sync::Arc;
 
 use bevy::prelude::*;
@@ -81,6 +84,77 @@ pub struct WorldMaps {
     pub biome_map: Grid<Biome>,
 }
 
+impl WorldMaps {
+    const SIGNATURE: &[u8; 8] = b"RG_WORLD";
+    const VERSION: u32 = 0;
+
+    pub fn load(path: impl AsRef<Path>) -> io::Result<WorldMaps> {
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(file);
+        Self::decode(&mut reader)
+    }
+
+    pub fn save(&self, path: impl AsRef<Path>) -> io::Result<()> {
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+        self.encode(&mut writer)
+    }
+
+    pub fn decode<R: Read>(reader: &mut R) -> io::Result<WorldMaps> {
+        let _scope = info_span!("decode").entered();
+
+        let mut buf = [0; 8];
+        reader.read_exact(&mut buf)?;
+        if &buf != Self::SIGNATURE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid signature",
+            ));
+        }
+
+        let mut buf = [0; 4];
+        reader.read_exact(&mut buf)?;
+        let version = u32::from_ne_bytes(buf);
+        if version != Self::VERSION {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "invalid version (got {version}, expected {})",
+                    Self::VERSION
+                ),
+            ));
+        }
+
+        let mut buf = [0; 8];
+        reader.read_exact(&mut buf)?;
+        let seed = u64::from_ne_bytes(buf);
+
+        let height_map = Grid::decode(reader)?;
+        let river_map = Grid::decode(reader)?;
+        let biome_map = Grid::decode(reader)?;
+
+        Ok(WorldMaps {
+            seed,
+            height_map,
+            river_map,
+            biome_map,
+        })
+    }
+
+    pub fn encode<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        let _scope = info_span!("encode").entered();
+
+        writer.write_all(Self::SIGNATURE)?;
+        writer.write_all(&Self::VERSION.to_ne_bytes())?;
+        writer.write_all(&self.seed.to_ne_bytes())?;
+        self.height_map.encode(writer)?;
+        self.river_map.encode(writer)?;
+        self.biome_map.encode(writer)?;
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Deref, Clone, Resource)]
 pub struct SharedWorldMaps(pub Arc<WorldMaps>);
 
@@ -97,26 +171,41 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
     let task = pool.spawn(async move {
         let _scope = info_span!("worldgen").entered();
 
+        match WorldMaps::load("/tmp/world.bin") {
+            Ok(world_maps) => return world_maps,
+            Err(e) => {
+                warn!("{e:?}");
+            }
+        }
+
         let mut rng = Pcg32::seed_from_u64(seed);
         let island_map = generate_island_map(&mut rng, &progress, &settings.island);
-        island_map.debug_save(&format!("/tmp/island_map.png"));
-
         let mut height_map =
             generate_height_map(&mut rng, &progress, &settings.height, &island_map);
-        height_map.debug_save(&format!("/tmp/init_height_map.png"));
-
+        let init_height_map = height_map.clone();
         let river_map = generate_river_map(&mut rng, &progress, &settings.rivers, &mut height_map);
         let biome_map = generate_biome_map(&mut rng, &progress, &height_map);
 
-        height_map.debug_save(&format!("/tmp/height_map.png"));
-        river_map.debug_save(&format!("/tmp/river_map.png"));
+        progress.set(WorldgenStage::Saving, 0);
 
-        WorldMaps {
+        rayon::scope(|s| {
+            s.spawn(|_| island_map.debug_save(&format!("/tmp/island_map.png")));
+            s.spawn(|_| init_height_map.debug_save(&format!("/tmp/init_height_map.png")));
+            s.spawn(|_| height_map.debug_save(&format!("/tmp/height_map.png")));
+            s.spawn(|_| river_map.debug_save(&format!("/tmp/river_map.png")));
+        });
+
+        let world_maps = WorldMaps {
             seed,
             height_map,
             river_map,
             biome_map,
-        }
+        };
+
+        world_maps.save("/tmp/world.bin").unwrap();
+        progress.set(WorldgenStage::Saving, 100);
+
+        world_maps
     });
 
     commands.insert_resource(WorldgenTask(task));

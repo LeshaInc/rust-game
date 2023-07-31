@@ -239,21 +239,26 @@ fn smooth(grid: &mut Grid<bool>) {
 fn generate_sdf(island: &Grid<bool>) -> Grid<f32> {
     let _scope = info_span!("generate_sdf").entered();
 
-    let edt = island.compute_edt(EdtSettings {
-        exact: false,
-        invert: false,
-        normalize: false,
-        downsample: 1,
-        padding: 0,
-    });
-
-    let inv_edt = island.compute_edt(EdtSettings {
-        exact: false,
-        invert: true,
-        normalize: false,
-        downsample: 1,
-        padding: 128,
-    });
+    let (edt, inv_edt) = rayon::join(
+        || {
+            island.compute_edt(EdtSettings {
+                exact: false,
+                invert: false,
+                normalize: false,
+                downsample: 1,
+                padding: 0,
+            })
+        },
+        || {
+            island.compute_edt(EdtSettings {
+                exact: false,
+                invert: true,
+                normalize: false,
+                downsample: 1,
+                padding: 128,
+            })
+        },
+    );
 
     Grid::from_fn(island.size(), |cell| {
         if island[cell] {

@@ -21,6 +21,6 @@
         point_radius: 2.0,
         inertia: 0.3,
         evaporation: 0.2,
-        erosion: 0.65,
+        erosion: 0.15,
     )
 )

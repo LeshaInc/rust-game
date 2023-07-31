@@ -3,6 +3,7 @@ mod height;
 mod island;
 mod progress;
 mod rivers;
+mod shores;
 
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Read, Write};
@@ -28,6 +29,7 @@ use crate::island::generate_island_map;
 pub use crate::island::IslandSettings;
 pub use crate::progress::{WorldgenProgress, WorldgenStage};
 use crate::rivers::generate_river_map;
+use crate::shores::generate_shore_map;
 
 pub const WORLD_SCALE: f32 = 2.0;
 
@@ -81,6 +83,7 @@ pub struct WorldMaps {
     pub seed: u64,
     pub height_map: Grid<f32>,
     pub river_map: Grid<f32>,
+    pub shore_map: Grid<f32>,
     pub biome_map: Grid<Biome>,
 }
 
@@ -131,12 +134,14 @@ impl WorldMaps {
 
         let height_map = Grid::decode(reader)?;
         let river_map = Grid::decode(reader)?;
+        let shore_map = Grid::decode(reader)?;
         let biome_map = Grid::decode(reader)?;
 
         Ok(WorldMaps {
             seed,
             height_map,
             river_map,
+            shore_map,
             biome_map,
         })
     }
@@ -149,6 +154,7 @@ impl WorldMaps {
         writer.write_all(&self.seed.to_ne_bytes())?;
         self.height_map.encode(writer)?;
         self.river_map.encode(writer)?;
+        self.shore_map.encode(writer)?;
         self.biome_map.encode(writer)?;
 
         Ok(())
@@ -184,6 +190,7 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
             generate_height_map(&mut rng, &progress, &settings.height, &island_map);
         let init_height_map = height_map.clone();
         let river_map = generate_river_map(&mut rng, &progress, &settings.rivers, &mut height_map);
+        let shore_map = generate_shore_map(&progress, &island_map, &river_map);
         let biome_map = generate_biome_map(&mut rng, &progress, &height_map);
 
         progress.set(WorldgenStage::Saving, 0);
@@ -193,12 +200,14 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
             s.spawn(|_| init_height_map.debug_save(&format!("/tmp/init_height_map.png")));
             s.spawn(|_| height_map.debug_save(&format!("/tmp/height_map.png")));
             s.spawn(|_| river_map.debug_save(&format!("/tmp/river_map.png")));
+            s.spawn(|_| shore_map.debug_save(&format!("/tmp/shore_map.png")));
         });
 
         let world_maps = WorldMaps {
             seed,
             height_map,
             river_map,
+            shore_map,
             biome_map,
         };
 

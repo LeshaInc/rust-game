@@ -38,11 +38,14 @@ impl ScatterPrototype for BushPrototype {
             .copied()
             .unwrap_or(Biome::Ocean);
 
-        match biome {
+        let p = match biome {
             Biome::Ocean => 0.0,
-            Biome::Forest => 0.05,
-            Biome::Plains => 0.1,
-        }
+            Biome::Forest => 0.07,
+            Biome::Plains => 0.15,
+        };
+
+        let shore = world_maps.shore_map.sample(pos / WORLD_SCALE);
+        p * (1.0 - shore)
     }
 
     fn spawn<R: Rng>(&self, rng: &mut R, commands: &mut Commands, pos: Vec3) -> Entity {

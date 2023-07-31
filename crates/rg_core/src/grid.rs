@@ -512,12 +512,13 @@ impl Grid<f32> {
         &mut self,
         rng: &mut R,
         mut scale: f32,
-        mut amplitude: f32,
+        max_amplitude: f32,
         octaves: usize,
     ) {
         let _scope = info_span!("add_fbm_noise").entered();
 
         let mut total_amplitude = 0.0;
+        let mut amplitude = 1.0;
 
         for _ in 0..octaves {
             let noise_seed = rng.gen::<u64>();
@@ -531,6 +532,7 @@ impl Grid<f32> {
 
         for (_, value) in self.entries_mut() {
             *value /= total_amplitude;
+            *value *= max_amplitude;
         }
     }
 

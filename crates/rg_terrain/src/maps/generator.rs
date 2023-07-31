@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use bevy::prelude::*;
-use rg_core::{Grid, SimplexNoise2};
+use rand::SeedableRng;
+use rand_pcg::Pcg32;
+use rg_core::Grid;
 use rg_worldgen::{WorldMaps, WORLD_SCALE};
 
 use super::{ChunkMaps, SharedChunkMaps};
@@ -22,34 +24,33 @@ pub fn generate_maps(seed: u64, chunk_pos: IVec2, world_maps: &WorldMaps) -> Sha
 fn generate_height_map(seed: u64, chunk_pos: IVec2, world_maps: &WorldMaps) -> Grid<f32> {
     let _span = info_span!("generate_height_map").entered();
 
-    let noise = SimplexNoise2::new(seed);
+    let mut rng = Pcg32::seed_from_u64(seed);
 
     let overscan = 10;
     let size = UVec2::splat(CHUNK_TILES) + overscan * 2;
     let origin = -IVec2::splat(overscan as i32);
 
+    let mut noise = Grid::new(size, 0.0).with_origin(origin + chunk_pos * (CHUNK_TILES as i32));
+    noise.add_fbm_noise(&mut rng, 0.01, 8.0, 5);
+
+    noise = noise.with_origin(origin);
+
     let mut height_map = Grid::from_fn_with_origin(size, origin, |cell| {
         let pos = tile_pos_to_world(chunk_pos, cell);
 
-        let mut height = world_maps.height_map.sample(pos / WORLD_SCALE) * 160.0;
-        let river = world_maps.river_map.sample(pos / WORLD_SCALE);
+        let mut height = world_maps.height_map.sample(pos / WORLD_SCALE) * 80.0;
+        let shore = world_maps.shore_map.sample(pos / WORLD_SCALE);
 
-        let mut fbm = 0.0;
-        fbm += noise.get(pos / 100.0);
-        fbm += noise.get(pos / 50.0) / 2.0;
-        fbm += noise.get(pos / 25.0) / 4.0;
-        fbm += noise.get(pos / 12.5) / 8.0;
-        fbm += noise.get(pos / 6.25) / 16.0;
-        fbm += noise.get(pos / 3.125) / 32.0;
+        height += (1.0 - shore) * noise[cell];
 
-        height += (1.0 - river) * 14.0 * fbm * (height / 160.0).max(0.0).powf(0.5);
+        let mut snapped = height;
+        snapped /= 3.0;
+        snapped = snapped.floor() + (70.0 * (snapped.fract() - 0.5)).tanh() * 0.5 + 0.5;
+        snapped *= 3.0;
 
-        let mut snap = height;
-        snap /= 2.0;
-        snap = snap.floor() + (70.0 * (snap.fract() - 0.5)).tanh() * 0.5 + 0.5;
-        snap *= 2.0;
+        let alpha = shore.powf(0.3);
+        height = snapped * (1.0 - alpha) + height * alpha;
 
-        height = snap * (1.0 - river) + height * river;
         height
     });
 
@@ -59,11 +60,11 @@ fn generate_height_map(seed: u64, chunk_pos: IVec2, world_maps: &WorldMaps) -> G
     for (cell, height) in height_map.entries_mut() {
         let pos = tile_pos_to_world(chunk_pos, cell);
         let river = world_maps.river_map.sample(pos / WORLD_SCALE);
-        *height -= river * 2.0;
+        *height -= river * 3.0;
     }
 
-    height_map.blur(1);
-    height_map.blur(1);
+    height_map.blur(2);
+    height_map.blur(2);
 
     height_map
 }

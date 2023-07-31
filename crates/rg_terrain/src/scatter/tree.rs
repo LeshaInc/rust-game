@@ -46,11 +46,14 @@ impl ScatterPrototype for TreePrototype {
             .copied()
             .unwrap_or(Biome::Ocean);
 
-        match biome {
+        let p = match biome {
             Biome::Ocean => 0.0,
             Biome::Forest => 1.0,
             Biome::Plains => 0.1,
-        }
+        };
+
+        let shore = world_maps.shore_map.sample(pos / WORLD_SCALE);
+        p * (1.0 - shore)
     }
 
     fn spawn<R: Rng>(&self, rng: &mut R, commands: &mut Commands, mut pos: Vec3) -> Entity {

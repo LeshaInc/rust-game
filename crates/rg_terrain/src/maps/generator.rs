@@ -1,39 +1,32 @@
 use std::sync::Arc;
 
 use bevy::prelude::*;
-use rand::SeedableRng;
-use rand_pcg::Pcg32;
-use rg_core::Grid;
+use rg_core::{Grid, Noise};
 use rg_worldgen::{WorldMaps, WORLD_SCALE};
 
 use super::{ChunkMaps, SharedChunkMaps};
 use crate::{tile_pos_to_world, Tile, CHUNK_TILES};
 
-pub fn generate_maps(seed: u64, chunk_pos: IVec2, world_maps: &WorldMaps) -> SharedChunkMaps {
+pub fn generate_maps(chunk_pos: IVec2, world_maps: &WorldMaps) -> SharedChunkMaps {
     let _span = info_span!("generate_maps").entered();
 
-    let height_map = generate_height_map(seed, chunk_pos, world_maps);
+    let height_map = generate_height_map(chunk_pos, world_maps);
     let tile_map = generate_tile_map(chunk_pos, world_maps, &height_map);
+    let grass_density_map = generate_grass_density_map(chunk_pos, world_maps, &tile_map);
 
     SharedChunkMaps(Arc::new(ChunkMaps {
         height_map,
         tile_map,
+        grass_density_map,
     }))
 }
 
-fn generate_height_map(seed: u64, chunk_pos: IVec2, world_maps: &WorldMaps) -> Grid<f32> {
+fn generate_height_map(chunk_pos: IVec2, world_maps: &WorldMaps) -> Grid<f32> {
     let _span = info_span!("generate_height_map").entered();
-
-    let mut rng = Pcg32::seed_from_u64(seed);
 
     let overscan = 10;
     let size = UVec2::splat(CHUNK_TILES) + overscan * 2;
     let origin = -IVec2::splat(overscan as i32);
-
-    let mut noise = Grid::new(size, 0.0).with_origin(origin + chunk_pos * (CHUNK_TILES as i32));
-    noise.add_fbm_noise(&mut rng, 0.01, 8.0, 5);
-
-    noise = noise.with_origin(origin);
 
     let mut height_map = Grid::from_fn_with_origin(size, origin, |cell| {
         let pos = tile_pos_to_world(chunk_pos, cell);
@@ -41,7 +34,8 @@ fn generate_height_map(seed: u64, chunk_pos: IVec2, world_maps: &WorldMaps) -> G
         let mut height = world_maps.height_map.sample(pos / WORLD_SCALE) * 80.0;
         let shore = world_maps.shore_map.sample(pos / WORLD_SCALE);
 
-        height += (1.0 - shore) * noise[cell];
+        let noise = world_maps.noise_maps.height.get(pos)[0];
+        height += (1.0 - shore) * noise * 8.0;
 
         let mut snapped = height;
         snapped /= 3.0;
@@ -90,5 +84,29 @@ fn generate_tile_map(
         }
 
         Tile::Grass
+    })
+}
+
+fn generate_grass_density_map(
+    chunk_pos: IVec2,
+    world_maps: &WorldMaps,
+    tile_map: &Grid<Tile>,
+) -> Grid<f32> {
+    let _span = info_span!("generate_grass_density_map").entered();
+
+    let size = UVec2::splat(CHUNK_TILES);
+    Grid::from_fn(size, |cell| {
+        if tile_map[cell] != Tile::Grass {
+            return 0.0;
+        }
+
+        for (_, neighbor) in tile_map.neighborhood_8(cell) {
+            if tile_map[neighbor] != Tile::Grass {
+                return 0.0;
+            }
+        }
+
+        let pos = tile_pos_to_world(chunk_pos, cell);
+        world_maps.noise_maps.grass.get(pos)[0]
     })
 }

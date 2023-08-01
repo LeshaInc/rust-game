@@ -16,7 +16,7 @@ pub struct GrassResult {
     pub multi_billboard: MultiBillboard,
 }
 
-pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh, density_map: Grid<f32>) -> GrassResult {
+pub fn generate(seed: u64, chunk_pos: IVec2, mesh: &Mesh, density_map: &Grid<f32>) -> GrassResult {
     let Some(VertexAttributeValues::Float32x3(positions)) =
         mesh.attribute(Mesh::ATTRIBUTE_POSITION)
     else {
@@ -58,8 +58,12 @@ pub fn generate(seed: u64, chunk_pos: IVec2, mesh: Mesh, density_map: Grid<f32>)
                 continue;
             }
 
-            let density = density_map.sample(pos.xy() / CHUNK_SIZE * (CHUNK_TILES as f32));
-            if !rng.gen_bool(density as f64) {
+            let density = density_map.sample(pos.xy() / CHUNK_SIZE * (CHUNK_TILES as f32) - 0.5);
+            if density.is_nan() || density <= 0.0 {
+                continue;
+            }
+
+            if density < 1.0 && !rng.gen_bool(density as f64) {
                 continue;
             }
 

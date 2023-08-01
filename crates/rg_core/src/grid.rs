@@ -1,14 +1,14 @@
-use std::f32::consts::TAU;
-use std::io::{self, Read, Write};
+use std::io::{Read, Write};
+use std::marker::PhantomData;
 use std::ops::*;
 
 use bevy::core::cast_slice;
 use bevy::prelude::{info_span, Color, IVec2, UVec2, Vec2};
 use bytemuck::{CheckedBitPattern, NoUninit};
-use rand::Rng;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
-use crate::SimplexNoise2;
+use crate::noise::Noise;
 
 pub const NEIGHBORHOOD_4: [IVec2; 4] = [
     IVec2::new(0, -1),
@@ -28,10 +28,12 @@ pub const NEIGHBORHOOD_8: [IVec2; 8] = [
     IVec2::new(-1, -1),
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(serialize = "T: NoUninit", deserialize = "T: CheckedBitPattern"))]
 pub struct Grid<T> {
     origin: IVec2,
     size: UVec2,
+    #[serde(with = "serde_blob")]
     data: Box<[T]>,
 }
 
@@ -411,129 +413,82 @@ macro_rules! impl_unary_op {
 impl_unary_op!(Neg, neg);
 impl_unary_op!(Not, not);
 
-impl<T: NoUninit + CheckedBitPattern> Grid<T> {
-    const SIGNATURE: &[u8; 7] = b"RG_GRID";
+mod serde_blob {
+    use serde::de::{Deserializer, Visitor};
+    use serde::ser::{Error, Serializer};
 
-    pub fn decode<R: Read>(reader: &mut R) -> io::Result<Grid<T>> {
-        let _scope = info_span!("decode").entered();
+    use super::*;
 
-        let mut buf = [0; 7];
-        reader.read_exact(&mut buf)?;
-        if &buf != Self::SIGNATURE {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "invalid signature",
-            ));
-        }
-
-        let mut buf = [0; 4];
-
-        reader.read_exact(&mut buf)?;
-        let width = u32::from_ne_bytes(buf);
-        reader.read_exact(&mut buf)?;
-        let height = u32::from_ne_bytes(buf);
-        reader.read_exact(&mut buf)?;
-        let origin_x = i32::from_ne_bytes(buf);
-        reader.read_exact(&mut buf)?;
-        let origin_y = i32::from_ne_bytes(buf);
-
-        let area = (width as usize) * (height as usize);
-        let cell_size = std::mem::size_of::<T>();
-        let uncompressed_size = area * cell_size;
-
-        let mut buf = [0; 8];
-        reader.read_exact(&mut buf)?;
-        let compressed_size = u64::from_ne_bytes(buf) as usize;
-
-        if compressed_size > 512 * 1024 * 1024 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "data is too large",
-            ));
-        }
-
-        let mut compressed_data = vec![0; compressed_size];
-        reader.read_exact(&mut compressed_data)?;
-
-        let mut reader = zstd::Decoder::new(compressed_data.as_slice())?;
-
-        let mut uncompressed_data = vec![0; uncompressed_size];
-        reader.read_exact(&mut uncompressed_data)?;
-
-        drop(compressed_data);
-
-        let mut data = Vec::with_capacity(area);
-        for i in 0..area {
-            let bytes = &uncompressed_data[i * cell_size..(i + 1) * cell_size];
-            data.push(
-                bytemuck::checked::try_pod_read_unaligned(bytes)
-                    .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid data"))?,
-            );
-        }
-
-        let size = UVec2::new(width, height);
-        let origin = IVec2::new(origin_x, origin_y);
-        Ok(Grid::from_data(size, data).with_origin(origin))
+    pub fn serialize<T, S>(data: &[T], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: NoUninit,
+        S: Serializer,
+    {
+        let blob = data_to_blob(data).ok_or_else(|| S::Error::custom("failed to write blob"))?;
+        serializer.serialize_bytes(&blob)
     }
 
-    pub fn encode<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        let _scope = info_span!("encode").entered();
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Box<[T]>, D::Error>
+    where
+        T: CheckedBitPattern,
+        D: Deserializer<'de>,
+    {
+        struct BlobVisitor<T>(PhantomData<T>);
 
-        writer.write_all(Self::SIGNATURE)?;
+        impl<'de, T: CheckedBitPattern> Visitor<'de> for BlobVisitor<T> {
+            type Value = Box<[T]>;
 
-        writer.write_all(&self.size.x.to_ne_bytes())?;
-        writer.write_all(&self.size.y.to_ne_bytes())?;
-        writer.write_all(&self.origin.x.to_ne_bytes())?;
-        writer.write_all(&self.origin.y.to_ne_bytes())?;
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a byte array")
+            }
 
-        let data_size = self.data.len() * std::mem::size_of::<T>();
-        let mut buf = Vec::with_capacity(2 * data_size);
-        let mut encoder = zstd::Encoder::new(&mut buf, 0)?;
-        encoder.set_pledged_src_size(Some(data_size as u64))?;
-        encoder.write_all(bytemuck::cast_slice(&self.data))?;
-        encoder.finish()?;
+            fn visit_bytes<E>(self, blob: &[u8]) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                blob_to_data(blob).ok_or_else(|| E::custom("invalid blob"))
+            }
+        }
 
-        writer.write_all(&(buf.len() as u64).to_ne_bytes())?;
-        writer.write_all(&buf)?;
+        deserializer.deserialize_bytes(BlobVisitor::<T>(PhantomData))
+    }
 
-        Ok(())
+    fn data_to_blob<T: NoUninit>(data: &[T]) -> Option<Vec<u8>> {
+        let data_size = data.len() * std::mem::size_of::<T>();
+        let mut blob = Vec::with_capacity(data_size);
+        let mut encoder = zstd::Encoder::new(&mut blob, 0).ok()?;
+        encoder.set_pledged_src_size(Some(data_size as u64)).ok()?;
+        encoder.write_all(bytemuck::cast_slice(data)).ok()?;
+        encoder.finish().ok()?;
+        Some(blob)
+    }
+
+    fn blob_to_data<T: CheckedBitPattern>(blob: &[u8]) -> Option<Box<[T]>> {
+        let mut uncompressed_data = Vec::new();
+        let mut decoder = zstd::Decoder::new(blob).ok()?;
+        decoder.read_to_end(&mut uncompressed_data).ok()?;
+
+        let mut data = Vec::with_capacity(uncompressed_data.len() / std::mem::size_of::<T>());
+
+        for bytes in uncompressed_data.chunks_exact(std::mem::size_of::<T>()) {
+            data.push(bytemuck::checked::try_pod_read_unaligned(bytes).ok()?);
+        }
+
+        Some(data.into())
     }
 }
 
 impl Grid<f32> {
-    pub fn add_noise(&mut self, noise: &SimplexNoise2, rotation: f32, scale: f32, amplitude: f32) {
-        self.par_map_inplace(|cell, value| {
-            let pos = Vec2::from_angle(rotation).rotate(cell.as_vec2());
-            *value += noise.get(pos * scale) * amplitude;
-        });
+    pub fn from_noise<N: Noise<1> + Sync>(size: UVec2, origin: IVec2, noise: &N) -> Grid<f32> {
+        Grid::par_from_fn_with_origin(size, origin, |cell| noise.get(cell.as_vec2())[0])
     }
 
-    pub fn add_fbm_noise<R: Rng>(
-        &mut self,
-        rng: &mut R,
-        mut scale: f32,
-        max_amplitude: f32,
-        octaves: usize,
-    ) {
-        let _scope = info_span!("add_fbm_noise").entered();
+    pub fn add_noise<N: Noise<1> + Sync>(&mut self, noise: &N) {
+        let _scope = info_span!("add_noise").entered();
 
-        let mut total_amplitude = 0.0;
-        let mut amplitude = 1.0;
-
-        for _ in 0..octaves {
-            let noise_seed = rng.gen::<u64>();
-            let noise = SimplexNoise2::new(noise_seed);
-            let angle = rng.gen_range(0.0..TAU);
-            self.add_noise(&noise, angle, scale, amplitude);
-            total_amplitude += amplitude;
-            scale *= 2.0;
-            amplitude /= 2.0;
-        }
-
-        for (_, value) in self.entries_mut() {
-            *value /= total_amplitude;
-            *value *= max_amplitude;
-        }
+        self.par_map_inplace(|cell, value| {
+            *value += noise.get(cell.as_vec2())[0];
+        });
     }
 
     pub fn sample(&self, pos: Vec2) -> f32 {

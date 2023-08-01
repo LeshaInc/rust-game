@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
 use rg_core::Grid;
-use rg_worldgen::{SharedWorldMaps, WorldSeed};
+use rg_worldgen::SharedWorldMaps;
 
 use self::generator::generate_maps;
 use crate::{Chunk, ChunkPos, Tile, MAX_TASKS_IN_FLIGHT};
@@ -29,6 +29,7 @@ impl Plugin for MapsPlugin {
 pub struct ChunkMaps {
     pub height_map: Grid<f32>,
     pub tile_map: Grid<Tile>,
+    pub grass_density_map: Grid<f32>,
 }
 
 #[derive(Debug, Deref, Clone, Component)]
@@ -44,11 +45,9 @@ fn schedule_tasks(
     >,
     q_in_flight: Query<With<MapsTask>>,
     world_maps: Res<SharedWorldMaps>,
-    seed: Res<WorldSeed>,
     mut commands: Commands,
 ) {
     let task_pool = AsyncComputeTaskPool::get();
-    let seed = seed.0;
 
     let mut in_flight = q_in_flight.iter().count();
 
@@ -60,7 +59,7 @@ fn schedule_tasks(
         in_flight += 1;
 
         let world_maps = world_maps.clone();
-        let task = task_pool.spawn(async move { generate_maps(seed, chunk_pos, &world_maps) });
+        let task = task_pool.spawn(async move { generate_maps(chunk_pos, &world_maps) });
         commands.entity(chunk_id).insert(MapsTask(task));
     }
 }

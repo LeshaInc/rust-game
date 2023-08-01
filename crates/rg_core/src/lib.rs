@@ -9,7 +9,7 @@ mod vec_utils;
 pub use crate::deserialized_resource::{DeserializedResource, DeserializedResourcePlugin};
 pub use crate::grid::{EdtSettings, Grid, NEIGHBORHOOD_4, NEIGHBORHOOD_8};
 pub use crate::layers::CollisionLayers;
-pub use crate::noise::SimplexNoise2;
+pub use crate::noise::{FbmNoise, FbmNoiseSettings, Noise, SimplexNoise};
 pub use crate::poisson_disc::PoissonDiscSampling;
 pub use crate::prev_transform::{PrevTransform, PrevTransformPlugin};
 pub use crate::vec_utils::VecToBits;

@@ -3,12 +3,11 @@ use rand::Rng;
 use rg_core::{EdtSettings, Grid};
 use serde::Deserialize;
 
-use crate::{WorldgenProgress, WorldgenStage};
+use crate::{NoiseMaps, WorldgenProgress, WorldgenStage};
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct IslandSettings {
     pub size: UVec2,
-    pub noise_scale: f32,
     pub cutoff: f32,
     pub reshape_margin: f32,
     pub reshape_radius: f32,
@@ -21,6 +20,7 @@ pub fn generate_island_map<R: Rng>(
     rng: &mut R,
     progress: &WorldgenProgress,
     settings: &IslandSettings,
+    noise_maps: &NoiseMaps,
 ) -> Grid<f32> {
     let _scope = info_span!("generate_island_map").entered();
 
@@ -29,9 +29,8 @@ pub fn generate_island_map<R: Rng>(
 
         let size = settings.size / 8;
         let mut grid = Grid::new(size, 0.0);
-        let scale = settings.size.x.min(settings.size.y) as f32 / settings.noise_scale;
 
-        grid.add_fbm_noise(rng, scale, 1.0, 8);
+        grid.add_noise(&noise_maps.island);
         progress.set(WorldgenStage::Island, 10);
 
         voronoi_reshape(rng, &mut grid, settings);

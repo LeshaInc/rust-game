@@ -7,7 +7,8 @@
             frequency: 0.01,
         ),
         height_warp: (
-            frequency: 0.004,
+            frequency: 0.001,
+            octaves: 4,
         ),
         biomes: (
             frequency: 0.1,
@@ -19,10 +20,10 @@
     island: (
         size: (2048, 4096),
         cutoff: 0.4,
-        reshape_margin: 0.3,
-        reshape_radius: 0.2,
-        reshape_alpha: 0.5,
-        min_island_area: 0.05,
+        reshape_margin: 0.25,
+        reshape_radius: 0.17,
+        reshape_alpha: 0.35,
+        min_island_area: 5e-4,
         min_total_area: 0.3,
         max_total_area: 0.5,
     ),
@@ -31,12 +32,12 @@
         land_height: 0.1,
         peak_height: 1.0,
         ocean_depth: 0.1,
-        warp_dist: 100.0,
+        warp_dist: 200.0,
     ),
     rivers: (
         point_radius: 2.0,
         inertia: 0.3,
         evaporation: 0.2,
-        erosion: 0.15,
+        erosion: 0.3,
     )
 )

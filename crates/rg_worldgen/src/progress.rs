@@ -1,66 +1,23 @@
-use std::sync::atomic::AtomicU16;
-use std::sync::atomic::Ordering::Relaxed;
-use std::sync::Arc;
-
 use bevy::prelude::*;
+use rg_core::define_stages;
+use rg_core::progress::ProgressReader;
 
 use crate::WorldgenState;
 
-macro_rules! define_stages {
-    ($($name:ident => $message:expr,)*) => {
-        #[derive(Debug, Clone, Copy)]
-        #[repr(u8)]
-        pub enum WorldgenStage {
-            $($name,)*
-        }
-
-        impl WorldgenStage {
-            pub fn message(&self) -> &'static str {
-                match self {
-                    $( Self::$name => $message, )*
-                }
-            }
-        }
-
-        #[derive(Debug, Default, Clone, Resource)]
-        pub struct WorldgenProgress(Arc<AtomicU16>);
-
-        impl WorldgenProgress {
-            pub fn set(&self, stage: WorldgenStage, progress: u8) {
-                let val = (stage as u16) << 8 | (progress as u16);
-                self.0.store(val, Relaxed)
-            }
-
-            pub fn get(&self) -> (WorldgenStage, u8, f32) {
-                let val = self.0.load(Relaxed);
-                let progress = val as u8;
-                let stage = match (val >> 8) as u8 {
-                    $( v if v == WorldgenStage::$name as u8 => WorldgenStage::$name, )*
-                    _ => unreachable!()
-                };
-
-                let count = [$(WorldgenStage::$name,)*].len();
-                let step = 100.0 / (count as f32);
-                let frac = progress as f32 / 100.0;
-
-                let total_progress = match stage {
-                    $( WorldgenStage::$name => step * (frac + (WorldgenStage::$name as u8) as f32), )*
-                };
-
-                (stage, progress, total_progress)
-            }
-        }
+define_stages! {
+    pub enum WorldgenStage {
+        Init => "Initializing world generator...",
+        Island => "Generating the island...",
+        Height => "Raising mountains...",
+        Rivers => "Forming rivers...",
+        Shores => "Generating shores...",
+        Biomes => "Generating biomes...",
+        Saving => "Saving the world...",
     }
 }
 
-define_stages! {
-    Island => "Generating the island...",
-    Height => "Raising mountains...",
-    Rivers => "Forming rivers...",
-    Shores => "Generating shores...",
-    Biomes => "Generating biomes...",
-    Saving => "Saving the world...",
-}
+#[derive(Resource, Deref)]
+pub struct WorldgenProgress(pub ProgressReader<WorldgenStage>);
 
 pub struct WorldgenProgressUiPlugin;
 
@@ -137,13 +94,14 @@ fn update_ui(
     mut q_percentage_text: Query<&mut Text, (With<PercentageText>, Without<StageText>)>,
     progress: Res<WorldgenProgress>,
 ) {
-    let (stage, _, total_progress) = progress.get();
+    let stage = progress.stage();
+    let percentage = progress.percentage();
 
     let mut stage_text = q_stage_text.single_mut();
     stage_text.sections[0].value = stage.message().into();
 
     let mut percentage_text = q_percentage_text.single_mut();
-    percentage_text.sections[0].value = format!("{:.0}%", total_progress);
+    percentage_text.sections[0].value = format!("{:.0}%", percentage);
 }
 
 fn destroy_ui(root: Res<UiRoot>, mut commands: Commands) {

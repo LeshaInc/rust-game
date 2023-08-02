@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 use rand::Rng;
+use rg_core::progress::ProgressWriter;
 use rg_core::{EdtSettings, Grid};
 use serde::Deserialize;
 
-use crate::{NoiseMaps, WorldgenProgress, WorldgenStage};
+use crate::{NoiseMaps, WorldgenStage};
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct IslandSettings {
@@ -18,60 +19,42 @@ pub struct IslandSettings {
 
 pub fn generate_island_map<R: Rng>(
     rng: &mut R,
-    progress: &WorldgenProgress,
+    progress: &mut ProgressWriter<WorldgenStage>,
     settings: &IslandSettings,
     noise_maps: &NoiseMaps,
 ) -> Grid<f32> {
     let _scope = info_span!("generate_island_map").entered();
 
     loop {
-        progress.set(WorldgenStage::Island, 0);
-
         let size = settings.size / 8;
         let mut grid = Grid::new(size, 0.0);
 
-        grid.add_noise(&noise_maps.island);
-        progress.set(WorldgenStage::Island, 10);
-
-        voronoi_reshape(rng, &mut grid, settings);
-        progress.set(WorldgenStage::Island, 20);
+        progress.task(|| grid.add_noise(&noise_maps.island));
+        progress.task(|| voronoi_reshape(rng, &mut grid, settings));
 
         let mut grid = grid.to_bool(settings.cutoff);
-        keep_one_island(&mut grid);
-        progress.set(WorldgenStage::Island, 30);
 
-        random_zoom(rng, &mut grid);
-        progress.set(WorldgenStage::Island, 40);
+        progress.task(|| keep_one_island(&mut grid));
 
-        random_zoom(rng, &mut grid);
-        progress.set(WorldgenStage::Island, 45);
+        progress.task(|| random_zoom(rng, &mut grid));
+        progress.task(|| random_zoom(rng, &mut grid));
+        progress.task(|| random_zoom(rng, &mut grid));
 
-        random_zoom(rng, &mut grid);
-        progress.set(WorldgenStage::Island, 50);
+        progress.task(|| erode(&mut grid));
+        progress.task(|| erode(&mut grid));
+        progress.task(|| erode(&mut grid));
 
-        erode(&mut grid);
-        progress.set(WorldgenStage::Island, 60);
+        progress.task(|| smooth(&mut grid));
+        progress.task(|| smooth(&mut grid));
 
-        erode(&mut grid);
-        progress.set(WorldgenStage::Island, 65);
-
-        smooth(&mut grid);
-        progress.set(WorldgenStage::Island, 70);
-
-        smooth(&mut grid);
-        progress.set(WorldgenStage::Island, 75);
-
-        keep_one_island(&mut grid);
-        progress.set(WorldgenStage::Island, 80);
+        progress.task(|| keep_one_island(&mut grid));
 
         if !is_island_area_good(&grid, settings) {
+            // TODO: this shouldn't exist
             continue;
         }
 
-        let sdf = generate_sdf(&grid);
-        progress.set(WorldgenStage::Island, 100);
-
-        return sdf;
+        return progress.task(|| generate_sdf(&grid));
     }
 }
 

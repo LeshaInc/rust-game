@@ -9,10 +9,11 @@ use raqote::{
     AntialiasMode, DrawOptions, DrawTarget, LineCap, LineJoin, Path, PathBuilder, SolidSource,
     Source, StrokeStyle,
 };
+use rg_core::progress::ProgressWriter;
 use rg_core::{Grid, PoissonDiscSampling};
 use serde::Deserialize;
 
-use crate::{WorldgenProgress, WorldgenStage};
+use crate::WorldgenStage;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct RiversSettings {
@@ -24,43 +25,39 @@ pub struct RiversSettings {
 
 pub fn generate_river_map<R: Rng>(
     rng: &mut R,
-    progress: &WorldgenProgress,
+    progress: &mut ProgressWriter<WorldgenStage>,
     settings: &RiversSettings,
     height_map: &mut Grid<f32>,
 ) -> Grid<f32> {
     let _scope = info_span!("generate_river_map").entered();
 
-    progress.set(WorldgenStage::Rivers, 0);
-
-    let size = height_map.size();
-
-    let points = generate_points(rng, height_map, settings);
-    progress.set(WorldgenStage::Rivers, 20);
+    let points = progress.task(|| generate_points(rng, height_map, settings));
 
     let mut queue = BinaryHeap::new();
-    initialize_queue(&mut queue, &points);
-    progress.set(WorldgenStage::Rivers, 30);
+    progress.task(|| initialize_queue(&mut queue, &points));
 
-    let downstream = generate_downstream_map(&mut queue, &points, settings);
-    progress.set(WorldgenStage::Rivers, 40);
+    let downstream = progress.task(|| generate_downstream_map(&mut queue, &points, settings));
 
-    let upstream = generate_upstream_map(&points, &downstream);
-    progress.set(WorldgenStage::Rivers, 50);
+    let upstream = progress.task(|| generate_upstream_map(&points, &downstream));
 
-    let volume = compute_volume(&points, &upstream, settings);
-    progress.set(WorldgenStage::Rivers, 60);
+    let volume = progress.task(|| compute_volume(&points, &upstream, settings));
 
-    let erosion_map = generate_erosion_map(&points, height_map, &downstream, &volume);
-    progress.set(WorldgenStage::Rivers, 70);
+    let erosion_map =
+        progress.task(|| generate_erosion_map(&points, height_map, &downstream, &volume));
 
-    apply_erosion(&erosion_map, height_map, settings);
-    progress.set(WorldgenStage::Rivers, 80);
+    progress.task(|| apply_erosion(&erosion_map, height_map, settings));
 
-    let strahler = compute_strahler(&points, &upstream);
-    progress.set(WorldgenStage::Rivers, 90);
+    let strahler = progress.task(|| compute_strahler(&points, &upstream));
 
-    let river_map = draw_rivers(&points, size, &downstream, &upstream, &strahler);
-    progress.set(WorldgenStage::Rivers, 100);
+    let river_map = progress.task(|| {
+        draw_rivers(
+            &points,
+            height_map.size(),
+            &downstream,
+            &upstream,
+            &strahler,
+        )
+    });
 
     river_map
 }

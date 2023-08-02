@@ -4,6 +4,7 @@ mod layers;
 mod noise;
 mod poisson_disc;
 mod prev_transform;
+pub mod progress;
 mod vec_utils;
 
 pub use crate::deserialized_resource::{DeserializedResource, DeserializedResourcePlugin};

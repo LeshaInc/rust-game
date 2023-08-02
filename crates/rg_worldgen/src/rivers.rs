@@ -9,11 +9,9 @@ use raqote::{
     AntialiasMode, DrawOptions, DrawTarget, LineCap, LineJoin, Path, PathBuilder, SolidSource,
     Source, StrokeStyle,
 };
-use rg_core::progress::ProgressWriter;
+use rg_core::progress::ProgressStage;
 use rg_core::{Grid, PoissonDiscSampling};
 use serde::Deserialize;
-
-use crate::WorldgenStage;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct RiversSettings {
@@ -25,7 +23,7 @@ pub struct RiversSettings {
 
 pub fn generate_river_map<R: Rng>(
     rng: &mut R,
-    progress: &mut ProgressWriter<WorldgenStage>,
+    progress: &mut ProgressStage,
     settings: &RiversSettings,
     height_map: &mut Grid<f32>,
 ) -> Grid<f32> {

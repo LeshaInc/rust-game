@@ -1,11 +1,9 @@
 use bevy::prelude::*;
-use rg_core::progress::ProgressWriter;
+use rg_core::progress::ProgressStage;
 use rg_core::Grid;
 
-use crate::WorldgenStage;
-
 pub fn generate_shore_map(
-    progress: &mut ProgressWriter<WorldgenStage>,
+    progress: &mut ProgressStage,
     island_map: &Grid<f32>,
     river_map: &Grid<f32>,
 ) -> Grid<f32> {

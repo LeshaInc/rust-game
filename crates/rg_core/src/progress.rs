@@ -53,10 +53,23 @@ pub struct ProgressWriter<T> {
 }
 
 impl<T: Stage> ProgressWriter<T> {
-    pub fn set_stage(&mut self, stage: T) {
-        self.tracker.set_stage(stage.into())
+    pub fn stage(&mut self, stage: T) -> ProgressStage {
+        self.tracker.set_stage(stage.into());
+        ProgressStage {
+            tracker: &mut self.tracker,
+        }
     }
 
+    pub fn finish(&mut self) {
+        self.tracker.finish();
+    }
+}
+
+pub struct ProgressStage<'a> {
+    tracker: &'a mut Arc<ProgressTracker>,
+}
+
+impl ProgressStage<'_> {
     pub fn multi_task<R>(
         &mut self,
         num_subtasks: usize,
@@ -75,10 +88,6 @@ impl<T: Stage> ProgressWriter<T> {
         let res = callback();
         self.tracker.end_task();
         res
-    }
-
-    pub fn finish(&mut self) {
-        self.tracker.finish();
     }
 }
 

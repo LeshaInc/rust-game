@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bytemuck::{CheckedBitPattern, NoUninit};
-use rg_core::progress::ProgressWriter;
+use rg_core::progress::ProgressStage;
 use rg_core::{Grid, Noise};
 
-use crate::{NoiseMaps, WorldgenStage};
+use crate::NoiseMaps;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, NoUninit, CheckedBitPattern)]
 #[repr(u8)]
@@ -14,7 +14,7 @@ pub enum Biome {
 }
 
 pub fn generate_biome_map(
-    progress: &mut ProgressWriter<WorldgenStage>,
+    progress: &mut ProgressStage,
     noise_maps: &NoiseMaps,
     height_map: &Grid<f32>,
 ) -> Grid<Biome> {

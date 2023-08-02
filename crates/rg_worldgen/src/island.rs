@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use rand::Rng;
-use rg_core::progress::ProgressWriter;
+use rg_core::progress::ProgressStage;
 use rg_core::{EdtSettings, Grid};
 use serde::Deserialize;
 
-use crate::{NoiseMaps, WorldgenStage};
+use crate::NoiseMaps;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct IslandSettings {
@@ -13,13 +13,14 @@ pub struct IslandSettings {
     pub reshape_margin: f32,
     pub reshape_radius: f32,
     pub reshape_alpha: f32,
-    pub min_area: f32,
-    pub max_area: f32,
+    pub min_island_area: f32,
+    pub min_total_area: f32,
+    pub max_total_area: f32,
 }
 
 pub fn generate_island_map<R: Rng>(
     rng: &mut R,
-    progress: &mut ProgressWriter<WorldgenStage>,
+    progress: &mut ProgressStage,
     settings: &IslandSettings,
     noise_maps: &NoiseMaps,
 ) -> Grid<f32> {
@@ -33,24 +34,16 @@ pub fn generate_island_map<R: Rng>(
         progress.task(|| voronoi_reshape(rng, &mut grid, settings));
 
         let mut grid = grid.to_bool(settings.cutoff);
-
-        progress.task(|| keep_one_island(&mut grid));
+        progress.task(|| remove_holes(&mut grid));
 
         progress.task(|| random_zoom(rng, &mut grid));
         progress.task(|| random_zoom(rng, &mut grid));
         progress.task(|| random_zoom(rng, &mut grid));
 
-        progress.task(|| erode(&mut grid));
-        progress.task(|| erode(&mut grid));
-        progress.task(|| erode(&mut grid));
+        progress.task(|| remove_holes(&mut grid));
+        progress.task(|| remove_small_islands(settings, &mut grid));
 
-        progress.task(|| smooth(&mut grid));
-        progress.task(|| smooth(&mut grid));
-
-        progress.task(|| keep_one_island(&mut grid));
-
-        if !is_island_area_good(&grid, settings) {
-            // TODO: this shouldn't exist
+        if !check_total_area(&grid, settings) {
             continue;
         }
 
@@ -85,78 +78,110 @@ fn voronoi_reshape<R: Rng>(rng: &mut R, grid: &mut Grid<f32>, settings: &IslandS
     }
 }
 
-fn keep_one_island(grid: &mut Grid<bool>) {
-    let _scope = info_span!("keep_one_island").entered();
+fn remove_holes(grid: &mut Grid<bool>) {
+    let _scope = info_span!("remove_holes").entered();
 
-    loop {
-        let (freq, labels) = connected_components(grid);
-        if freq.len() <= 2 {
-            break;
-        }
+    let mut island = Grid::new(grid.size(), true);
+    floodfill(grid, false, &mut island, false, IVec2::ZERO);
 
-        let island_label = freq.iter().filter(|v| v.1).max_by_key(|v| v.2).unwrap().0;
-        let water_label = freq.iter().filter(|v| !v.1).max_by_key(|v| v.2).unwrap().0;
-
-        for (cell, value) in grid.entries_mut() {
-            let label = labels[cell];
-            if label != island_label && label != water_label {
-                *value = !*value;
-            }
-        }
-    }
+    *grid = island;
 }
 
-fn connected_components(grid: &Grid<bool>) -> (Vec<(u32, bool, u32)>, Grid<u32>) {
-    let _scope = info_span!("connected_components").entered();
+fn remove_small_islands(settings: &IslandSettings, grid: &mut Grid<bool>) {
+    let _scope = info_span!("remove_small_islands").entered();
 
-    let mut frequencies = Vec::with_capacity(32);
-    let mut labels = Grid::new(grid.size(), u32::MAX);
-    let mut num_labels = 0;
+    let size = grid.size();
+    let mut visited = Grid::new(size, false);
 
-    let mut stack = Vec::with_capacity(grid.data().len());
-
-    for cell in grid.cells() {
-        if labels[cell] != u32::MAX {
+    for cell in visited.cells() {
+        if visited[cell] || !grid[cell] {
             continue;
         }
 
-        let label = num_labels;
-        num_labels += 1;
+        let count = floodfill(&grid, true, &mut visited, true, cell);
+        let area = (count as f32) / (size.x as f32) / (size.y as f32);
+        if area < settings.min_island_area {
+            floodfill(&visited, true, grid, false, cell);
+        }
+    }
+}
 
-        let mut frequency = 0;
+fn floodfill(
+    src: &Grid<bool>,
+    src_value: bool,
+    dst: &mut Grid<bool>,
+    dst_value: bool,
+    pos: IVec2,
+) -> usize {
+    let inside = |dst: &Grid<bool>, x, y| {
+        let pos = IVec2::new(x, y);
+        src.get(pos) == Some(&src_value) && dst.get(pos) != Some(&dst_value)
+    };
 
-        stack.clear();
-        stack.push(cell);
+    let mut count = 0;
 
-        while let Some(cell) = stack.pop() {
-            if labels[cell] == label {
-                continue;
+    let mut set = |dst: &mut Grid<bool>, x, y| {
+        let pos = IVec2::new(x, y);
+        dst.set(pos, dst_value);
+        count += 1;
+    };
+
+    if !inside(dst, pos.x, pos.y) {
+        return 0;
+    }
+
+    let mut stack = Vec::new();
+    stack.push((pos.x, pos.x, pos.y, 1));
+    stack.push((pos.x, pos.x, pos.y - 1, -1));
+
+    while let Some((mut x1, x2, y, dy)) = stack.pop() {
+        let mut x = x1;
+
+        if inside(dst, x, y) {
+            while inside(dst, x - 1, y) {
+                set(dst, x - 1, y);
+                x -= 1;
             }
 
-            frequency += 1;
-            labels[cell] = label;
-
-            for (_, neighbor) in grid.neighborhood_4(cell) {
-                if grid[cell] == grid[neighbor] {
-                    stack.push(neighbor);
-                }
+            if x < x1 {
+                stack.push((x, x1 - 1, y - dy, -dy));
             }
         }
 
-        frequencies.push((label, grid[cell], frequency));
+        while x1 <= x2 {
+            while inside(dst, x1, y) {
+                set(dst, x1, y);
+                x1 += 1;
+            }
+
+            if x1 > x {
+                stack.push((x, x1 - 1, y + dy, dy));
+            }
+
+            if x1 - 1 > x2 {
+                stack.push((x2 + 1, x1 - 1, y - dy, -dy));
+            }
+
+            x1 += 1;
+            while x1 < x2 && !inside(dst, x1, y) {
+                x1 += 1;
+            }
+
+            x = x1;
+        }
     }
 
-    (frequencies, labels)
+    count
 }
 
-fn is_island_area_good(grid: &Grid<bool>, settings: &IslandSettings) -> bool {
-    let _scope = info_span!("is_island_area_good").entered();
+fn check_total_area(grid: &Grid<bool>, settings: &IslandSettings) -> bool {
+    let _scope = info_span!("check_total_area").entered();
 
     let size = grid.size().as_vec2();
-    let area = grid.data().iter().filter(|v| **v).count();
-    let percentage = area as f32 / (size.x * size.y);
+    let count = grid.data().iter().filter(|v| **v).count();
+    let area = count as f32 / (size.x * size.y);
 
-    settings.min_area <= percentage && percentage <= settings.max_area
+    settings.min_total_area <= area && area <= settings.max_total_area
 }
 
 fn random_zoom<R: Rng>(rng: &mut R, grid: &mut Grid<bool>) {
@@ -181,41 +206,6 @@ fn random_zoom<R: Rng>(rng: &mut R, grid: &mut Grid<bool>) {
     }
 
     *grid = res;
-}
-
-fn erode(grid: &mut Grid<bool>) {
-    let _scope = info_span!("erode").entered();
-    *grid = Grid::par_from_fn(grid.size(), |cell| {
-        if !grid[cell] {
-            return false;
-        }
-
-        for (_, neighbor) in grid.neighborhood_4(cell) {
-            if !grid[neighbor] {
-                return false;
-            }
-        }
-
-        true
-    });
-}
-
-fn smooth(grid: &mut Grid<bool>) {
-    let _scope = info_span!("smooth").entered();
-    *grid = Grid::par_from_fn(grid.size(), |cell| {
-        let mut num_true = 0;
-        let mut num_false = 0;
-
-        for (_, neighbor) in grid.neighborhood_8(cell) {
-            if grid[neighbor] {
-                num_true += 1;
-            } else {
-                num_false += 1;
-            }
-        }
-
-        num_true > num_false
-    });
 }
 
 fn generate_sdf(island: &Grid<bool>) -> Grid<f32> {

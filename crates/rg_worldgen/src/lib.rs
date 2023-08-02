@@ -125,7 +125,7 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
     let settings = *settings;
 
     let (progress_reader, mut progress) = new_progress_tracker(
-        Some("/tmp/worldgen_progress.bin"),
+        cfg!(debug_assertions).then(|| "/tmp/worldgen_progress.bin"),
         Some(include_bytes!("progress.bin")),
     );
 
@@ -146,28 +146,40 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
         }
 
         let mut rng = Pcg32::seed_from_u64(seed);
-
         let noise_maps = NoiseMaps::new(&mut rng, &settings.noise);
 
-        progress.set_stage(WorldgenStage::Island);
-        let island_map =
-            generate_island_map(&mut rng, &mut progress, &settings.island, &noise_maps);
+        let island_map = generate_island_map(
+            &mut rng,
+            &mut progress.stage(WorldgenStage::Island),
+            &settings.island,
+            &noise_maps,
+        );
 
-        progress.set_stage(WorldgenStage::Height);
-        let mut height_map =
-            generate_height_map(&mut progress, &settings.height, &noise_maps, &island_map);
+        let mut height_map = generate_height_map(
+            &mut progress.stage(WorldgenStage::Height),
+            &settings.height,
+            &noise_maps,
+            &island_map,
+        );
 
-        progress.set_stage(WorldgenStage::Rivers);
-        let river_map =
-            generate_river_map(&mut rng, &mut progress, &settings.rivers, &mut height_map);
+        let river_map = generate_river_map(
+            &mut rng,
+            &mut progress.stage(WorldgenStage::Rivers),
+            &settings.rivers,
+            &mut height_map,
+        );
 
-        progress.set_stage(WorldgenStage::Shores);
-        let shore_map = generate_shore_map(&mut progress, &island_map, &river_map);
+        let shore_map = generate_shore_map(
+            &mut progress.stage(WorldgenStage::Shores),
+            &island_map,
+            &river_map,
+        );
 
-        progress.set_stage(WorldgenStage::Biomes);
-        let biome_map = generate_biome_map(&mut progress, &noise_maps, &height_map);
-
-        progress.set_stage(WorldgenStage::Saving);
+        let biome_map = generate_biome_map(
+            &mut progress.stage(WorldgenStage::Biomes),
+            &noise_maps,
+            &height_map,
+        );
 
         let maps = [
             ("island_map", &island_map),
@@ -176,7 +188,9 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
             ("shore_map", &shore_map),
         ];
 
-        progress.multi_task(4, |task| {
+        let mut saving_stage = progress.stage(WorldgenStage::Saving);
+
+        saving_stage.multi_task(4, |task| {
             rayon::scope(|s| {
                 for (name, grid) in maps {
                     let task = &task;
@@ -197,7 +211,7 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
             biome_map,
         };
 
-        progress.task(|| world_maps.save(path).unwrap());
+        saving_stage.task(|| world_maps.save(path).unwrap());
         progress.finish();
 
         world_maps

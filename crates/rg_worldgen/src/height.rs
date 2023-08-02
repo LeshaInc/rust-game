@@ -1,9 +1,9 @@
 use bevy::prelude::*;
-use rg_core::progress::ProgressWriter;
+use rg_core::progress::ProgressStage;
 use rg_core::{Grid, Noise};
 use serde::Deserialize;
 
-use crate::{NoiseMaps, WorldgenStage};
+use crate::NoiseMaps;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct HeightSettings {
@@ -15,7 +15,7 @@ pub struct HeightSettings {
 }
 
 pub fn generate_height_map(
-    progress: &mut ProgressWriter<WorldgenStage>,
+    progress: &mut ProgressStage,
     settings: &HeightSettings,
     noise_maps: &NoiseMaps,
     island: &Grid<f32>,

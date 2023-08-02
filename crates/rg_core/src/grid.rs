@@ -626,7 +626,7 @@ impl Grid<f32> {
         let min_value = self.min_value();
         let max_value = self.max_value();
 
-        let colors = self.map(|_, &v| {
+        let colors = self.par_map(|_, &v| {
             let min_color = Color::rgb_u8(40, 138, 183).as_rgba_linear();
             let mid_color = Color::rgb_u8(0, 0, 0).as_rgba_linear();
             let max_color = Color::rgb_u8(255, 255, 255).as_rgba_linear();
@@ -638,9 +638,9 @@ impl Grid<f32> {
             };
 
             [
-                (color.r() * 65535.0) as u16,
-                (color.g() * 65535.0) as u16,
-                (color.b() * 65535.0) as u16,
+                (color.r() * 255.0) as u8,
+                (color.g() * 255.0) as u8,
+                (color.b() * 255.0) as u8,
             ]
         });
 
@@ -649,7 +649,7 @@ impl Grid<f32> {
             cast_slice(&colors.data),
             self.size.x,
             self.size.y,
-            image::ColorType::Rgb16,
+            image::ColorType::Rgb8,
         )
         .unwrap();
     }

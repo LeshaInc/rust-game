@@ -25,7 +25,7 @@ bytemuck = "1.13"
 crossbeam-utils = "0.8"
 delaunator = "1.0"
 futures-lite = "1.13"
-image = "0.24"
+image = {version = "0.24", features = ["tga"] }
 num-traits = "0.2"
 parking_lot = "0.12"
 rand = "0.8"

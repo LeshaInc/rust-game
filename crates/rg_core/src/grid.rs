@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use std::ops::*;
 
 use bevy::core::cast_slice;
+use bevy::math::Vec2Swizzles;
 use bevy::prelude::{info_span, Color, IVec2, UVec2, Vec2};
 use bytemuck::{CheckedBitPattern, NoUninit};
 use rayon::prelude::*;
@@ -276,6 +277,42 @@ impl<T> Grid<T> {
 
     pub fn neighborhood_8(&self, center: IVec2) -> impl Iterator<Item = (usize, IVec2)> {
         self.neighborhood(NEIGHBORHOOD_8, center)
+    }
+
+    pub fn rows(&self) -> impl ExactSizeIterator<Item = &[T]> {
+        self.data.chunks_exact(self.size.x as usize)
+    }
+
+    pub fn par_rows(&self) -> impl IndexedParallelIterator<Item = &[T]>
+    where
+        T: Sync + 'static,
+    {
+        self.data.par_chunks_exact(self.size.x as usize)
+    }
+
+    pub fn rows_mut(&mut self) -> impl ExactSizeIterator<Item = &mut [T]> {
+        self.data.chunks_exact_mut(self.size.x as usize)
+    }
+
+    pub fn par_rows_mut(&mut self) -> impl IndexedParallelIterator<Item = &mut [T]>
+    where
+        T: Send + 'static,
+    {
+        self.data.par_chunks_exact_mut(self.size.x as usize)
+    }
+
+    pub fn transpose(&self) -> Grid<T>
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        Grid::par_from_fn_with_origin(self.size.yx(), self.origin.yx(), |cell| self[cell.yx()])
+    }
+
+    pub fn transpose_in_place(&mut self)
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        *self = self.transpose();
     }
 }
 
@@ -626,39 +663,21 @@ impl Grid<bool> {
     pub fn compute_edt(&self, settings: EdtSettings) -> Grid<f32> {
         let _scope = info_span!("compute_edt").entered();
 
-        let mut tmp_grid = Grid::new(
-            self.size / settings.downsample + settings.padding * 2,
-            false,
-        );
+        let mut tmp_grid = Grid::from_fn(self.size + settings.padding * 2, |cell| {
+            let orig_cell = cell - (settings.padding as i32);
+            if settings.invert ^ *self.clamped_get(orig_cell) {
+                f32::MAX
+            } else {
+                0.0
+            }
+        });
 
-        for cell in tmp_grid.cells() {
-            let orig_cell = (cell - (settings.padding as i32)) * (settings.downsample as i32);
-            tmp_grid[cell] |= *self.clamped_get(orig_cell);
-        }
-
-        let data = if settings.exact {
-            edt::edt(
-                &tmp_grid.data,
-                (tmp_grid.size.x as usize, tmp_grid.size.y as usize),
-                settings.invert,
-            )
-        } else {
-            edt::edt_fmm(
-                &tmp_grid.data,
-                (tmp_grid.size.x as usize, tmp_grid.size.y as usize),
-                settings.invert,
-            )
-        };
-
-        let tmp_grid = Grid::from_data(
-            tmp_grid.size,
-            data.into_iter().map(|v| v as f32).collect::<Vec<_>>(),
-        );
+        dt2d_float(&mut tmp_grid);
 
         let mut res_grid = Grid::from_fn(self.size, |cell| {
-            let tmp_cell =
-                cell.as_vec2() / (settings.downsample as f32) + (settings.padding as f32);
-            tmp_grid.sample(tmp_cell)
+            tmp_grid
+                .clamped_get(cell + (settings.padding as i32))
+                .sqrt()
         });
 
         if settings.normalize {
@@ -675,11 +694,73 @@ impl Grid<bool> {
 
 #[derive(Debug, Clone, Copy)]
 pub struct EdtSettings {
-    pub exact: bool,
     pub invert: bool,
     pub normalize: bool,
-    pub downsample: u32,
     pub padding: u32,
+}
+
+fn dt1d_float(d: &mut [f32], v: &mut [i32], z: &mut [f32], f: &[f32]) {
+    d.fill(0.0);
+    v.fill(0);
+    z.fill(0.0);
+
+    let mut k = 0;
+    v[0] = 0;
+    z[0] = f32::MIN;
+    z[1] = f32::MAX;
+
+    for q in 1..f.len() {
+        let mut s = ((f[q] + (q * q) as f32) - (f[v[k] as usize] + (v[k] * v[k]) as f32))
+            / (2 * q as i32 - 2 * v[k]) as f32;
+        while s <= z[k] {
+            k -= 1;
+            s = ((f[q] + (q * q) as f32) - (f[v[k] as usize] + (v[k] * v[k]) as f32))
+                / (2 * q as i32 - 2 * v[k]) as f32;
+        }
+        k += 1;
+        v[k] = q as i32;
+        z[k] = s;
+        z[k + 1] = f32::MAX;
+    }
+
+    k = 0;
+    for q in 0..f.len() {
+        while z[k + 1] <= q as f32 {
+            k += 1;
+        }
+        d[q] = ((q as i32 - v[k]) * (q as i32 - v[k])) as f32 + f[v[k] as usize];
+    }
+}
+
+fn dt2d_float(grid: &mut Grid<f32>) {
+    let max_size = UVec2::splat(grid.size.max_element());
+
+    let mut d = Grid::new(max_size, 0.0);
+    let mut v = Grid::new(max_size, 0);
+    let mut z = Grid::new(max_size + 1, 0.0);
+    let mut f = Grid::new(max_size, 0.0);
+
+    for _ in 0..2 {
+        (
+            grid.par_rows_mut(),
+            d.par_rows_mut(),
+            v.par_rows_mut(),
+            z.par_rows_mut(),
+            f.par_rows_mut(),
+        )
+            .into_par_iter()
+            .for_each(|(row, d, v, z, f)| {
+                let d = &mut d[..row.len()];
+                let v = &mut v[..row.len()];
+                let z = &mut z[..row.len() + 1];
+                let f = &mut f[..row.len()];
+                f.copy_from_slice(row);
+                dt1d_float(d, v, z, f);
+                row.copy_from_slice(d);
+            });
+
+        grid.transpose_in_place();
+    }
 }
 
 #[inline(never)]

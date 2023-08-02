@@ -10,7 +10,6 @@ anyhow = { workspace = true }
 bevy = { workspace = true }
 bytemuck = { workspace = true }
 delaunator = { workspace = true }
-edt = { workspace = true }
 futures-lite = { workspace = true }
 image = { workspace = true }
 rand = { workspace = true }

@@ -10,7 +10,6 @@ bitflags = { workspace = true }
 bytemuck = { workspace = true }
 crossbeam-utils = { workspace = true }
 image = { workspace = true }
-num-traits = { workspace = true }
 parking_lot = { workspace = true }
 rand = { workspace = true }
 rand_pcg = { workspace = true }

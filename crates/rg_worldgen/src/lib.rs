@@ -5,6 +5,7 @@ mod noise_maps;
 mod progress;
 mod rivers;
 mod shores;
+mod topography;
 
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
@@ -33,6 +34,7 @@ pub use crate::noise_maps::{NoiseMaps, NoiseSettings};
 pub use crate::progress::{WorldgenProgress, WorldgenStage};
 use crate::rivers::generate_river_map;
 use crate::shores::generate_shore_map;
+use crate::topography::generate_topographic_map;
 
 pub const WORLD_SCALE: f32 = 2.0;
 
@@ -181,6 +183,9 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
             &height_map,
         );
 
+        let topographic_map =
+            generate_topographic_map(&mut progress.stage(WorldgenStage::Topography), &height_map);
+
         let maps = [
             ("island_map", &island_map),
             ("height_map", &height_map),
@@ -201,6 +206,8 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
                 }
             });
         });
+
+        saving_stage.task(|| topographic_map.debug_save("/tmp/topographic_map.png"));
 
         let world_maps = WorldMaps {
             seed,

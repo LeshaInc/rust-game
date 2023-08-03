@@ -12,6 +12,7 @@ define_stages! {
         Rivers => "Forming rivers...",
         Shores => "Generating shores...",
         Biomes => "Generating biomes...",
+        Topography => "Mapping the world...",
         Saving => "Saving the world...",
     }
 }

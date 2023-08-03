@@ -48,7 +48,7 @@ fn shape(settings: &HeightSettings, noise_maps: &NoiseMaps, island: &Grid<f32>) 
 
         let mut height = settings.land_height * alpha - settings.ocean_depth * (1.0 - alpha);
         height +=
-            (dist / max_dist).max(0.0).powi(4) * (settings.peak_height - settings.land_height);
+            (dist / max_dist).max(0.0).powi(2) * (settings.peak_height - settings.land_height);
         height
     })
 }

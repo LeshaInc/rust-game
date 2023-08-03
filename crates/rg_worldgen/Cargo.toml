@@ -9,6 +9,7 @@ rg_core = { path = "../rg_core" }
 anyhow = { workspace = true }
 bevy = { workspace = true }
 bytemuck = { workspace = true }
+contour = { workspace = true }
 delaunator = { workspace = true }
 futures-lite = { workspace = true }
 image = { workspace = true }

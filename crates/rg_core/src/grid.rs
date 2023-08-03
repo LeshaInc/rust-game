@@ -655,6 +655,25 @@ impl Grid<f32> {
     }
 }
 
+impl Grid<[u8; 3]> {
+    pub fn debug_save(&self, path: &str) {
+        if !cfg!(debug_assertions) {
+            return;
+        }
+
+        let _scope = info_span!("debug_save").entered();
+
+        image::save_buffer(
+            path,
+            cast_slice(&self.data),
+            self.size.x,
+            self.size.y,
+            image::ColorType::Rgb8,
+        )
+        .unwrap();
+    }
+}
+
 impl Grid<bool> {
     pub fn to_f32(&self) -> Grid<f32> {
         self.map(|_, &v| if v { 1.0 } else { 0.0 })

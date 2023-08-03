@@ -1352,6 +1352,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "contour"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efb6e04dfc0a9363f0a191a8ad9aad5f64e58482b5415d17ef3937802d368cbb"
+dependencies = [
+ "geo-types",
+ "lazy_static",
+ "rustc-hash",
+ "slab",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1849,6 +1861,17 @@ dependencies = [
  "log",
  "rustversion",
  "windows 0.48.0",
+]
+
+[[package]]
+name = "geo-types"
+version = "0.7.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9705398c5c7b26132e74513f4ee7c1d7dafd786004991b375c172be2be0eecaa"
+dependencies = [
+ "approx",
+ "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -3522,6 +3545,7 @@ dependencies = [
  "anyhow",
  "bevy",
  "bytemuck",
+ "contour",
  "delaunator",
  "futures-lite",
  "image",

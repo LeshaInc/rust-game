@@ -182,6 +182,10 @@ impl MeshGenerator<'_> {
                 self.positions[i].z += min_diff;
             }
         }
+
+        for pos in &mut self.positions[self.cell_first_vertex..] {
+            pos.z = (pos.z * 25.0).round() / 25.0;
+        }
     }
 
     fn compute_colors(&mut self) {

@@ -5,20 +5,27 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
-use rg_core::Grid;
+use rg_core::{DeserializedResourcePlugin, Grid};
 use rg_worldgen::SharedWorldMaps;
 
 use self::generator::generate_maps;
+pub use self::generator::ChunkGenSettings;
 use crate::{Chunk, ChunkPos, Tile, MAX_TASKS_IN_FLIGHT};
 
 pub struct MapsPlugin;
 
 impl Plugin for MapsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, update_tasks).add_systems(
+        app.add_plugins(DeserializedResourcePlugin::<ChunkGenSettings>::new(
+            "default.chunkgen.ron",
+        ))
+        .add_systems(PreUpdate, update_tasks)
+        .add_systems(
             Update,
             (
-                schedule_tasks.run_if(resource_exists::<SharedWorldMaps>()),
+                schedule_tasks
+                    .run_if(resource_exists::<SharedWorldMaps>())
+                    .run_if(resource_exists::<ChunkGenSettings>()),
                 update_tasks.run_if(|q: Query<&MapsTask>| !q.is_empty()),
             ),
         );
@@ -45,6 +52,7 @@ fn schedule_tasks(
     >,
     q_in_flight: Query<With<MapsTask>>,
     world_maps: Res<SharedWorldMaps>,
+    settings: Res<ChunkGenSettings>,
     mut commands: Commands,
 ) {
     let task_pool = AsyncComputeTaskPool::get();
@@ -59,7 +67,8 @@ fn schedule_tasks(
         in_flight += 1;
 
         let world_maps = world_maps.clone();
-        let task = task_pool.spawn(async move { generate_maps(chunk_pos, &world_maps) });
+        let settings = settings.clone();
+        let task = task_pool.spawn(async move { generate_maps(&settings, chunk_pos, &world_maps) });
         commands.entity(chunk_id).insert(MapsTask(task));
     }
 }

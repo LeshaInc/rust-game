@@ -6,18 +6,29 @@ use raqote::{
 use rayon::prelude::*;
 use rg_core::progress::ProgressStage;
 use rg_core::Grid;
+use serde::Deserialize;
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct TopographySettings {
+    pub max_height: f32,
+    pub iso_step: f32,
+}
 
 pub fn generate_topographic_map(
     progress: &mut ProgressStage,
+    settings: &TopographySettings,
     height_map: &Grid<f32>,
 ) -> Grid<[u8; 3]> {
     let _scope = info_span!("generate_topographic_map").entered();
 
     let size = height_map.size();
     let height_data = progress.task(|| height_map.values().map(|&v| v as f64).collect::<Vec<_>>());
-    let thresholds = progress.task(|| (0..=50).map(|v| (v as f64) / 50.0).collect::<Vec<_>>());
-    let major_thresholds =
-        progress.task(|| (0..=10).map(|v| (v as f64) / 10.0).collect::<Vec<_>>());
+
+    let thresholds = progress.task(|| {
+        (0..=(settings.max_height / settings.iso_step) as i32)
+            .map(|v| (v as f64) * (settings.iso_step as f64))
+            .collect::<Vec<_>>()
+    });
 
     let lines = progress.multi_task(thresholds.len(), |task| {
         thresholds
@@ -63,15 +74,12 @@ pub fn generate_topographic_map(
 
             path.close();
 
-            let is_major = major_thresholds.contains(&threshold);
-            let color = if is_major { 100 } else { 40 };
-
             target.stroke(
                 &path.finish(),
                 &Source::Solid(SolidSource {
-                    r: color,
-                    g: color,
-                    b: color,
+                    r: 100,
+                    g: 100,
+                    b: 100,
                     a: 255,
                 }),
                 &StrokeStyle {

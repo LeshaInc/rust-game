@@ -29,15 +29,20 @@
     ),
     height: (
         beach_size: 100,
-        land_height: 0.1,
-        peak_height: 1.0,
-        ocean_depth: 0.1,
+        land_height: 5.0,
+        peak_height: 80.0,
+        ocean_depth: 10.0,
         warp_dist: 200.0,
+        mountain_power: 2.0,
     ),
     rivers: (
         point_radius: 2.0,
         inertia: 0.3,
         evaporation: 0.2,
         erosion: 0.2,
+    ),
+    topography: (
+        max_height: 80.0,
+        iso_step: 5.0,
     )
 )

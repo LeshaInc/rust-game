@@ -12,6 +12,7 @@ pub struct HeightSettings {
     pub peak_height: f32,
     pub ocean_depth: f32,
     pub warp_dist: f32,
+    pub mountain_power: f32,
 }
 
 pub fn generate_height_map(
@@ -47,8 +48,8 @@ fn shape(settings: &HeightSettings, noise_maps: &NoiseMaps, island: &Grid<f32>) 
         let dist = dist * (1.0 - alpha) + warped_dist * alpha;
 
         let mut height = settings.land_height * alpha - settings.ocean_depth * (1.0 - alpha);
-        height +=
-            (dist / max_dist).max(0.0).powi(2) * (settings.peak_height - settings.land_height);
+        height += (dist / max_dist).max(0.0).powf(settings.mountain_power)
+            * (settings.peak_height - settings.land_height);
         height
     })
 }

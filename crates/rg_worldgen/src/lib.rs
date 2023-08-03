@@ -35,6 +35,7 @@ pub use crate::progress::{WorldgenProgress, WorldgenStage};
 use crate::rivers::generate_river_map;
 use crate::shores::generate_shore_map;
 use crate::topography::generate_topographic_map;
+pub use crate::topography::TopographySettings;
 
 pub const WORLD_SCALE: f32 = 2.0;
 
@@ -78,6 +79,7 @@ pub struct WorldgenSettings {
     pub island: IslandSettings,
     pub height: HeightSettings,
     pub rivers: RiversSettings,
+    pub topography: TopographySettings,
 }
 
 impl DeserializedResource for WorldgenSettings {
@@ -183,8 +185,11 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
             &height_map,
         );
 
-        let topographic_map =
-            generate_topographic_map(&mut progress.stage(WorldgenStage::Topography), &height_map);
+        let topographic_map = generate_topographic_map(
+            &mut progress.stage(WorldgenStage::Topography),
+            &settings.topography,
+            &height_map,
+        );
 
         let maps = [
             ("island_map", &island_map),

@@ -14,3 +14,4 @@ bevy_rapier3d = { workspace = true }
 futures-lite = { workspace = true }
 rand = { workspace = true }
 rand_pcg = { workspace = true }
+serde = { workspace = true }

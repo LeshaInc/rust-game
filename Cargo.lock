@@ -3298,6 +3298,7 @@ dependencies = [
  "rg_core",
  "rg_pixel_material",
  "rg_worldgen",
+ "serde",
 ]
 
 [[package]]

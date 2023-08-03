@@ -1,16 +1,36 @@
 use std::sync::Arc;
 
 use bevy::prelude::*;
-use rg_core::{Grid, Noise};
+use bevy::reflect::{TypePath, TypeUuid};
+use rg_core::{DeserializedResource, Grid, Noise};
 use rg_worldgen::{WorldMaps, WORLD_SCALE};
+use serde::Deserialize;
 
 use super::{ChunkMaps, SharedChunkMaps};
 use crate::{tile_pos_to_world, Tile, CHUNK_TILES};
 
-pub fn generate_maps(chunk_pos: IVec2, world_maps: &WorldMaps) -> SharedChunkMaps {
+#[derive(Debug, Copy, Clone, Resource, Deserialize, TypePath, TypeUuid)]
+#[uuid = "d4b77ce0-db8c-477e-b771-deb43ca107c2"]
+pub struct ChunkGenSettings {
+    pub noise_height: f32,
+    pub terrace_height: f32,
+    pub terrace_slope: f32,
+    pub shore_power: f32,
+    pub river_depth: f32,
+}
+
+impl DeserializedResource for ChunkGenSettings {
+    const EXTENSION: &'static str = "chunkgen.ron";
+}
+
+pub fn generate_maps(
+    settings: &ChunkGenSettings,
+    chunk_pos: IVec2,
+    world_maps: &WorldMaps,
+) -> SharedChunkMaps {
     let _span = info_span!("generate_maps").entered();
 
-    let height_map = generate_height_map(chunk_pos, world_maps);
+    let height_map = generate_height_map(settings, chunk_pos, world_maps);
     let tile_map = generate_tile_map(chunk_pos, world_maps, &height_map);
     let grass_density_map = generate_grass_density_map(chunk_pos, world_maps, &tile_map);
 
@@ -21,7 +41,11 @@ pub fn generate_maps(chunk_pos: IVec2, world_maps: &WorldMaps) -> SharedChunkMap
     }))
 }
 
-fn generate_height_map(chunk_pos: IVec2, world_maps: &WorldMaps) -> Grid<f32> {
+fn generate_height_map(
+    settings: &ChunkGenSettings,
+    chunk_pos: IVec2,
+    world_maps: &WorldMaps,
+) -> Grid<f32> {
     let _span = info_span!("generate_height_map").entered();
 
     let overscan = 10;
@@ -31,34 +55,34 @@ fn generate_height_map(chunk_pos: IVec2, world_maps: &WorldMaps) -> Grid<f32> {
     let mut height_map = Grid::from_fn_with_origin(size, origin, |cell| {
         let pos = tile_pos_to_world(chunk_pos, cell);
 
-        let mut height = world_maps.height_map.sample(pos / WORLD_SCALE) * 80.0;
+        let mut height = world_maps.height_map.sample(pos / WORLD_SCALE);
         let shore = world_maps.shore_map.sample(pos / WORLD_SCALE);
 
         let noise = world_maps.noise_maps.height.get(pos)[0];
-        height += (1.0 - shore) * noise * 8.0;
+        height += (1.0 - shore) * noise * settings.noise_height;
 
-        let mut snapped = height;
-        snapped /= 3.0;
-        snapped = snapped.floor() + (70.0 * (snapped.fract() - 0.5)).tanh() * 0.5 + 0.5;
-        snapped *= 3.0;
+        let snapped = {
+            let mut v = height / settings.terrace_height;
+            let x = v.fract() - 0.5;
+            v = v.floor() + (settings.terrace_slope * 2.0 * x / (1.0 - x * x)).tanh() * 0.5 + 0.5;
+            v * settings.terrace_height
+        };
 
-        let alpha = shore.powf(0.3);
+        let alpha = shore.powf(settings.shore_power);
         height = snapped * (1.0 - alpha) + height * alpha;
 
         height
     });
 
     height_map.blur(1);
-    height_map.blur(1);
 
     for (cell, height) in height_map.entries_mut() {
         let pos = tile_pos_to_world(chunk_pos, cell);
         let river = world_maps.river_map.sample(pos / WORLD_SCALE);
-        *height -= river * 3.0;
+        *height -= river * settings.river_depth;
     }
 
-    height_map.blur(2);
-    height_map.blur(2);
+    height_map.blur(1);
 
     height_map
 }

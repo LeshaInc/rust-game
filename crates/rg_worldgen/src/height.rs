@@ -39,17 +39,32 @@ fn shape(settings: &HeightSettings, noise_maps: &NoiseMaps, island: &Grid<f32>) 
     Grid::par_from_fn(island.size(), |cell| {
         let dist = island[cell];
 
-        let k = -1.0 - 0.5;
-        let x = (dist / (2.0 * settings.beach_size) + 0.5).clamp(0.0, 1.0);
-        let alpha = (1.0 - 1.0 / (1.0 + (1.0 / x - 1.0).powf(k))).clamp(0.0, 1.0);
+        let a1 = settings.land_height;
+        let a2 = settings.ocean_depth;
+        let s1 = settings.beach_size;
+        let s2 = s1 * a2 / a1;
+        let k = 2.0 * a1 / s1;
+
+        let mut height = if dist >= s1 {
+            a1
+        } else if dist <= -s2 {
+            -a2
+        } else if dist >= 0.0 {
+            let x = dist / s1;
+            a1 * ((k * s1 * x) / (a1 * (1.0 - x.powi(2)))).tanh()
+        } else {
+            let x = dist / s2;
+            a2 * ((k * s2 * x) / (a2 * (1.0 - x.powi(2)))).tanh()
+        };
 
         let warp = Vec2::from(noise_maps.height_warp.get(cell.as_vec2())) * 2.0 - 1.0;
         let warped_dist = island.sample(cell.as_vec2() + warp * settings.warp_dist);
+        let alpha = (dist / settings.beach_size).min(1.0).max(0.0);
         let dist = dist * (1.0 - alpha) + warped_dist * alpha;
 
-        let mut height = settings.land_height * alpha - settings.ocean_depth * (1.0 - alpha);
         height += (dist / max_dist).max(0.0).powf(settings.mountain_power)
             * (settings.peak_height - settings.land_height);
+
         height
     })
 }

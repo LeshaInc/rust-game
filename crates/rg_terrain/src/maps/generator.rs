@@ -33,11 +33,13 @@ pub fn generate_maps(
     let height_map = generate_height_map(settings, chunk_pos, world_maps);
     let tile_map = generate_tile_map(chunk_pos, world_maps, &height_map);
     let grass_density_map = generate_grass_density_map(chunk_pos, world_maps, &tile_map);
+    let water_map = generate_water_map(chunk_pos, world_maps);
 
     SharedChunkMaps(Arc::new(ChunkMaps {
         height_map,
         tile_map,
         grass_density_map,
+        water_map,
     }))
 }
 
@@ -82,8 +84,6 @@ fn generate_height_map(
         *height -= river * settings.river_depth;
     }
 
-    height_map.blur(1);
-
     height_map
 }
 
@@ -103,7 +103,7 @@ fn generate_tile_map(
         let pos = tile_pos_to_world(chunk_pos, cell);
         let river = world_maps.river_map.sample(pos / WORLD_SCALE);
 
-        if river > 0.5 {
+        if river > 0.1 {
             return Tile::Sand;
         }
 
@@ -132,5 +132,29 @@ fn generate_grass_density_map(
 
         let pos = tile_pos_to_world(chunk_pos, cell);
         world_maps.noise_maps.grass.get(pos)[0]
+    })
+}
+
+fn generate_water_map(chunk_pos: IVec2, world_maps: &WorldMaps) -> Grid<f32> {
+    let _span = info_span!("generate_water_map").entered();
+
+    let overscan = 1;
+    let size = UVec2::splat(CHUNK_TILES) + overscan * 2;
+    let origin = -IVec2::splat(overscan as i32);
+
+    Grid::from_fn_with_origin(size, origin, |cell| {
+        let pos = tile_pos_to_world(chunk_pos, cell);
+        let river = world_maps.river_map.sample(pos / WORLD_SCALE);
+        let height = world_maps.height_map.sample(pos / WORLD_SCALE);
+
+        if height < 0.0 {
+            return 0.0;
+        }
+
+        if river > 0.0 {
+            return (height - (2.0 / 3.0)).max(0.0);
+        }
+
+        f32::NAN
     })
 }

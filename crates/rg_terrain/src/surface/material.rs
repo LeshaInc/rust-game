@@ -4,7 +4,7 @@ use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::{
     AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat,
 };
-use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight};
+use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
 
 use crate::{Chunk, SharedChunkMaps};
 
@@ -17,7 +17,7 @@ impl Plugin for TerrainMaterialPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        app.init_resource::<DefaultTerrainMaterial>();
+        app.init_resource::<SurfaceMaterials>();
     }
 }
 
@@ -52,17 +52,22 @@ impl Material for TerrainMaterial {
 }
 
 #[derive(Debug, Clone, Resource)]
-pub struct DefaultTerrainMaterial(pub Handle<TerrainMaterial>);
+pub struct SurfaceMaterials {
+    pub terrain: Handle<TerrainMaterial>,
+    pub water: Handle<PixelMaterial>,
+}
 
-impl FromWorld for DefaultTerrainMaterial {
+impl FromWorld for SurfaceMaterials {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
             Res<AssetServer>,
             ResMut<Assets<TerrainMaterial>>,
+            ResMut<Assets<PixelMaterial>>,
             ResMut<Assets<Image>>,
         )> = SystemState::new(world);
 
-        let (asset_server, mut materials, mut images) = system_state.get_mut(world);
+        let (asset_server, mut terrain_materials, mut pixel_materials, mut images) =
+            system_state.get_mut(world);
 
         let tile_map = images.add(Image::new_fill(
             Extent3d::default(),
@@ -71,14 +76,18 @@ impl FromWorld for DefaultTerrainMaterial {
             TextureFormat::R8Uint,
         ));
 
-        let material = materials.add(TerrainMaterial {
-            dither_offset: UVec2::ZERO,
-            fog_height: 0.0,
-            texture: asset_server.load("images/tiles/terrain.png"),
-            tile_map,
-        });
-
-        Self(material)
+        Self {
+            terrain: terrain_materials.add(TerrainMaterial {
+                dither_offset: UVec2::ZERO,
+                fog_height: 0.0,
+                texture: asset_server.load("images/tiles/terrain.png"),
+                tile_map,
+            }),
+            water: pixel_materials.add(PixelMaterial {
+                color: Color::rgb_u8(30, 100, 130),
+                ..default()
+            }),
+        }
     }
 }
 

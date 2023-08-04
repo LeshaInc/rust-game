@@ -37,6 +37,7 @@ pub struct ChunkMaps {
     pub height_map: Grid<f32>,
     pub tile_map: Grid<Tile>,
     pub grass_density_map: Grid<f32>,
+    pub water_map: Grid<f32>,
 }
 
 #[derive(Debug, Deref, Clone, Component)]

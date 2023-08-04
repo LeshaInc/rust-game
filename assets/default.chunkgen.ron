@@ -3,5 +3,5 @@
     terrace_height: 2.0,
     terrace_slope: 15.0,
     shore_power: 0.3,
-    river_depth: 2.0,
+    river_depth: 3.0,
 )

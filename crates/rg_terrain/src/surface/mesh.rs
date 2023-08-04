@@ -11,17 +11,19 @@ const VERTICES_CAP: usize = 128 * 1024;
 const INDICES_CAP: usize = 128 * 1024;
 
 pub struct MeshResult {
-    pub mesh: Mesh,
-    pub collider: Collider,
+    pub terrain_mesh: Mesh,
+    pub terrain_collider: Collider,
+    pub water_mesh: Mesh,
 }
 
-pub fn generate_mesh(height_map: &Grid<f32>) -> MeshResult {
+pub fn generate_mesh(height_map: &Grid<f32>, river_map: &Grid<f32>) -> MeshResult {
     let _span = info_span!("generate_mesh").entered();
-    MeshGenerator::new(height_map).generate()
+    MeshGenerator::new(height_map, river_map).generate()
 }
 
 struct MeshGenerator<'a> {
     height_map: &'a Grid<f32>,
+    river_map: &'a Grid<f32>,
     positions: Vec<Vec3>,
     normals: Vec<Vec3>,
     colors: Vec<Vec4>,
@@ -44,9 +46,10 @@ struct MeshGenerator<'a> {
 }
 
 impl MeshGenerator<'_> {
-    fn new(height_map: &Grid<f32>) -> MeshGenerator<'_> {
+    fn new<'a>(height_map: &'a Grid<f32>, river_map: &'a Grid<f32>) -> MeshGenerator<'a> {
         MeshGenerator {
             height_map,
+            river_map,
             positions: Vec::with_capacity(VERTICES_CAP),
             normals: Vec::with_capacity(VERTICES_CAP),
             colors: Vec::with_capacity(VERTICES_CAP),
@@ -82,10 +85,18 @@ impl MeshGenerator<'_> {
         self.deduplicate();
         self.apply_scale();
 
-        let collider = self.create_collider();
-        let mesh = self.create_mesh();
+        let terrain_collider = self.create_collider();
+        let terrain_mesh = self.create_mesh(true);
 
-        MeshResult { mesh, collider }
+        self.generate_water_mesh();
+
+        let water_mesh = self.create_mesh(false);
+
+        MeshResult {
+            terrain_mesh,
+            terrain_collider,
+            water_mesh,
+        }
     }
 
     fn generate_cells(&mut self) {
@@ -153,6 +164,46 @@ impl MeshGenerator<'_> {
 
             up_height = height;
         }
+    }
+
+    fn generate_water_mesh(&mut self) {
+        let _span = info_span!("generate_water_mesh").entered();
+
+        self.positions.clear();
+        self.normals.clear();
+        self.colors.clear();
+        self.indices.clear();
+
+        for y in 0..CHUNK_TILES as i32 {
+            for x in 0..CHUNK_TILES as i32 {
+                let pos = IVec2::new(x, y);
+
+                let height_tl = self.river_map[pos + ivec2(0, 0)];
+                let height_tr = self.river_map[pos + ivec2(1, 0)];
+                let height_br = self.river_map[pos + ivec2(1, 1)];
+                let height_bl = self.river_map[pos + ivec2(0, 1)];
+
+                if height_tl.is_nan()
+                    || height_tr.is_nan()
+                    || height_br.is_nan()
+                    || height_bl.is_nan()
+                {
+                    continue;
+                }
+
+                let pos = pos.as_vec2();
+
+                self.ms_quad_3d(
+                    (pos + vec2(0.0, 0.0)).extend(height_tl),
+                    (pos + vec2(1.0, 0.0)).extend(height_tr),
+                    (pos + vec2(1.0, 1.0)).extend(height_br),
+                    (pos + vec2(0.0, 1.0)).extend(height_bl),
+                );
+            }
+        }
+
+        self.apply_scale();
+        self.compute_normals(0, self.indices.len());
     }
 
     fn snap_cell_vertices(&mut self) {
@@ -250,8 +301,8 @@ impl MeshGenerator<'_> {
         }
     }
 
-    fn compute_cell_normals(&mut self) {
-        for indices in self.indices[self.cell_first_index..].chunks_exact(3) {
+    fn compute_normals(&mut self, start_idx: usize, end_idx: usize) {
+        for indices in self.indices[start_idx..end_idx].chunks_exact(3) {
             let pos_a = self.positions[indices[0] as usize];
             let pos_b = self.positions[indices[1] as usize];
             let pos_c = self.positions[indices[2] as usize];
@@ -260,6 +311,10 @@ impl MeshGenerator<'_> {
             self.normals[indices[1] as usize] = normal;
             self.normals[indices[2] as usize] = normal;
         }
+    }
+
+    fn compute_cell_normals(&mut self) {
+        self.compute_normals(self.cell_first_index, self.indices.len());
     }
 
     fn snap_normals(&mut self) {
@@ -412,13 +467,15 @@ impl MeshGenerator<'_> {
         )
     }
 
-    fn create_mesh(self) -> Mesh {
+    fn create_mesh(&self, use_colors: bool) -> Mesh {
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors);
-        mesh.set_indices(Some(bevy::render::mesh::Indices::U32(self.indices)));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions.clone());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone());
+        if use_colors {
+            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors.clone());
+        }
+        mesh.set_indices(Some(bevy::render::mesh::Indices::U32(self.indices.clone())));
 
         mesh
     }

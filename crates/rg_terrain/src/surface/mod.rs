@@ -6,7 +6,7 @@ use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
 use rg_core::CollisionLayers;
 
-use self::material::{DefaultTerrainMaterial, TerrainMaterialPlugin};
+use self::material::{SurfaceMaterials, TerrainMaterialPlugin};
 use self::mesh::{generate_mesh, MeshResult};
 use crate::{Chunk, SharedChunkMaps, MAX_TASKS_IN_FLIGHT};
 
@@ -47,7 +47,8 @@ fn schedule_tasks(
         in_flight += 1;
 
         let chunk_maps = chunk_maps.clone();
-        let task = task_pool.spawn(async move { generate_mesh(&chunk_maps.height_map) });
+        let task = task_pool
+            .spawn(async move { generate_mesh(&chunk_maps.height_map, &chunk_maps.water_map) });
         commands.entity(chunk_id).insert(SurfaceTask(task));
     }
 }
@@ -56,18 +57,30 @@ fn update_tasks(
     mut q_chunks: Query<(Entity, &mut SurfaceTask)>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    material: Res<DefaultTerrainMaterial>,
+    material: Res<SurfaceMaterials>,
 ) {
     for (chunk_id, mut task) in q_chunks.iter_mut() {
         let Some(res) = future::block_on(future::poll_once(&mut task.0)) else {
             continue;
         };
 
-        commands.entity(chunk_id).remove::<SurfaceTask>().insert((
-            meshes.add(res.mesh),
-            res.collider,
-            CollisionLayers::STATIC_WALKABLE_GROUP,
-            material.0.clone(),
-        ));
+        let water = commands
+            .spawn(MaterialMeshBundle {
+                mesh: meshes.add(res.water_mesh),
+                material: material.water.clone(),
+                ..default()
+            })
+            .id();
+
+        commands
+            .entity(chunk_id)
+            .remove::<SurfaceTask>()
+            .insert((
+                meshes.add(res.terrain_mesh),
+                res.terrain_collider,
+                CollisionLayers::STATIC_WALKABLE_GROUP,
+                material.terrain.clone(),
+            ))
+            .add_child(water);
     }
 }

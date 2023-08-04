@@ -6,7 +6,7 @@ use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
 use rg_core::CollisionLayers;
 
-use self::material::{SurfaceMaterials, TerrainMaterialPlugin};
+use self::material::{SurfaceMaterials, SurfaceMaterialsPlugin};
 use self::mesh::{generate_mesh, MeshResult};
 use crate::{Chunk, SharedChunkMaps, MAX_TASKS_IN_FLIGHT};
 
@@ -14,7 +14,7 @@ pub struct SurfacePlugin;
 
 impl Plugin for SurfacePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(TerrainMaterialPlugin).add_systems(
+        app.add_plugins(SurfaceMaterialsPlugin).add_systems(
             Update,
             (
                 schedule_tasks,

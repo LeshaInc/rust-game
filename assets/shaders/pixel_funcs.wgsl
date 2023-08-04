@@ -58,7 +58,11 @@ fn process_all_lights(in: PixelInput) -> vec3<f32> {
     let n_directional_lights = bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i++) {
         let light = &bindings::lights.directional_lights[i];
+#ifndef DISABLE_SHADOWS
         let shadow = step(0.5, fetch_directional_shadow(i, in.mesh_position, in.mesh_normal, view_z));
+#elseif
+        let shadow = 1.0;
+#endif
         out_color += process_single_light(in, (*light).direction_to_light, (*light).color.rgb, shadow);
     }
 
@@ -87,11 +91,15 @@ struct NormalSamples {
     r: vec3<f32>,
 };
 
-fn get_linear_depth(frag_coord: vec2<f32>) -> f32 {
-    let raw_depth = prepass_depth(vec4(frag_coord, 0.0, 1.0), 0u);
-    let clip_pos = vec4(vec2(0.0, 0.0), raw_depth, 1.0);
+fn raw_depth_to_linear(raw: f32) -> f32 {
+    let clip_pos = vec4(vec2(0.0, 0.0), raw, 1.0);
     let view_space = bindings::view.inverse_projection * clip_pos;
     return -view_space.z / view_space.w;
+}
+
+fn get_linear_depth(frag_coord: vec2<f32>) -> f32 {
+    let raw_depth = prepass_depth(vec4(frag_coord, 0.0, 1.0), 0u);
+    return raw_depth_to_linear(raw_depth);
 }
 
 fn get_depth_samples(frag_coord: vec2<f32>) -> DepthSamples {

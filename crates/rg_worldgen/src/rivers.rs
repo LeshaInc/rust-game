@@ -456,7 +456,7 @@ fn draw_rivers(
         grid[cell] *= (1.0 + dist / 5.0).min(1.0).max(0.0).powi(2);
     }
 
-    grid.blur(1);
+    grid.gaussian_blur(1.0);
     grid.map_range_inplace(0.0, 1.0);
 
     grid

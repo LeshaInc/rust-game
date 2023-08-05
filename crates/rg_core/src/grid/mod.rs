@@ -1,3 +1,4 @@
+mod blur;
 mod edt;
 mod float_grid;
 mod ops;

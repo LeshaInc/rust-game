@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bytemuck::cast_slice;
-use rayon::prelude::*;
 
 use crate::{Grid, Noise};
 
@@ -54,29 +53,6 @@ impl Grid<f32> {
         }
 
         res
-    }
-
-    pub fn blur(&mut self, kernel_size: i32) {
-        let _scope = info_span!("blur").entered();
-
-        let mut temp = self.clone();
-        temp.par_entries_mut().for_each(|(cell, value)| {
-            let mut sum = 0.0;
-            for sx in -kernel_size..=kernel_size {
-                sum += self.clamped_get(cell + IVec2::new(sx, 0));
-            }
-
-            *value = sum / (2 * kernel_size + 1) as f32;
-        });
-
-        self.par_entries_mut().for_each(|(cell, value)| {
-            let mut sum = 0.0;
-            for sy in -kernel_size..=kernel_size {
-                sum += temp.clamped_get(cell + IVec2::new(0, sy));
-            }
-
-            *value = sum / (2 * kernel_size + 1) as f32;
-        });
     }
 
     pub fn min_value(&self) -> f32 {

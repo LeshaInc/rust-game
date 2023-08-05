@@ -28,10 +28,10 @@
         max_total_area: 0.5,
     ),
     height: (
-        beach_size: 100,
+        beach_size: 40,
         land_height: 5.0,
         peak_height: 80.0,
-        ocean_depth: 10.0,
+        ocean_depth: 80.0,
         warp_dist: 200.0,
         mountain_power: 2.0,
     ),

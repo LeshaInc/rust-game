@@ -170,6 +170,7 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
             &mut rng,
             &mut progress.stage(WorldgenStage::Rivers),
             &settings.rivers,
+            &island_map,
             &mut height_map,
         );
 

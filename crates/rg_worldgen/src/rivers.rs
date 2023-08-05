@@ -25,6 +25,7 @@ pub fn generate_river_map<R: Rng>(
     rng: &mut R,
     progress: &mut ProgressStage,
     settings: &RiversSettings,
+    island_map: &Grid<f32>,
     height_map: &mut Grid<f32>,
 ) -> Grid<f32> {
     let _scope = info_span!("generate_river_map").entered();
@@ -47,15 +48,8 @@ pub fn generate_river_map<R: Rng>(
 
     let strahler = progress.task(|| compute_strahler(&points, &upstream));
 
-    let river_map = progress.task(|| {
-        draw_rivers(
-            &points,
-            height_map.size(),
-            &downstream,
-            &upstream,
-            &strahler,
-        )
-    });
+    let river_map =
+        progress.task(|| draw_rivers(&points, island_map, &downstream, &upstream, &strahler));
 
     river_map
 }
@@ -369,12 +363,14 @@ fn compute_strahler_at_point(strahler: &mut [u8], upstream: &[Vec<usize>], i: us
 
 fn draw_rivers(
     points: &Points,
-    size: UVec2,
+    island_map: &Grid<f32>,
     downstream: &[Option<usize>],
     upstream: &[Vec<usize>],
     strahler: &[u8],
 ) -> Grid<f32> {
     let _scope = info_span!("draw_rivers").entered();
+
+    let size = island_map.size();
 
     let min_strahler = 4;
     let mut target = DrawTarget::new(size.x as i32, size.y as i32);
@@ -407,6 +403,12 @@ fn draw_rivers(
         let mut cur_i = start_i;
         while strahler[cur_i] == cur_strahler {
             let Some(next_i) = downstream[cur_i] else {
+                if spline.len() >= 2 {
+                    let a = spline[spline.len() - 2];
+                    let b = spline.last_mut().unwrap();
+                    *b = a + (*b - a) * 3.0;
+                }
+
                 break;
             };
 
@@ -446,7 +448,18 @@ fn draw_rivers(
         .iter()
         .map(|&v| (v as u8) as f32 / 255.0)
         .collect::<Vec<_>>();
-    Grid::from_data(size, data)
+
+    let mut grid = Grid::from_data(size, data);
+
+    for cell in grid.cells() {
+        let dist = island_map[cell];
+        grid[cell] *= (1.0 + dist / 5.0).min(1.0).max(0.0).powi(2);
+    }
+
+    grid.blur(1);
+    grid.map_range_inplace(0.0, 1.0);
+
+    grid
 }
 
 fn points_to_path(points: &[Vec2]) -> Path {

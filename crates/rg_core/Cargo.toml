@@ -17,4 +17,5 @@ rayon = { workspace = true }
 rmp-serde = { workspace = true }
 ron = { workspace = true }
 serde = { workspace = true }
+smallvec = { workspace = true }
 zstd = { workspace = true }

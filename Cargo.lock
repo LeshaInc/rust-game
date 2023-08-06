@@ -3231,6 +3231,7 @@ dependencies = [
  "rmp-serde",
  "ron",
  "serde",
+ "smallvec",
  "zstd",
 ]
 

@@ -50,9 +50,15 @@ fn generate_height_map(
 ) -> Grid<f32> {
     let _span = info_span!("generate_height_map").entered();
 
-    let overscan = 10;
+    let overscan = 16;
     let size = UVec2::splat(CHUNK_TILES) + overscan * 2;
     let origin = -IVec2::splat(overscan as i32);
+
+    let blur_map = Grid::from_fn_with_origin(size, origin, |cell| {
+        let pos = tile_pos_to_world(chunk_pos, cell);
+        let noise = world_maps.noise_maps.island.get(pos)[0];
+        5.0 * (2.0 * noise - 1.0).max(0.0) + 1.0
+    });
 
     let mut height_map = Grid::from_fn_with_origin(size, origin, |cell| {
         let pos = tile_pos_to_world(chunk_pos, cell);
@@ -76,7 +82,7 @@ fn generate_height_map(
         height
     });
 
-    height_map.blur(1);
+    height_map.variable_gaussian_blur(&blur_map);
 
     for (cell, height) in height_map.entries_mut() {
         let pos = tile_pos_to_world(chunk_pos, cell);

@@ -14,8 +14,8 @@ impl Plugin for ChunkPlugin {
             .init_resource::<ChunkSpawnCenter>()
             .init_resource::<ChunkSpawnRadius>()
             .init_resource::<ChunkDespawnRadius>()
-            .add_systems(PreUpdate, despawn_chunks)
-            .add_systems(Update, spawn_chunks);
+            .add_systems(PreUpdate, spawn_chunks)
+            .add_systems(PostUpdate, despawn_chunks);
     }
 }
 

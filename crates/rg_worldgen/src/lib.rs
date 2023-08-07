@@ -1,9 +1,15 @@
 mod biomes;
-mod elevation;
-mod island_shaping;
+mod height;
+mod island;
+mod noise_maps;
 mod progress;
 mod rivers;
+mod shores;
+mod topography;
 
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Write};
+use std::path::Path;
 use std::sync::Arc;
 
 use bevy::prelude::*;
@@ -13,21 +19,25 @@ use futures_lite::future;
 use progress::WorldgenProgressUiPlugin;
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
+use rg_core::progress::new_progress_tracker;
 use rg_core::{DeserializedResource, DeserializedResourcePlugin, Grid};
 use rivers::RiversSettings;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::biomes::generate_biomes;
+use crate::biomes::generate_biome_map;
 pub use crate::biomes::Biome;
-use crate::elevation::compute_elevation;
-pub use crate::elevation::ElevationSettings;
-use crate::island_shaping::shape_island;
-pub use crate::island_shaping::IslandSettings;
+use crate::height::generate_height_map;
+pub use crate::height::HeightSettings;
+use crate::island::generate_island_map;
+pub use crate::island::IslandSettings;
+pub use crate::noise_maps::{NoiseMaps, NoiseSettings};
 pub use crate::progress::{WorldgenProgress, WorldgenStage};
-use crate::rivers::generate_rivers;
+use crate::rivers::generate_river_map;
+use crate::shores::generate_shore_map;
+use crate::topography::generate_topographic_map;
+pub use crate::topography::TopographySettings;
 
-pub const WORLD_SCALE: f32 = 4.0;
-pub const RIVER_MAP_SCALE: f32 = 2.0;
+pub const WORLD_SCALE: f32 = 2.0;
 
 pub struct WorldgenPlugin;
 
@@ -65,25 +75,50 @@ pub struct WorldSeed(pub u64);
 #[derive(Debug, Copy, Clone, Resource, Deserialize, TypePath, TypeUuid)]
 #[uuid = "9642a5f8-7606-4775-b5bc-6fda6d73bd84"]
 pub struct WorldgenSettings {
+    pub noise: NoiseSettings,
     pub island: IslandSettings,
-    pub elevation: ElevationSettings,
+    pub height: HeightSettings,
     pub rivers: RiversSettings,
+    pub topography: TopographySettings,
 }
 
 impl DeserializedResource for WorldgenSettings {
     const EXTENSION: &'static str = "worldgen.ron";
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorldMaps {
     pub seed: u64,
-    pub elevation: Grid<f32>,
-    pub rivers: Grid<f32>,
-    pub biomes: Grid<Biome>,
+    pub noise_maps: NoiseMaps,
+    pub height_map: Grid<f32>,
+    pub river_map: Grid<f32>,
+    pub shore_map: Grid<f32>,
+    pub biome_map: Grid<Biome>,
+}
+
+impl WorldMaps {
+    pub fn load(path: impl AsRef<Path>) -> anyhow::Result<WorldMaps> {
+        let _scope = info_span!("load").entered();
+
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let world_maps = rmp_serde::decode::from_read(reader)?;
+        Ok(world_maps)
+    }
+
+    pub fn save(&self, path: impl AsRef<Path>) -> anyhow::Result<()> {
+        let _scope = info_span!("save").entered();
+
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+        rmp_serde::encode::write_named(&mut writer, self)?;
+        writer.flush()?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Deref, Clone, Resource)]
-pub struct SharedWorldMaps(Arc<WorldMaps>);
+pub struct SharedWorldMaps(pub Arc<WorldMaps>);
 
 #[derive(Resource)]
 struct WorldgenTask(pub Task<WorldMaps>);
@@ -92,28 +127,107 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
     let pool = AsyncComputeTaskPool::get();
     let seed = seed.0;
     let settings = *settings;
-    let progress = WorldgenProgress::default();
-    commands.insert_resource(progress.clone());
+
+    let (progress_reader, mut progress) = new_progress_tracker(
+        cfg!(debug_assertions).then(|| "/tmp/worldgen_progress.bin"),
+        Some(include_bytes!("progress.bin")),
+    );
+
+    commands.insert_resource(WorldgenProgress(progress_reader));
 
     let task = pool.spawn(async move {
         let _scope = info_span!("worldgen").entered();
 
-        let mut rng = Pcg32::seed_from_u64(seed);
-        let island = shape_island(&mut rng, &progress, &settings.island);
-        let mut elevation = compute_elevation(&progress, &settings.elevation, &island);
-        let rivers = generate_rivers(&mut rng, &progress, &settings.rivers, &mut elevation);
-        let biomes = generate_biomes(&mut rng, &progress, &elevation);
+        let path = Path::new("/tmp/world.bin");
 
-        island.debug_save(&format!("/tmp/island.png"));
-        elevation.debug_save(&format!("/tmp/elevation.png"));
-        rivers.debug_save(&format!("/tmp/rivers.png"));
-
-        WorldMaps {
-            seed,
-            elevation,
-            rivers,
-            biomes,
+        if path.exists() {
+            match WorldMaps::load("/tmp/world.bin") {
+                Ok(world_maps) => return world_maps,
+                Err(e) => {
+                    warn!("{e:?}");
+                }
+            }
         }
+
+        let mut rng = Pcg32::seed_from_u64(seed);
+        let noise_maps = NoiseMaps::new(&mut rng, &settings.noise);
+
+        let island_map = generate_island_map(
+            &mut rng,
+            &mut progress.stage(WorldgenStage::Island),
+            &settings.island,
+            &noise_maps,
+        );
+
+        let mut height_map = generate_height_map(
+            &mut progress.stage(WorldgenStage::Height),
+            &settings.height,
+            &noise_maps,
+            &island_map,
+        );
+
+        let river_map = generate_river_map(
+            &mut rng,
+            &mut progress.stage(WorldgenStage::Rivers),
+            &settings.rivers,
+            &island_map,
+            &mut height_map,
+        );
+
+        let shore_map = generate_shore_map(
+            &mut progress.stage(WorldgenStage::Shores),
+            &island_map,
+            &river_map,
+        );
+
+        let biome_map = generate_biome_map(
+            &mut progress.stage(WorldgenStage::Biomes),
+            &noise_maps,
+            &height_map,
+        );
+
+        let topographic_map = generate_topographic_map(
+            &mut progress.stage(WorldgenStage::Topography),
+            &settings.topography,
+            &height_map,
+        );
+
+        let maps = [
+            ("island_map", &island_map),
+            ("height_map", &height_map),
+            ("river_map", &river_map),
+            ("shore_map", &shore_map),
+        ];
+
+        let mut saving_stage = progress.stage(WorldgenStage::Saving);
+
+        saving_stage.multi_task(4, |task| {
+            rayon::scope(|s| {
+                for (name, grid) in maps {
+                    let task = &task;
+                    s.spawn(move |_| {
+                        grid.debug_save(&format!("/tmp/{name}.png"));
+                        task.subtask_completed();
+                    });
+                }
+            });
+        });
+
+        saving_stage.task(|| topographic_map.debug_save("/tmp/topographic_map.png"));
+
+        let world_maps = WorldMaps {
+            seed,
+            noise_maps,
+            height_map,
+            river_map,
+            shore_map,
+            biome_map,
+        };
+
+        saving_stage.task(|| world_maps.save(path).unwrap());
+        progress.finish();
+
+        world_maps
     });
 
     commands.insert_resource(WorldgenTask(task));

@@ -1,4 +1,3 @@
-mod density;
 mod generator;
 mod material;
 
@@ -8,12 +7,9 @@ use futures_lite::future;
 use rg_billboard::{MultiBillboard, MultiBillboardBundle};
 use rg_worldgen::{SharedWorldMaps, WorldSeed};
 
-use self::density::generate_grass_density_map;
 use self::generator::{generate, GrassResult};
 use self::material::{DefaultGrassMaterial, GrassMaterialPlugin};
-use crate::{Chunk, ChunkPos};
-
-const MAX_TASKS_IN_FLIGHT: usize = 8;
+use crate::{Chunk, ChunkPos, SharedChunkMaps, MAX_TASKS_IN_FLIGHT};
 
 pub struct GrassPlugin;
 
@@ -21,8 +17,10 @@ impl Plugin for GrassPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(GrassMaterialPlugin).add_systems(
             Update,
-            (update_chunks, schedule_tasks.after(update_chunks))
-                .run_if(resource_exists::<SharedWorldMaps>()),
+            (
+                schedule_tasks.run_if(resource_exists::<SharedWorldMaps>()),
+                update_tasks.run_if(|q: Query<&GrassTask>| !q.is_empty()),
+            ),
         );
     }
 }
@@ -35,13 +33,12 @@ pub struct ChunkGrass(pub Entity);
 
 fn schedule_tasks(
     q_chunks: Query<
-        (Entity, &ChunkPos, &Handle<Mesh>),
+        (Entity, &ChunkPos, &Handle<Mesh>, &SharedChunkMaps),
         (With<Chunk>, Without<ChunkGrass>, Without<GrassTask>),
     >,
-    q_in_flight: Query<(), (With<Chunk>, With<GrassTask>)>,
+    q_in_flight: Query<(), With<GrassTask>>,
     seed: Res<WorldSeed>,
     meshes: Res<Assets<Mesh>>,
-    world_maps: Res<SharedWorldMaps>,
     mut commands: Commands,
 ) {
     let task_pool = AsyncComputeTaskPool::get();
@@ -49,7 +46,7 @@ fn schedule_tasks(
 
     let mut in_flight = q_in_flight.iter().count();
 
-    for (chunk_id, &ChunkPos(chunk_pos), mesh) in q_chunks.iter() {
+    for (chunk_id, &ChunkPos(chunk_pos), mesh, chunk_maps) in q_chunks.iter() {
         if in_flight >= MAX_TASKS_IN_FLIGHT {
             break;
         }
@@ -58,21 +55,18 @@ fn schedule_tasks(
             continue;
         };
 
-        in_flight += 1;
+        let chunk_maps = chunk_maps.clone();
 
-        let world_maps = world_maps.clone();
-
-        let task = task_pool.spawn(async move {
-            let density_map = generate_grass_density_map(seed, chunk_pos, &world_maps);
-            generate(seed, chunk_pos, mesh, density_map)
-        });
-
+        let task = task_pool
+            .spawn(async move { generate(seed, chunk_pos, &mesh, &chunk_maps.grass_density_map) });
         commands.entity(chunk_id).insert(GrassTask(task));
+
+        in_flight += 1;
     }
 }
 
-fn update_chunks(
-    mut q_chunks: Query<(Entity, &mut GrassTask), With<Chunk>>,
+fn update_tasks(
+    mut q_chunks: Query<(Entity, &mut GrassTask)>,
     mut multi_billboards: ResMut<Assets<MultiBillboard>>,
     material: Res<DefaultGrassMaterial>,
     mut commands: Commands,

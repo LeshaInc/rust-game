@@ -1,46 +1,40 @@
 use bevy::prelude::*;
-use rand::Rng;
-use rg_core::Grid;
+use bytemuck::{CheckedBitPattern, NoUninit};
+use rg_core::progress::ProgressStage;
+use rg_core::{Grid, Noise};
 
-use crate::{WorldgenProgress, WorldgenStage};
+use crate::NoiseMaps;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, NoUninit, CheckedBitPattern)]
+#[repr(u8)]
 pub enum Biome {
     Ocean,
     Plains,
     Forest,
 }
 
-pub fn generate_biomes<R: Rng>(
-    rng: &mut R,
-    progress: &WorldgenProgress,
-    elevation: &Grid<f32>,
+pub fn generate_biome_map(
+    progress: &mut ProgressStage,
+    noise_maps: &NoiseMaps,
+    height_map: &Grid<f32>,
 ) -> Grid<Biome> {
-    let _scope = info_span!("generate_biomes").entered();
+    let _scope = info_span!("generate_biome_map").entered();
 
-    progress.set(WorldgenStage::Biomes, 0);
+    let size = height_map.size();
+    let biome_map = progress.task(|| {
+        Grid::par_from_fn(size, |cell| {
+            if height_map[cell] < 0.0 {
+                return Biome::Ocean;
+            }
 
-    let size = elevation.size();
+            let noise = noise_maps.biomes.get(cell.as_vec2())[0];
+            if noise > 0.5 {
+                Biome::Forest
+            } else {
+                Biome::Plains
+            }
+        })
+    });
 
-    let mut biomes = Grid::new(size, Biome::Ocean);
-    let mut noise = Grid::new(size, 0.0);
-    noise.add_fbm_noise(rng, 0.1, 1.0, 3);
-
-    progress.set(WorldgenStage::Biomes, 50);
-
-    for cell in biomes.cells() {
-        if elevation[cell] < 0.0 {
-            continue;
-        }
-
-        biomes[cell] = if noise[cell] > 0.5 {
-            Biome::Forest
-        } else {
-            Biome::Plains
-        }
-    }
-
-    progress.set(WorldgenStage::Biomes, 100);
-
-    biomes
+    biome_map
 }

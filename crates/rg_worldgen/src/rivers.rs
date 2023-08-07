@@ -5,10 +5,13 @@ use std::collections::BinaryHeap;
 
 use bevy::prelude::*;
 use rand::Rng;
+use raqote::{
+    AntialiasMode, DrawOptions, DrawTarget, LineCap, LineJoin, Path, PathBuilder, SolidSource,
+    Source, StrokeStyle,
+};
+use rg_core::progress::ProgressStage;
 use rg_core::{Grid, PoissonDiscSampling};
 use serde::Deserialize;
-
-use crate::{WorldgenProgress, WorldgenStage};
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct RiversSettings {
@@ -18,45 +21,35 @@ pub struct RiversSettings {
     pub erosion: f32,
 }
 
-pub fn generate_rivers<R: Rng>(
+pub fn generate_river_map<R: Rng>(
     rng: &mut R,
-    progress: &WorldgenProgress,
+    progress: &mut ProgressStage,
     settings: &RiversSettings,
-    elevation: &mut Grid<f32>,
+    island_map: &Grid<f32>,
+    height_map: &mut Grid<f32>,
 ) -> Grid<f32> {
-    let _scope = info_span!("generate_rivers").entered();
+    let _scope = info_span!("generate_river_map").entered();
 
-    progress.set(WorldgenStage::Rivers, 0);
-
-    let size = elevation.size();
-
-    let points = generate_points(rng, elevation, settings);
-    progress.set(WorldgenStage::Rivers, 20);
+    let points = progress.task(|| generate_points(rng, height_map, settings));
 
     let mut queue = BinaryHeap::new();
-    initialize_queue(&mut queue, &points);
-    progress.set(WorldgenStage::Rivers, 30);
+    progress.task(|| initialize_queue(&mut queue, &points));
 
-    let downstream = generate_downstream_map(&mut queue, &points, settings);
-    progress.set(WorldgenStage::Rivers, 40);
+    let downstream = progress.task(|| generate_downstream_map(&mut queue, &points, settings));
 
-    let upstream = generate_upstream_map(&points, &downstream);
-    progress.set(WorldgenStage::Rivers, 50);
+    let upstream = progress.task(|| generate_upstream_map(&points, &downstream));
 
-    let volume = compute_volume(&points, &upstream, settings);
-    progress.set(WorldgenStage::Rivers, 60);
+    let volume = progress.task(|| compute_volume(&points, &upstream, settings));
 
-    let volume_map = generate_volume_map(&points, size, &downstream, &volume);
-    progress.set(WorldgenStage::Rivers, 70);
+    let erosion_map =
+        progress.task(|| generate_erosion_map(&points, height_map, &downstream, &volume));
 
-    apply_erosion(&volume_map, elevation, settings);
-    progress.set(WorldgenStage::Rivers, 80);
+    progress.task(|| apply_erosion(&erosion_map, height_map, settings));
 
-    let strahler = compute_strahler(&points, &upstream);
-    progress.set(WorldgenStage::Rivers, 90);
+    let strahler = progress.task(|| compute_strahler(&points, &upstream));
 
-    let river_map = generate_river_map(&points, size, &downstream, &strahler);
-    progress.set(WorldgenStage::Rivers, 100);
+    let river_map =
+        progress.task(|| draw_rivers(&points, island_map, &downstream, &upstream, &strahler));
 
     river_map
 }
@@ -71,7 +64,7 @@ struct Points {
 
 fn generate_points<R: Rng>(
     rng: &mut R,
-    elevation: &Grid<f32>,
+    height_map: &Grid<f32>,
     settings: &RiversSettings,
 ) -> Points {
     let _scope = info_span!("generate_points").entered();
@@ -79,7 +72,7 @@ fn generate_points<R: Rng>(
     let mut points = Points::default();
 
     points.positions =
-        PoissonDiscSampling::new(rng, elevation.size().as_vec2(), settings.point_radius, 8).points;
+        PoissonDiscSampling::new(rng, height_map.size().as_vec2(), settings.point_radius, 8).points;
     points.count = points.positions.len();
 
     let iter = points.positions.iter();
@@ -96,7 +89,7 @@ fn generate_points<R: Rng>(
     };
 
     let it = points.positions.iter();
-    points.heights = it.map(|pt| elevation[pt.as_ivec2()]).collect::<Vec<_>>();
+    points.heights = it.map(|pt| height_map[pt.as_ivec2()]).collect::<Vec<_>>();
 
     points.neighbors = vec![vec![]; points.count];
 
@@ -268,15 +261,17 @@ fn compute_volume_at_point(
     volume[i] = v * (1.0 - settings.evaporation);
 }
 
-fn generate_volume_map(
+fn generate_erosion_map(
     points: &Points,
-    size: UVec2,
+    height_map: &Grid<f32>,
     downstream: &[Option<usize>],
     volume: &[f32],
 ) -> Grid<f32> {
-    let _scope = info_span!("generate_volume_map").entered();
+    let _scope = info_span!("generate_erosion_map").entered();
 
-    let mut volume_map = Grid::new(size, 0.0);
+    let max_height = height_map.max_value();
+
+    let mut erosion_map = Grid::new(height_map.size(), 0.0);
 
     for start_i in 0..points.count {
         let Some(end_i) = downstream[start_i] else {
@@ -292,19 +287,35 @@ fn generate_volume_map(
         let end_volume = volume[end_i];
 
         aa_line(start, end, |cell, alpha| {
-            if !volume_map.contains_cell(cell) {
+            if !erosion_map.contains_cell(cell) {
                 return;
             }
+
+            let height = (height_map[cell] / max_height).max(0.0);
+            let alpha = alpha * (height.powi(2) * 0.95 + 0.05);
 
             let proj = cell.as_vec2() + Vec2::splat(0.5) - start;
             let dist = proj.dot(dir).max(0.0);
             let t = dist / len;
             let volume = start_volume * (1.0 - t) + end_volume * t;
-            volume_map[cell] += volume * alpha;
+            erosion_map[cell] += volume * alpha;
         });
     }
 
-    volume_map
+    erosion_map.blur(3);
+    erosion_map.blur(3);
+
+    erosion_map
+}
+
+fn apply_erosion(erosion_map: &Grid<f32>, height_map: &mut Grid<f32>, settings: &RiversSettings) {
+    let _scope = info_span!("apply_erosion").entered();
+
+    for (cell, height_map) in height_map.entries_mut() {
+        let unscaled = 1.0 / (1.0 + erosion_map[cell].powf(1.1));
+        let fac = unscaled * settings.erosion + (1.0 - settings.erosion);
+        *height_map *= fac;
+    }
 }
 
 fn compute_strahler(points: &Points, upstream: &[Vec<usize>]) -> Vec<u8> {
@@ -350,96 +361,220 @@ fn compute_strahler_at_point(strahler: &mut [u8], upstream: &[Vec<usize>], i: us
     };
 }
 
-fn generate_river_map(
+fn draw_rivers(
     points: &Points,
-    size: UVec2,
+    island_map: &Grid<f32>,
     downstream: &[Option<usize>],
+    upstream: &[Vec<usize>],
     strahler: &[u8],
 ) -> Grid<f32> {
-    let _scope = info_span!("generate_river_map").entered();
+    let _scope = info_span!("draw_rivers").entered();
 
-    let mut river_map = Grid::new(size * 2, false);
+    let size = island_map.size();
+
+    let min_strahler = 4;
+    let mut target = DrawTarget::new(size.x as i32, size.y as i32);
+
+    target.clear(SolidSource {
+        r: 0,
+        g: 0,
+        b: 0,
+        a: 255,
+    });
+
+    let mut spline = Vec::new();
 
     for start_i in 0..points.count {
-        let Some(end_i) = downstream[start_i] else {
-            continue;
-        };
-
-        let start = points.positions[start_i] * 2.0;
-        let end = points.positions[end_i] * 2.0;
-
-        if strahler[start_i] <= 2 {
+        let cur_strahler = strahler[start_i];
+        if cur_strahler < min_strahler {
             continue;
         }
 
-        line(start, end, |cell| {
-            if !river_map.contains_cell(cell) {
-                return;
-            }
-
-            river_map[cell] = true;
-        });
-    }
-
-    let mut blurred = river_map.to_f32();
-    blurred.blur(3);
-    blurred.blur(3);
-    blurred.map_range_inplace(0.0, 1.0);
-
-    for cell in blurred.cells() {
-        if river_map[cell] {
-            blurred[cell] = 1.0;
+        if upstream[start_i]
+            .iter()
+            .any(|&v| strahler[v] == cur_strahler)
+        {
+            continue;
         }
+
+        spline.clear();
+        spline.push(points.positions[start_i]);
+
+        let mut cur_i = start_i;
+        while strahler[cur_i] == cur_strahler {
+            let Some(next_i) = downstream[cur_i] else {
+                if spline.len() >= 2 {
+                    let a = spline[spline.len() - 2];
+                    let b = spline.last_mut().unwrap();
+                    *b = a + (*b - a) * 3.0;
+                }
+
+                break;
+            };
+
+            spline.push(points.positions[next_i]);
+            cur_i = next_i;
+        }
+
+        if spline.len() < 2 {
+            continue;
+        }
+
+        let path = points_to_path(&spline);
+
+        target.stroke(
+            &path,
+            &Source::Solid(SolidSource {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            }),
+            &StrokeStyle {
+                width: (cur_strahler - min_strahler + 1) as f32,
+                cap: LineCap::Round,
+                join: LineJoin::Round,
+                ..default()
+            },
+            &DrawOptions {
+                antialias: AntialiasMode::Gray,
+                ..default()
+            },
+        );
     }
 
-    blurred
+    let data = target
+        .get_data()
+        .iter()
+        .map(|&v| (v as u8) as f32 / 255.0)
+        .collect::<Vec<_>>();
+
+    let mut grid = Grid::from_data(size, data);
+
+    for cell in grid.cells() {
+        let dist = island_map[cell];
+        grid[cell] *= (1.0 + dist / 5.0).min(1.0).max(0.0).powi(2);
+    }
+
+    grid.gaussian_blur(1.0);
+    grid.map_range_inplace(0.0, 1.0);
+
+    grid
 }
 
-fn line(start: Vec2, end: Vec2, mut callback: impl FnMut(IVec2)) {
-    let mut plot = |x, y| callback(IVec2::new(x, y));
-
-    let start_x = start.x as i32;
-    let start_y = start.y as i32;
-    let end_x = end.x as i32;
-    let end_y = end.y as i32;
-
-    if start_x == end_x && start_y == end_y {
-        plot(start_x, end_x);
-        return;
+fn points_to_path(points: &[Vec2]) -> Path {
+    let segments = points.len() - 1;
+    if segments == 1 {
+        let mut path = PathBuilder::new();
+        path.move_to(points[0].x, points[0].y);
+        path.line_to(points[1].x, points[1].y);
+        return path.finish();
     }
 
-    let min_x = start_x.min(end_x);
-    let (max_x, min_y, max_y) = if min_x == start_x {
-        (end_x, start_y, end_y)
-    } else {
-        (start_x, end_y, start_y)
-    };
+    let mut ad = Vec::with_capacity(segments);
+    let mut d = Vec::with_capacity(segments);
+    let mut bd = Vec::with_capacity(segments);
+    let mut rhs_array = Vec::with_capacity(segments);
 
-    let diff_x = max_x - min_x;
-    let diff_y = max_y - min_y;
+    for i in 0..segments {
+        let rhs_x_value;
+        let rhs_y_value;
 
-    if diff_x > diff_y.abs() {
-        let mut y = min_y as f32;
-        let dy = (diff_y as f32) / (diff_x as f32);
-        for x in min_x..=max_x {
-            plot(x, y.round() as i32);
-            y += dy;
-        }
-    } else {
-        let mut x = min_x as f32;
-        let dx = (diff_x as f32) / (diff_y as f32);
-        if max_y >= min_y {
-            for y in min_y..=max_y {
-                plot(x.round() as i32, y);
-                x += dx;
-            }
+        let p0 = points[i];
+        let p3 = points[i + 1];
+
+        if i == 0 {
+            bd.push(0.0);
+            d.push(2.0);
+            ad.push(1.0);
+
+            rhs_x_value = p0.x + 2.0 * p3.x;
+            rhs_y_value = p0.y + 2.0 * p3.y;
+        } else if i == segments - 1 {
+            bd.push(2.0);
+            d.push(7.0);
+            ad.push(0.0);
+            rhs_x_value = 8.0 * p0.x + p3.x;
+            rhs_y_value = 8.0 * p0.y + p3.y;
         } else {
-            for y in (max_y..=min_y).rev() {
-                plot(x.round() as i32, y);
-                x -= dx;
-            }
+            bd.push(1.0);
+            d.push(4.0);
+            ad.push(1.0);
+            rhs_x_value = 4.0 * p0.x + 2.0 * p3.x;
+            rhs_y_value = 4.0 * p0.y + 2.0 * p3.y;
+        }
+
+        rhs_array.push(Vec2::new(rhs_x_value, rhs_y_value));
+    }
+
+    thomas_algorithm(&bd, &d, &mut ad, &mut rhs_array, points)
+}
+
+fn thomas_algorithm(
+    bd: &[f32],
+    d: &[f32],
+    ad: &mut [f32],
+    rhs_array: &mut [Vec2],
+    points: &[Vec2],
+) -> Path {
+    let segments = points.len() - 1;
+    let mut solution_set = vec![Vec2::NAN; segments];
+
+    ad[0] = ad[0] / d[0];
+    rhs_array[0].x = rhs_array[0].x / d[0];
+    rhs_array[0].y = rhs_array[0].y / d[0];
+
+    if segments > 2 {
+        for i in 1..=segments - 2 {
+            let rhs_value_x = rhs_array[i].x;
+            let prev_rhs_value_x = rhs_array[i - 1].x;
+
+            let rhs_value_y = rhs_array[i].y;
+            let prev_rhs_value_y = rhs_array[i - 1].y;
+
+            ad[i] = ad[i] / (d[i] - bd[i] * ad[i - 1]);
+
+            let exp1x = rhs_value_x - (bd[i] * prev_rhs_value_x);
+            let exp1y = rhs_value_y - (bd[i] * prev_rhs_value_y);
+            let exp2 = d[i] - bd[i] * ad[i - 1];
+
+            rhs_array[i].x = exp1x / exp2;
+            rhs_array[i].y = exp1y / exp2;
         }
     }
+
+    let last_idx = segments - 1;
+    let exp1 = rhs_array[last_idx].x - bd[last_idx] * rhs_array[last_idx - 1].x;
+    let exp1y = rhs_array[last_idx].y - bd[last_idx] * rhs_array[last_idx - 1].y;
+    let exp2 = d[last_idx] - bd[last_idx] * ad[last_idx - 1];
+    rhs_array[last_idx].x = exp1 / exp2;
+    rhs_array[last_idx].y = exp1y / exp2;
+
+    solution_set[last_idx] = rhs_array[last_idx];
+
+    for i in (0..last_idx).rev() {
+        let control_point_x = rhs_array[i].x - (ad[i] * solution_set[i + 1].x);
+        let control_point_y = rhs_array[i].y - (ad[i] * solution_set[i + 1].y);
+        solution_set[i] = Vec2::new(control_point_x, control_point_y);
+    }
+
+    let mut path = PathBuilder::new();
+    path.move_to(points[0].x, points[0].y);
+
+    for i in 0..segments {
+        let p1 = points[i + 1];
+        if i == segments - 1 {
+            let c1 = solution_set[i];
+            let c2 = 0.5 * (p1 + c1);
+            path.cubic_to(c1.x, c1.y, c2.x, c2.y, p1.x, p1.y)
+        } else {
+            let c1 = solution_set[i + 1];
+            let c2 = 2.0 * p1 - c1;
+            path.cubic_to(c1.x, c1.y, c2.x, c2.y, p1.x, p1.y)
+        }
+    }
+
+    path.finish()
 }
 
 fn aa_line(start: Vec2, end: Vec2, mut callback: impl FnMut(IVec2, f32)) {
@@ -509,20 +644,5 @@ fn aa_line(start: Vec2, end: Vec2, mut callback: impl FnMut(IVec2, f32)) {
             plot(x, intery as i32 + 1, intery.fract());
             intery += gradient
         }
-    }
-}
-
-fn apply_erosion(volume_map: &Grid<f32>, elevation: &mut Grid<f32>, settings: &RiversSettings) {
-    let _scope = info_span!("apply_erosion").entered();
-
-    let mut erosion_map = volume_map.clone();
-
-    erosion_map.blur(2);
-    erosion_map.blur(2);
-
-    for (cell, elevation) in elevation.entries_mut() {
-        let unscaled = 1.0 / (1.0 + erosion_map[cell].powf(1.1));
-        let fac = unscaled * settings.erosion + (1.0 - settings.erosion);
-        *elevation *= fac;
     }
 }

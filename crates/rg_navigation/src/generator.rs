@@ -43,7 +43,7 @@ impl Default for NavMeshSettings {
 
 #[derive(Debug, Component)]
 pub struct ChunkNavMesh {
-    pub heightmap: Grid<f32>,
+    pub height_map: Grid<f32>,
     pub connections: Grid<u8>,
     pub edges: Vec<(Vec2, Vec2)>,
     pub triangulation_edges: Vec<(Vec2, Vec2)>,
@@ -51,7 +51,7 @@ pub struct ChunkNavMesh {
 
 impl ChunkNavMesh {
     pub fn sample_height(&self, pos: Vec2) -> f32 {
-        self.heightmap
+        self.height_map
             .sample(pos / CHUNK_SIZE * (NAVMESH_SIZE as f32) - 0.5)
     }
 }
@@ -99,15 +99,15 @@ pub fn generate_navmesh(
 ) -> ChunkNavMesh {
     let _span = info_span!("generate_navmesh").entered();
 
-    let heightmap = generate_heightmap(settings, chunk_pos, colliders);
-    let connections = generate_connections(settings, &heightmap);
+    let height_map = generate_height_map(settings, chunk_pos, colliders);
+    let connections = generate_connections(settings, &height_map);
     let mut edges = generate_edges(&connections);
     sort_edges(&mut edges);
     split_boundary_edges(&mut edges);
     let triangulation_edges = triangulate(&edges);
 
     ChunkNavMesh {
-        heightmap,
+        height_map,
         connections,
         edges,
         triangulation_edges,
@@ -122,12 +122,12 @@ pub fn node_pos_to_world_f32(chunk_pos: IVec2, cell: Vec2) -> Vec2 {
     chunk_pos_to_world(chunk_pos) + (cell + vec2(0.5, 0.5)) / (NAVMESH_SIZE as f32) * CHUNK_SIZE
 }
 
-fn generate_heightmap(
+fn generate_height_map(
     settings: &NavMeshSettings,
     chunk_pos: IVec2,
     colliders: ColliderSet,
 ) -> Grid<f32> {
-    let _span = info_span!("generate_heightmap").entered();
+    let _span = info_span!("generate_height_map").entered();
 
     let rigid_bodies = RigidBodySet::new();
     let mut query_pipeline = QueryPipeline::new();
@@ -195,19 +195,19 @@ fn generate_heightmap(
     })
 }
 
-fn generate_connections(settings: &NavMeshSettings, heightmap: &Grid<f32>) -> Grid<u8> {
+fn generate_connections(settings: &NavMeshSettings, height_map: &Grid<f32>) -> Grid<u8> {
     let _span = info_span!("generate_connections").entered();
 
-    Grid::from_fn(heightmap.size(), |cell| {
-        let cell_height = heightmap[cell];
+    Grid::from_fn(height_map.size(), |cell| {
+        let cell_height = height_map[cell];
         if cell_height.is_nan() {
             return 0;
         }
 
         let mut connections = 0;
 
-        for (i, neighbor) in heightmap.neighborhood_4(cell) {
-            let neighbor_height = heightmap[neighbor];
+        for (i, neighbor) in height_map.neighborhood_4(cell) {
+            let neighbor_height = height_map[neighbor];
             if neighbor_height.is_nan() {
                 continue;
             }

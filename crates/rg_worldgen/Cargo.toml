@@ -6,12 +6,17 @@ edition = "2021"
 [dependencies]
 rg_core = { path = "../rg_core" }
 
+anyhow = { workspace = true }
 bevy = { workspace = true }
+bytemuck = { workspace = true }
+contour = { workspace = true }
 delaunator = { workspace = true }
-edt = { workspace = true }
 futures-lite = { workspace = true }
 image = { workspace = true }
 rand = { workspace = true }
 rand_pcg = { workspace = true }
+raqote = { workspace = true }
 rayon = { workspace = true }
+rmp-serde = { workspace = true }
 serde = { workspace = true }
+

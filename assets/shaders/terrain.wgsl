@@ -1,6 +1,7 @@
 #define DITHER_ENABLED
 
 #import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::mesh_bindings mesh
 #import rg::pixel_funcs as pixel
 
 struct TerrainMaterial {
@@ -14,6 +15,8 @@ var<uniform> material: TerrainMaterial;
 var texture: texture_2d<f32>;
 @group(1) @binding(2)
 var texture_sampler: sampler;
+@group(1) @binding(3)
+var tile_map: texture_2d<u32>;
 
 @fragment
 fn fragment(
@@ -26,9 +29,12 @@ fn fragment(
     let is_normal_edge = pixel::check_normal_edge(depth_samples, normal_samples, 0.1);
     let is_edge = is_depth_edge || is_normal_edge;
 
+    let tile_pos = vec2<u32>((transpose(mesh.inverse_transpose_model) * in.world_position).xy * 2.0);
+    let tile = textureLoad(tile_map, tile_pos, 0).r;
+
     var uv = (in.world_position.xy * 2.0) % 1.0;
     uv.y *= 0.5;
-    if in.world_position.z < 0.0 {
+    if tile == 1u {
         uv.y += 0.5;
     }
 

@@ -5,15 +5,13 @@ use bevy::ecs::system::SystemState;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::transform::TransformSystem;
-use bevy_rapier3d::prelude::{
-    CharacterAutostep, CharacterLength, Collider, KinematicCharacterController,
-    KinematicCharacterControllerOutput, PhysicsSet, RigidBody,
-};
+use bevy_rapier3d::prelude::*;
 use rg_camera_controller::CameraController;
-use rg_core::{CollisionLayers, PrevTransform};
+use rg_core::PrevTransform;
 use rg_pixel_material::{GlobalFogHeight, PixelMaterial, ReplaceStandardMaterial};
 use rg_terrain::ChunkSpawnCenter;
 
+use crate::movement::MovementBundle;
 use crate::MovementInput;
 
 pub struct CharacterPlugin;
@@ -98,28 +96,15 @@ fn spawn_character(
             .remove::<SpawnCharacter>()
             .insert((
                 Name::new("Character"),
+                ControlledCharacter,
+                MovementBundle {
+                    collider: Collider::capsule_z(height * 0.5 - radius, radius),
+                    ..default()
+                },
                 transform,
                 PrevTransform(transform),
                 GlobalTransform::default(),
-                RigidBody::KinematicPositionBased,
-                Collider::capsule_z(height * 0.5 - radius, radius),
-                KinematicCharacterController {
-                    up: Vec3::Z,
-                    autostep: Some(CharacterAutostep {
-                        max_height: CharacterLength::Absolute(0.5),
-                        min_width: CharacterLength::Absolute(0.1),
-                        include_dynamic_bodies: false,
-                    }),
-                    snap_to_ground: Some(CharacterLength::Absolute(0.1)),
-                    offset: CharacterLength::Absolute(offset),
-                    ..default()
-                },
-                CollisionLayers::CHARACTER_GROUP,
-                KinematicCharacterControllerOutput::default(),
-                MovementInput::default(),
-                ControlledCharacter,
-                Visibility::Visible,
-                ComputedVisibility::default(),
+                VisibilityBundle::default(),
             ));
 
         commands
@@ -173,7 +158,7 @@ fn control_character(
         return;
     };
 
-    let mut dir = Vec3::ZERO;
+    let mut dir = Vec2::ZERO;
 
     if input.pressed(KeyCode::A) {
         dir.x -= 1.0;
@@ -188,8 +173,10 @@ fn control_character(
         dir.y -= 1.0;
     }
 
-    dir = camera.rotation * dir.normalize_or_zero();
+    dir = (camera.rotation * dir.extend(0.0).normalize_or_zero()).xy();
+
     movement.direction = dir;
+    movement.jump = input.pressed(KeyCode::Space);
 }
 
 fn update_rotation(mut q_agents: Query<(&mut Transform, &PrevTransform), Without<CharacterModel>>) {

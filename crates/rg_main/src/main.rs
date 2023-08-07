@@ -61,7 +61,7 @@ fn main() {
         .add_plugins(DevOverlayPlugin)
         .insert_resource(ClearColor(Color::rgb_linear(0.5, 0.5, 1.0)))
         .insert_resource(RapierConfiguration {
-            gravity: Vec3::Z * -18.0,
+            gravity: Vec3::Z * -30.0,
             ..default()
         })
         .insert_resource(Msaa::Off)
@@ -174,7 +174,7 @@ fn handle_input(
         return;
     };
 
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(KeyCode::R) {
         commands.spawn((
             MaterialMeshBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),

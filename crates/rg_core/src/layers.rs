@@ -44,5 +44,5 @@ impl CollisionLayers {
         CollisionLayers::DYNAMIC.with_mask(CollisionLayers::STATIC_AND_DYNAMIC);
 
     pub const CHARACTER_GROUP: CollisionGroups =
-        CollisionLayers::CHARACTER.with_mask(CollisionLayers::STATIC);
+        CollisionLayers::CHARACTER.with_mask(CollisionLayers::STATIC_AND_DYNAMIC);
 }

@@ -99,11 +99,10 @@ fn spawn_character(
                 ControlledCharacter,
                 MovementBundle {
                     collider: Collider::capsule_z(height * 0.5 - radius, radius),
+                    transform,
                     ..default()
                 },
-                transform,
                 PrevTransform(transform),
-                GlobalTransform::default(),
                 VisibilityBundle::default(),
             ));
 

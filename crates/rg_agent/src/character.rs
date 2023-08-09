@@ -7,9 +7,11 @@ use bevy::prelude::*;
 use bevy::transform::TransformSystem;
 use bevy_xpbd_3d::prelude::*;
 use rg_camera_controller::CameraController;
-use rg_core::{CollisionLayer, PrevTransform};
+use rg_core::PrevTransform;
 use rg_pixel_material::{GlobalFogHeight, PixelMaterial, ReplaceStandardMaterial};
 use rg_terrain::ChunkSpawnCenter;
+
+use crate::movement::{MovementBundle, MovementInput};
 
 pub struct CharacterPlugin;
 
@@ -92,16 +94,19 @@ fn spawn_character(
             .remove::<SpawnCharacter>()
             .insert((
                 Name::new("Character"),
-                transform,
-                PrevTransform(transform),
-                GlobalTransform::default(),
-                RigidBody::Kinematic,
-                Collider::capsule_endpoints(radius * Vec3::Z, (height - radius) * Vec3::Z, radius),
-                CollisionLayers::new([CollisionLayer::Character], [CollisionLayer::Static]),
-                Position(transform.translation),
                 ControlledCharacter,
-                Visibility::Visible,
-                ComputedVisibility::default(),
+                MovementBundle {
+                    collider: Collider::capsule_endpoints(
+                        radius * Vec3::Z,
+                        (height - radius) * Vec3::Z,
+                        radius,
+                    ),
+                    position: Position(transform.translation),
+                    transform,
+                    ..default()
+                },
+                PrevTransform(transform),
+                VisibilityBundle::default(),
             ));
 
         commands
@@ -142,12 +147,11 @@ fn find_animation_player(
 }
 
 fn control_character(
-    mut q_character: Query<&mut Position, With<ControlledCharacter>>,
+    mut q_character: Query<&mut MovementInput, With<ControlledCharacter>>,
     q_camera: Query<&CameraController>,
     input: Res<Input<KeyCode>>,
-    time: Res<Time>,
 ) {
-    let Ok(mut position) = q_character.get_single_mut() else {
+    let Ok(mut movement) = q_character.get_single_mut() else {
         return;
     };
 
@@ -155,7 +159,7 @@ fn control_character(
         return;
     };
 
-    let mut dir = Vec3::ZERO;
+    let mut dir = Vec2::ZERO;
 
     if input.pressed(KeyCode::A) {
         dir.x -= 1.0;
@@ -170,8 +174,10 @@ fn control_character(
         dir.y -= 1.0;
     }
 
-    dir = camera.rotation * dir.normalize_or_zero();
-    position.0 += 4.0 * dir * time.delta_seconds();
+    dir = (camera.rotation * dir.extend(0.0).normalize_or_zero()).xy();
+
+    movement.direction = dir;
+    movement.jump = input.pressed(KeyCode::Space);
 }
 
 fn update_rotation(mut q_agents: Query<(&mut Transform, &PrevTransform), Without<CharacterModel>>) {

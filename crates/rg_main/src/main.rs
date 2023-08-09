@@ -13,7 +13,7 @@ use rg_agent::{AgentPlugin, SpawnCharacter};
 use rg_ai::{actions, AiPlugin, BehaviorTree};
 use rg_billboard::BillboardPlugin;
 use rg_camera_controller::{CameraController, CameraControllerPlugin};
-use rg_core::PrevTransformPlugin;
+use rg_core::{CollisionLayer, PrevTransformPlugin};
 use rg_dev_overlay::DevOverlayPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::{ChunkSpawnCenter, TerrainPlugin};
@@ -168,7 +168,7 @@ fn handle_input(
         return;
     };
 
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(KeyCode::R) {
         commands.spawn((
             MaterialMeshBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -184,14 +184,14 @@ fn handle_input(
             Collider::cuboid(1.0, 1.0, 1.0),
             Friction::new(0.7),
             Position(camera.translation + Vec3::new(0.0, 0.0, 5.0)),
-            // CollisionLayers::new(
-            //     [CollisionLayer::Dynamic],
-            //     [
-            //         CollisionLayer::Static,
-            //         CollisionLayer::Dynamic,
-            //         CollisionLayer::Character,
-            //     ],
-            // ),
+            CollisionLayers::new(
+                [CollisionLayer::Dynamic],
+                [
+                    CollisionLayer::Static,
+                    CollisionLayer::Dynamic,
+                    CollisionLayer::Character,
+                ],
+            ),
         ));
     }
 }

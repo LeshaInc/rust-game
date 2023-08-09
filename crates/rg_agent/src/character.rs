@@ -229,7 +229,7 @@ fn update_models(
             .translation
             .lerp(agent_transform.translation, alpha);
 
-        let alpha = 1.0 - 0.001f32.powf(time.delta_seconds());
+        let alpha = 1.0 - 0.0001f32.powf(time.delta_seconds());
         model_transform.rotation = model_transform
             .rotation
             .slerp(agent_transform.rotation, alpha);

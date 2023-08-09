@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use rg_core::CollisionLayers;
@@ -76,7 +77,9 @@ fn handle_movement_input(
     let step_height = 0.3;
     let gravity = 30.0;
     let speed = 6.0;
-    let jump_velocity = 8.0;
+    let jump_velocity = 9.0;
+    let air_acceleration = 30.0;
+    let ground_acceleration = 300.0;
 
     for (entity, input, mut state, collider, mut transform) in &mut q_agents {
         let mut position = transform.translation;
@@ -104,13 +107,17 @@ fn handle_movement_input(
         let is_grounded = shape_cast(position, -Vec3::Z, 2.0 * offset).is_some();
         let enable_stepping = is_grounded && !input.jump;
 
-        if input.direction.abs_diff_eq(Vec2::ZERO, 1e-3) {
-            velocity.x = 0.0;
-            velocity.y = 0.0;
+        let acceleration = if is_grounded {
+            ground_acceleration
         } else {
-            velocity.x = input.direction.x * speed;
-            velocity.y = input.direction.y * speed;
-        }
+            air_acceleration
+        };
+
+        let velocity_target = input.direction * speed;
+        let change = velocity_target - velocity.xy();
+        let impulse = change.normalize_or_zero() * change.length().min(acceleration * dt);
+        velocity.x += impulse.x;
+        velocity.y += impulse.y;
 
         if is_grounded {
             velocity.z = if input.jump { jump_velocity } else { 0.0 };

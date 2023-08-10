@@ -83,6 +83,10 @@ features = ["derive"]
 version = "0.10"
 features = ["ondemand"]
 
+[workspace.dependencies.vergen]
+version = "8.0"
+features = ["build", "git", "gitcl"]
+
 [profile.dev]
 opt-level = 1
 

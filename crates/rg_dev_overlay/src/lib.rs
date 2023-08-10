@@ -1,3 +1,5 @@
+mod version_overlay;
+
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::plot::{Line, Plot};
@@ -5,6 +7,8 @@ use bevy_egui::egui::{self, pos2, Color32, Frame, Rounding};
 use bevy_egui::EguiContext;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::render::DebugRenderContext as RapierDebugRenderContext;
+
+use crate::version_overlay::VersionOverlayPlugin;
 
 pub struct DevOverlayPlugin;
 
@@ -23,6 +27,7 @@ impl Plugin for DevOverlayPlugin {
             ..default()
         })
         .insert_resource(FrameTimePoints::default())
+        .add_plugins(VersionOverlayPlugin)
         .add_plugins(
             WorldInspectorPlugin::new()
                 .run_if(|s: Res<DevOverlaySettings>| s.enabled && s.show_inspector),

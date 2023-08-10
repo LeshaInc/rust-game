@@ -3,8 +3,13 @@ name = "rg_dev_overlay"
 version = "0.1.0"
 edition = "2021"
 
+build = "build.rs"
+
 [dependencies]
 bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_egui = { workspace = true }
 bevy_rapier3d = { workspace = true }
+
+[build-dependencies]
+vergen = { workspace = true }

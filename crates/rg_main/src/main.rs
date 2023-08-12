@@ -15,7 +15,7 @@ use rg_billboard::BillboardPlugin;
 use rg_camera_controller::{CameraController, CameraControllerPlugin};
 use rg_core::{CollisionLayers, PrevTransformPlugin};
 use rg_dev_overlay::DevOverlayPlugin;
-// use rg_navigation::NavigationPlugin;
+use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::{ChunkSpawnCenter, TerrainPlugin};
 use rg_worldgen::{WorldSeed, WorldgenPlugin, WorldgenState};
@@ -54,7 +54,7 @@ fn main() {
         .add_plugins(BillboardPlugin)
         .add_plugins(WorldgenPlugin)
         .add_plugins(TerrainPlugin)
-        // .add_plugins(NavigationPlugin)
+        .add_plugins(NavigationPlugin)
         .add_plugins(CameraControllerPlugin)
         .add_plugins(AiPlugin)
         .add_plugins(AgentPlugin)

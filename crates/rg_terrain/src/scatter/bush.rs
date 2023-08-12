@@ -6,6 +6,7 @@ use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
 use rg_billboard::ScatterMultiBillboard;
 use rg_core::CollisionLayers;
+use rg_navigation::NavMeshAffector;
 use rg_pixel_material::PixelMaterial;
 use rg_worldgen::{Biome, WorldMaps, WORLD_SCALE};
 
@@ -89,6 +90,7 @@ impl ScatterPrototype for BushPrototype {
                 // crown collider
                 commands.spawn((
                     TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.25)),
+                    NavMeshAffector,
                     Collider::ball(0.3),
                     CollisionLayers::STATIC_GROUP,
                 ));

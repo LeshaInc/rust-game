@@ -9,6 +9,7 @@ use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
 use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin, ScatterMultiBillboard};
 use rg_core::CollisionLayers;
+use rg_navigation::NavMeshAffector;
 use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
 use rg_worldgen::{Biome, WorldMaps, WORLD_SCALE};
 
@@ -106,6 +107,7 @@ impl ScatterPrototype for TreePrototype {
                 // trunk collider
                 commands.spawn((
                     TransformBundle::from(Transform::from_xyz(0.0, 0.0, 1.28)),
+                    NavMeshAffector,
                     Collider::capsule_z(1.28, 0.32),
                     CollisionLayers::STATIC_GROUP,
                 ));
@@ -113,6 +115,7 @@ impl ScatterPrototype for TreePrototype {
                 // crown collider
                 commands.spawn((
                     TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.5)),
+                    NavMeshAffector,
                     Collider::ball(1.0),
                     CollisionLayers::STATIC_GROUP,
                 ));

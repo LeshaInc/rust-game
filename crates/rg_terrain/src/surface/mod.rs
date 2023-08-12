@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
 use rg_core::CollisionLayers;
+use rg_navigation::NavMeshAffector;
 
 use self::material::{SurfaceMaterials, SurfaceMaterialsPlugin};
 use self::mesh::{generate_mesh, MeshResult};
@@ -76,6 +77,7 @@ fn update_tasks(
             .entity(chunk_id)
             .remove::<SurfaceTask>()
             .insert((
+                NavMeshAffector,
                 meshes.add(res.terrain_mesh),
                 res.terrain_collider,
                 CollisionLayers::STATIC_WALKABLE_GROUP,

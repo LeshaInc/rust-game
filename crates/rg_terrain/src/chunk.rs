@@ -44,7 +44,7 @@ pub struct ChunkSpawnRadius(pub f32);
 
 impl Default for ChunkSpawnRadius {
     fn default() -> Self {
-        Self(70.0)
+        Self(30.0)
     }
 }
 
@@ -53,7 +53,7 @@ pub struct ChunkDespawnRadius(pub f32);
 
 impl Default for ChunkDespawnRadius {
     fn default() -> Self {
-        Self(80.0)
+        Self(40.0)
     }
 }
 

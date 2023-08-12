@@ -3290,7 +3290,6 @@ dependencies = [
  "futures-lite",
  "rg_core",
  "rg_dev_overlay",
- "rg_terrain",
  "smallvec",
  "spade",
 ]
@@ -3313,6 +3312,7 @@ dependencies = [
  "rand_pcg",
  "rg_billboard",
  "rg_core",
+ "rg_navigation",
  "rg_pixel_material",
  "rg_worldgen",
  "serde",

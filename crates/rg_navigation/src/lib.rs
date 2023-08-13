@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use rg_dev_overlay::DevOverlaySettings;
 
 use crate::navmesh::{draw_navmesh_gizmos, draw_navmesh_heightmap_gizmos};
-pub use crate::navmesh::{NavMesh, NavMeshChunk};
+pub use crate::navmesh::{Link, LinkKind, NavMesh, NavMeshChunk, Triangle};
 use crate::observer::ObserverPlugin;
 
 pub const CHUNK_SIZE: f32 = 16.0;

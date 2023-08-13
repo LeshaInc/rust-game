@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use rg_core::Grid;
+use smallvec::SmallVec;
 
 use crate::{chunk_pos_to_world, CHUNK_CELLS, CHUNK_SIZE};
 
@@ -23,8 +24,7 @@ impl NavMesh {
 pub struct NavMeshChunk {
     pub height_map: Grid<f32>,
     pub connections: Grid<u8>,
-    pub edges: Vec<(Vec2, Vec2)>,
-    pub triangulation_edges: Vec<(Vec2, Vec2)>,
+    pub triangles: Vec<Triangle>,
 }
 
 impl NavMeshChunk {
@@ -34,17 +34,58 @@ impl NavMeshChunk {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Triangle {
+    pub vertices: [Vec2; 3],
+    pub links: SmallVec<[Link; 3]>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Link {
+    pub kind: LinkKind,
+    pub segment: [Vec2; 2],
+    pub edge: u8,
+    pub opposite_triangle: u32,
+    pub opposite_link: u8,
+    pub opposite_edge: u8,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum LinkKind {
+    Internal,
+    PosX,
+    NegX,
+    PosY,
+    NegY,
+}
+
 pub fn draw_navmesh_gizmos(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
     for (&chunk_pos, chunk) in navmesh.chunks.iter() {
         let world_pos = chunk_pos_to_world(chunk_pos);
 
-        for &(start, end) in &chunk.triangulation_edges {
-            let start_z = chunk.sample_height(start) + 0.1;
-            let end_z = chunk.sample_height(end) + 0.1;
+        let transform = |pos: Vec2| (world_pos + pos).extend(chunk.sample_height(pos) + 0.3);
 
-            let start = (world_pos + start).extend(start_z);
-            let end = (world_pos + end).extend(end_z);
-            gizmos.line(start, end, Color::RED);
+        let mut line = |a: Vec2, b: Vec2, color: Color| {
+            let subdiv = ((b - a).length() * 2.0).ceil();
+            for k in 0..subdiv as i32 {
+                let k = k as f32;
+                let p = a + (b - a) / subdiv * k;
+                let q = a + (b - a) / subdiv * (k + 1.0);
+                gizmos.line(transform(p), transform(q), color);
+            }
+        };
+
+        for triangle in &chunk.triangles {
+            line(triangle.vertices[0], triangle.vertices[1], Color::RED);
+            line(triangle.vertices[1], triangle.vertices[2], Color::RED);
+            line(triangle.vertices[2], triangle.vertices[0], Color::RED);
+
+            let center = (triangle.vertices[0] + triangle.vertices[1] + triangle.vertices[2]) / 3.0;
+
+            for link in &triangle.links {
+                let mid = (link.segment[0] + link.segment[1]) * 0.5;
+                line(center, mid, Color::GREEN);
+            }
         }
     }
 }

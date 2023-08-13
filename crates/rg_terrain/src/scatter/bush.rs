@@ -91,7 +91,7 @@ impl ScatterPrototype for BushPrototype {
                 commands.spawn((
                     TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.25)),
                     NavMeshAffector,
-                    Collider::ball(0.3),
+                    Collider::ball(0.5),
                     CollisionLayers::STATIC_GROUP,
                 ));
             })

@@ -4,10 +4,14 @@ use bevy::math::{ivec2, vec2};
 use bevy::prelude::*;
 use bevy::utils::{HashMap, HashSet};
 use rg_core::{Grid, VecToBits};
+use smallvec::SmallVec;
 use spade::{ConstrainedDelaunayTriangulation, Point2, Triangulation};
 
 use crate::collider_set::ColliderSet;
-use crate::{cell_pos_to_world, NavMeshChunk, NavMeshSettings, CHUNK_CELLS, CHUNK_SIZE};
+use crate::{
+    cell_pos_to_world, Link, LinkKind, NavMeshChunk, NavMeshSettings, Triangle, CHUNK_CELLS,
+    CHUNK_SIZE,
+};
 
 pub fn generate_chunk(
     settings: &NavMeshSettings,
@@ -20,13 +24,12 @@ pub fn generate_chunk(
     let connections = generate_connections(settings, &height_map);
     let mut edges = generate_edges(&connections);
     sort_edges(&mut edges);
-    let triangulation_edges = triangulate(&edges);
+    let triangles = triangulate(&edges);
 
     NavMeshChunk {
         height_map,
         connections,
-        edges,
-        triangulation_edges,
+        triangles,
     }
 }
 
@@ -254,7 +257,7 @@ fn join_edges(edges: impl Iterator<Item = (Vec2, Vec2)>) -> Vec<(Vec2, Vec2)> {
     res_edges
 }
 
-fn triangulate(edges: &[(Vec2, Vec2)]) -> Vec<(Vec2, Vec2)> {
+fn triangulate(edges: &[(Vec2, Vec2)]) -> Vec<Triangle> {
     fn point2(v: Vec2) -> Point2<f32> {
         Point2::new(v.x, v.y)
     }
@@ -297,14 +300,92 @@ fn triangulate(edges: &[(Vec2, Vec2)]) -> Vec<(Vec2, Vec2)> {
         }
     }
 
-    faces
-        .iter()
-        .flat_map(|&v| triangulation.face(v).adjacent_edges())
-        .map(|edge| {
-            (
-                point2_to_vec2(edge.vertices()[0].position()),
-                point2_to_vec2(edge.vertices()[1].position()),
-            )
-        })
-        .collect()
+    let mut triangles = Vec::with_capacity(faces.len());
+    let mut face_to_triangle = HashMap::with_capacity(faces.len());
+
+    for &handle in &faces {
+        let face = triangulation.face(handle);
+
+        face_to_triangle.insert(handle, triangles.len() as u32);
+
+        triangles.push(Triangle {
+            vertices: face.positions().map(point2_to_vec2),
+            links: SmallVec::new(),
+        });
+    }
+
+    for handle in &faces {
+        let Some(&triangle_idx) = face_to_triangle.get(handle) else {
+            continue;
+        };
+
+        let face = triangulation.face(*handle);
+
+        let mut links = face
+            .adjacent_edges()
+            .into_iter()
+            .enumerate()
+            .filter(|&(edge_idx, _)| {
+                !triangles[triangle_idx as usize]
+                    .links
+                    .iter()
+                    .any(|v| v.edge == edge_idx as u8)
+            })
+            .flat_map(|(edge_idx, edge)| {
+                edge.rev()
+                    .face()
+                    .as_inner()
+                    .and_then(|adj_face| face_to_triangle.get(&adj_face.fix()))
+                    .map(|&opposite_triangle| Link {
+                        kind: LinkKind::Internal,
+                        segment: edge.positions().map(point2_to_vec2),
+                        edge: edge_idx as u8,
+                        opposite_triangle,
+                        opposite_link: 0,
+                        opposite_edge: 0,
+                    })
+            })
+            .collect::<SmallVec<[Link; 3]>>();
+
+        for (link_idx, link) in &mut links.iter_mut().enumerate() {
+            let link_idx = triangles[triangle_idx as usize].links.len() + link_idx;
+            let opposite_triangle = &mut triangles[link.opposite_triangle as usize];
+
+            if let Some(opposite_link) = opposite_triangle
+                .links
+                .iter()
+                .position(|v| v.opposite_triangle == triangle_idx)
+            {
+                link.opposite_link = opposite_link as u8;
+                link.opposite_edge = opposite_triangle.links[opposite_link].edge;
+                continue;
+            }
+
+            let opposite_link = Link {
+                kind: LinkKind::Internal,
+                segment: [link.segment[1], link.segment[0]],
+                edge: opposite_triangle
+                    .vertices
+                    .iter()
+                    .position(|&v| v == link.segment[1])
+                    .map(|v| v as u8)
+                    .unwrap_or_else(|| {
+                        warn!("bug in navmesh generator: could not find opposite edge");
+                        0
+                    }),
+                opposite_triangle: triangle_idx,
+                opposite_link: link_idx as u8,
+                opposite_edge: link.edge,
+            };
+
+            link.opposite_link = opposite_triangle.links.len() as u8;
+            link.opposite_edge = opposite_link.edge;
+
+            opposite_triangle.links.push(opposite_link);
+        }
+
+        triangles[triangle_idx as usize].links.extend(links);
+    }
+
+    triangles
 }

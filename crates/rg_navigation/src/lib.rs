@@ -54,9 +54,9 @@ impl Default for NavMeshSettings {
             min_world_z: -200.0,
             max_world_z: 200.0,
             climb_height: 1.0,
-            agent_height: 1.5,
+            agent_height: 1.8,
             agent_radius: 0.3,
-            agent_offset: 0.2,
+            agent_offset: 0.01,
         }
     }
 }

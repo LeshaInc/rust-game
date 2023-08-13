@@ -3,10 +3,9 @@ use bevy_rapier3d::na::Isometry3;
 use bevy_rapier3d::prelude::{Collider as RapierCollider, RapierContext};
 use bevy_rapier3d::rapier::prelude::{
     Capsule, Collider, ColliderBuilder, ColliderSet as RapierColliderSet, QueryFilter,
-    QueryPipeline, Ray, RigidBodySet,
+    QueryPipeline, RigidBodySet,
 };
 use rg_core::CollisionLayers;
-use smallvec::SmallVec;
 
 use crate::{chunk_pos_to_world, NavMeshAffector, NavMeshSettings};
 
@@ -75,6 +74,7 @@ impl ColliderSet {
         self.collider_set.insert(
             ColliderBuilder::new(collider.shared_shape().clone())
                 .position(*collider.position())
+                .collision_groups(collider.collision_groups())
                 .build(),
         );
     }
@@ -89,36 +89,47 @@ impl ColliderSet {
     }
 
     pub fn check_walkability(&self, settings: &NavMeshSettings, pos: Vec2) -> Option<f32> {
-        for z in self.raycast(settings, pos) {
-            if !self.intersects_agent(settings, pos.extend(z)) {
-                return Some(z);
-            }
+        let z = self.raycast(settings, pos)?;
+
+        if self.intersects_agent(settings, pos.extend(z)) {
+            return None;
         }
 
-        None
+        Some(z)
     }
 
-    pub fn raycast(&self, settings: &NavMeshSettings, pos: Vec2) -> SmallVec<[f32; 8]> {
-        let mut heights = SmallVec::<[f32; 8]>::new();
+    pub fn raycast(&self, settings: &NavMeshSettings, pos: Vec2) -> Option<f32> {
+        let capsule = Capsule::new_z(
+            settings.agent_height * 0.5 - settings.agent_radius,
+            settings.agent_radius,
+        );
 
-        self.query_pipeline.intersections_with_ray(
+        let capsule_pos = Isometry3::translation(
+            pos.x,
+            pos.y,
+            settings.max_world_z + settings.agent_height * 0.5,
+        );
+
+        let (_, toi) = self.query_pipeline.cast_shape(
             &self.rigid_body_set,
             &self.collider_set,
-            &Ray::new(pos.extend(settings.min_world_z).into(), Vec3::Z.into()),
+            &capsule_pos,
+            &(-Vec3::Z).into(),
+            &capsule,
             settings.max_world_z - settings.min_world_z,
             false,
             QueryFilter {
-                groups: Some(CollisionLayers::STATIC_WALKABLE_GROUP.into()),
+                predicate: Some(&|_, collider: &Collider| {
+                    collider
+                        .collision_groups()
+                        .memberships
+                        .contains(CollisionLayers::WALKABLE.into())
+                }),
                 ..default()
             },
-            |_, intersection| {
-                heights.push(settings.min_world_z + intersection.toi);
-                true
-            },
-        );
+        )?;
 
-        heights.sort_by(f32::total_cmp);
-        heights
+        Some(settings.max_world_z - toi.toi + settings.agent_offset)
     }
 
     pub fn intersects_agent(&self, settings: &NavMeshSettings, pos: Vec3) -> bool {
@@ -126,11 +137,8 @@ impl ColliderSet {
             settings.agent_height * 0.5 - settings.agent_radius,
             settings.agent_radius,
         );
-        let capsule_pos = Isometry3::translation(
-            pos.x,
-            pos.y,
-            pos.z + settings.agent_height * 0.5 + settings.agent_offset,
-        );
+
+        let capsule_pos = Isometry3::translation(pos.x, pos.y, pos.z + settings.agent_height * 0.5);
 
         let intersection = self.query_pipeline.intersection_with_shape(
             &self.rigid_body_set,
@@ -138,7 +146,12 @@ impl ColliderSet {
             &capsule_pos,
             &capsule,
             QueryFilter {
-                groups: Some(CollisionLayers::STATIC_GROUP.into()),
+                predicate: Some(&|_, collider: &Collider| {
+                    collider
+                        .collision_groups()
+                        .memberships
+                        .contains(CollisionLayers::STATIC.into())
+                }),
                 ..default()
             },
         );

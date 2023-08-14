@@ -10,7 +10,7 @@ use bevy::window::{PresentMode, WindowResolution};
 use bevy_egui::EguiPlugin;
 use bevy_rapier3d::prelude::*;
 use rg_agent::{AgentPlugin, SpawnCharacter};
-use rg_ai::{actions, AiPlugin, BehaviorTree};
+use rg_ai::AiPlugin;
 use rg_billboard::BillboardPlugin;
 use rg_camera_controller::{CameraController, CameraControllerPlugin};
 use rg_core::{CollisionLayers, PrevTransformPlugin};
@@ -83,7 +83,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>>) {
+fn setup(mut commands: Commands) {
     // light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -122,30 +122,6 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
         DepthPrepass,
         NormalPrepass,
     ));
-
-    // test AI
-    let mut behavior_tree = BehaviorTree::new();
-
-    let sequence = behavior_tree.add_node(actions::SequenceUntilFailure::default());
-
-    let sleep_1 = behavior_tree.add_node(actions::Sleep {
-        duration: Duration::from_secs(1),
-    });
-    let message_1 = behavior_tree.add_node(actions::LogMessage {
-        message: "Hello!".into(),
-    });
-    let sleep_2 = behavior_tree.add_node(actions::Sleep {
-        duration: Duration::from_secs(2),
-    });
-    let message_2 = behavior_tree.add_node(actions::LogMessage {
-        message: "World!".into(),
-    });
-
-    behavior_tree.add_child(sequence, sleep_1);
-    behavior_tree.add_child(sequence, message_1);
-    behavior_tree.add_child(sequence, sleep_2);
-    behavior_tree.add_child(sequence, message_2);
-    commands.spawn((Name::new("Agent"), behavior_trees.add(behavior_tree)));
 }
 
 #[derive(Resource)]

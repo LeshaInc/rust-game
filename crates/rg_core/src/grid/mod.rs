@@ -4,6 +4,8 @@ mod float_grid;
 mod ops;
 mod serde_blob;
 
+use std::path::Path;
+
 use bevy::core::cast_slice;
 use bevy::math::Vec2Swizzles;
 use bevy::prelude::*;
@@ -302,7 +304,7 @@ impl<T> Grid<T> {
 }
 
 impl Grid<[u8; 3]> {
-    pub fn debug_save(&self, path: &str) {
+    pub fn debug_save(&self, path: impl AsRef<Path>) {
         if !cfg!(debug_assertions) {
             return;
         }
@@ -325,7 +327,7 @@ impl Grid<bool> {
         self.map(|_, &v| if v { 1.0 } else { 0.0 })
     }
 
-    pub fn debug_save(&self, path: &str) {
+    pub fn debug_save(&self, path: impl AsRef<Path>) {
         self.to_f32().debug_save(path);
     }
 }

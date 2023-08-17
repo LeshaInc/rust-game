@@ -47,7 +47,7 @@ jobs:
       - name: Prepare package
         run: |
           mkdir ${{ env.NAME }}-linux-x64
-          cp target/x86_64-unknown-linux-gnu/release/${{ env.BINARY }} ${{ env.NAME }}-linux-x64/${{ env.NAME }}
+          cp target/x86_64-unknown-linux-gnu/production/${{ env.BINARY }} ${{ env.NAME }}-linux-x64/${{ env.NAME }}
           cp -r assets ${{ env.NAME }}-linux-x64/
 
       - name: Package as a zip
@@ -91,7 +91,7 @@ jobs:
       - name: Prepare package
         run: |
           mkdir ${{ env.NAME }}-windows-x64
-          cp target/x86_64-pc-windows-msvc/release/${{ env.BINARY }}.exe ${{ env.NAME }}-windows-x64/${{ env.NAME }}.exe
+          cp target/x86_64-pc-windows-msvc/production/${{ env.BINARY }}.exe ${{ env.NAME }}-windows-x64/${{ env.NAME }}.exe
           cp -r assets ${{ env.NAME }}-windows-x64
 
       - name: Package as a zip

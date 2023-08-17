@@ -93,6 +93,7 @@ opt-level = 1
 [profile.dev.package."*"]
 opt-level = 3
 
-[profile.release]
+[profile.production]
+inherits = "release"
 codegen-units = 1
 lto = "thin"

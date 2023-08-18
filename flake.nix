@@ -24,6 +24,7 @@
         devShell = with pkgs; mkShell rec {
           buildInputs = [
             alsa-lib
+            clang
             cargo-criterion
             gnuplot
             lld

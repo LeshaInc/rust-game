@@ -5,6 +5,7 @@ mod noise;
 mod poisson_disc;
 mod prev_transform;
 pub mod progress;
+mod scale;
 mod vec_utils;
 
 use bevy::prelude::*;
@@ -15,6 +16,7 @@ pub use crate::layers::CollisionLayers;
 pub use crate::noise::{FbmNoise, FbmNoiseSettings, Noise, SimplexNoise};
 pub use crate::poisson_disc::PoissonDiscSampling;
 pub use crate::prev_transform::{PrevTransform, PrevTransformPlugin};
+pub use crate::scale::{GameScale, GameScaleSetting, ScalePlugin, UiScale, UiScaleSetting};
 pub use crate::vec_utils::VecToBits;
 
 pub const NEIGHBORHOOD_4: [IVec2; 4] = [

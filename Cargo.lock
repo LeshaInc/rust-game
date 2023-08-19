@@ -3218,6 +3218,7 @@ name = "rg_camera_controller"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "rg_core",
  "rg_pixel_material",
 ]
 
@@ -3226,6 +3227,7 @@ name = "rg_core"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_egui",
  "bevy_rapier3d",
  "bitflags 2.4.0",
  "bytemuck",

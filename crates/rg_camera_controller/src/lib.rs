@@ -6,6 +6,7 @@ use bevy::render::render_resource::{
 };
 use bevy::render::view::NoFrustumCulling;
 use bevy::sprite::Anchor;
+use rg_core::GameScale;
 use rg_pixel_material::GlobalDitherOffset;
 
 pub struct CameraControllerPlugin;
@@ -45,8 +46,6 @@ pub struct CameraController {
 
     pub translation_max_diff_squared: f32,
 
-    /// Screen pixels per camera pixels
-    pub pixel_scale: f32,
     /// Camera meters per pixel
     pub camera_scale: f32,
     pub camera_pitch: f32,
@@ -71,7 +70,6 @@ impl Default for CameraController {
             rotation_snap: 0.003,
             zoom_snap: 0.001,
             translation_max_diff_squared: 2500.0,
-            pixel_scale: 2.0,
             camera_scale: 1.0 / 48.0,
             camera_pitch: 30f32.to_radians(),
             camera_near: 0.1,
@@ -181,6 +179,7 @@ fn update_camera(
     mut q_sprite: Query<&mut Transform, Without<CameraController>>,
     mut dither_offset: ResMut<GlobalDitherOffset>,
     mut images: ResMut<Assets<Image>>,
+    game_scale: Res<GameScale>,
 ) {
     let Ok(window) = q_window.get_single() else {
         return;
@@ -194,6 +193,7 @@ fn update_camera(
 
     let camera_scale = controller.camera_scale / controller.zoom;
     let camera_distance = controller.camera_distance / controller.zoom;
+    let pixel_scale = game_scale.pixels as f32;
 
     let scale = Vec3::new(
         camera_scale.recip(),
@@ -227,13 +227,15 @@ fn update_camera(
 
     camera.target = RenderTarget::Image(blit_target.image.clone());
 
-    let width = (window.physical_width() as f32 / controller.pixel_scale).ceil() as u32 + 2;
-    let height = (window.physical_height() as f32 / controller.pixel_scale).ceil() as u32 + 2;
+    let width = (window.physical_width() as f32 / pixel_scale).ceil() as u32 + 2;
+    let height = (window.physical_height() as f32 / pixel_scale).ceil() as u32 + 2;
     let extent = Extent3d {
         width,
         height,
         ..default()
     };
+
+    let scale_factor = window.scale_factor() as f32;
 
     let Some(image) = images.get_mut(&blit_target.image) else {
         return;
@@ -245,11 +247,13 @@ fn update_camera(
         return;
     };
 
-    sprite_transform.scale = Vec3::splat(controller.pixel_scale);
+    let sprite_scale = pixel_scale / scale_factor;
+
+    sprite_transform.scale = Vec3::splat(sprite_scale);
     sprite_transform.translation = Vec3::new(
-        -window.width() / 2.0 + ((offset.x * scale.x - 0.5) * controller.pixel_scale).round(),
+        -window.width() / 2.0 + ((offset.x * scale.x - 0.5) * sprite_scale).round(),
         window.height() / 2.0
-            + ((offset.z * scale.z + offset.y * scale.y + 1.0) * controller.pixel_scale).round(),
+            + ((offset.z * scale.z + offset.y * scale.y + 1.0) * sprite_scale).round(),
         0.0,
     );
 }

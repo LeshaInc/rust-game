@@ -13,7 +13,7 @@ use rg_agent::{AgentPlugin, SpawnCharacter};
 use rg_ai::AiPlugin;
 use rg_billboard::BillboardPlugin;
 use rg_camera_controller::{CameraController, CameraControllerPlugin};
-use rg_core::{CollisionLayers, PrevTransformPlugin};
+use rg_core::{CollisionLayers, PrevTransformPlugin, ScalePlugin};
 use rg_dev_overlay::DevOverlayPlugin;
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
@@ -34,8 +34,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         present_mode: PresentMode::AutoVsync,
-                        resolution: WindowResolution::new(800., 600.)
-                            .with_scale_factor_override(1.0),
+                        resolution: WindowResolution::new(800., 600.),
                         ..default()
                     }),
                     ..default()
@@ -49,6 +48,7 @@ fn main() {
         .add_plugins(EguiPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(RapierDebugRenderPlugin::default().disabled())
+        .add_plugins(ScalePlugin)
         .add_plugins(PrevTransformPlugin)
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(BillboardPlugin)

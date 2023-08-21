@@ -1,5 +1,3 @@
-#define DITHER_ENABLED
-
 #import bevy_pbr::mesh_vertex_output MeshVertexOutput
 #import bevy_pbr::mesh_bindings mesh
 #import rg::pixel_funcs as pixel
@@ -41,7 +39,7 @@ fn fragment(
     var albedo = textureSample(texture, texture_sampler, uv).rgb;
 
     if abs(in.world_normal.z) < 0.1 {
-        albedo = vec3(0.12, 0.01, 0.01);
+        albedo = vec3(0.04231, 0.02217, 0.01298);
     }
     
     albedo = mix(albedo, albedo * 0.5, f32(is_edge));
@@ -52,9 +50,8 @@ fn fragment(
     pixel_input.mesh_position = in.world_position;
     pixel_input.mesh_normal = in.world_normal;
     pixel_input.mesh_albedo = albedo;
-    pixel_input.bands = 8u;
-    pixel_input.dither = true;
-    pixel_input.dither_offset = material.dither_offset;
+    pixel_input.bands = 32u;
+    pixel_input.dither = false;
     pixel_input.fog_height = material.fog_height;
     
     var out_color = pixel::process_all_lights(pixel_input);

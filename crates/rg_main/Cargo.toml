@@ -3,6 +3,8 @@ name = "rg_main"
 version = "0.1.0"
 edition = "2021"
 
+build = "build.rs"
+
 [dependencies]
 rg_agent = { path = "../rg_agent" }
 rg_ai = { path = "../rg_ai" }
@@ -19,3 +21,6 @@ bevy = { workspace = true }
 bevy_egui = { workspace = true }
 bevy_rapier3d = { workspace = true }
 tracing-tracy = { workspace = true }
+
+[build-dependencies]
+vergen = { workspace = true }

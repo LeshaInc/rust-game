@@ -14,7 +14,7 @@ use rg_ai::AiPlugin;
 use rg_billboard::BillboardPlugin;
 use rg_camera_controller::{CameraController, CameraControllerPlugin};
 use rg_core::{CollisionLayers, PrevTransformPlugin, ScalePlugin};
-use rg_dev_overlay::DevOverlayPlugin;
+use rg_dev_overlay::{DevOverlayPlugin, VersionOverlayPlugin};
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::{ChunkSpawnCenter, TerrainPlugin};
@@ -59,6 +59,10 @@ fn main() {
         .add_plugins(AiPlugin)
         .add_plugins(AgentPlugin)
         .add_plugins(DevOverlayPlugin)
+        .add_plugins(VersionOverlayPlugin {
+            git_describe: env!("VERGEN_GIT_DESCRIBE"),
+            git_commit_date: env!("VERGEN_GIT_COMMIT_DATE"),
+        })
         .insert_resource(ClearColor(Color::rgb_linear(0.5, 0.5, 1.0)))
         .insert_resource(RapierConfiguration {
             gravity: Vec3::Z * -30.0,

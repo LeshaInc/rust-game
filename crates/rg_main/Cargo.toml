@@ -20,7 +20,11 @@ rg_worldgen = { path = "../rg_worldgen" }
 bevy = { workspace = true }
 bevy_egui = { workspace = true }
 bevy_rapier3d = { workspace = true }
-tracing-tracy = { workspace = true }
+tracing-tracy = { optional = true, workspace = true }
 
 [build-dependencies]
 vergen = { workspace = true }
+
+[features]
+default = []
+dev = ["dep:tracing-tracy", "bevy/dynamic_linking", "bevy/trace_tracy"]

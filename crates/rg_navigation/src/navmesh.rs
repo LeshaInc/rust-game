@@ -22,6 +22,7 @@ impl NavMesh {
 
 #[derive(Debug, Component)]
 pub struct NavMeshChunk {
+    pub is_empty: bool,
     pub height_map: Grid<f32>,
     pub connections: Grid<u8>,
     pub triangles: Vec<Triangle>,

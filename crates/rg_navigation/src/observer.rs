@@ -9,7 +9,7 @@ use futures_lite::future;
 
 use crate::collider_set::ColliderSet;
 use crate::generator::generate_chunk;
-use crate::{NavMesh, NavMeshAffector, NavMeshChunk, NavMeshSettings, CHUNK_SIZE};
+use crate::{NavMesh, NavMeshAffector, NavMeshChunk, NavMeshSettings, CHUNK_OVERSCAN, CHUNK_SIZE};
 
 pub struct ObserverPlugin;
 
@@ -66,8 +66,8 @@ fn handle_changed_affectors(
             })
             .scaled(&collider.scale().into());
 
-        let min = Vec3::from(aabb.mins).xy();
-        let max = Vec3::from(aabb.mins).xy();
+        let min = Vec3::from(aabb.mins).xy() - CHUNK_OVERSCAN;
+        let max = Vec3::from(aabb.mins).xy() + CHUNK_OVERSCAN;
 
         let min_chunk = (min / CHUNK_SIZE).floor().as_ivec2();
         let max_chunk = (max / CHUNK_SIZE).floor().as_ivec2();
@@ -155,7 +155,11 @@ fn poll_tasks(mut chunk_tasks: ResMut<ChunkTasks>, mut navmesh: ResMut<NavMesh>)
             return true;
         };
 
-        navmesh.insert_chunks(chunk_pos, chunk);
+        if chunk.is_empty {
+            navmesh.remove_chunk(chunk_pos);
+        } else {
+            navmesh.insert_chunks(chunk_pos, chunk);
+        }
 
         false
     });

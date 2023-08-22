@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::na::Isometry3;
+use bevy_rapier3d::parry::query::Ray;
 use bevy_rapier3d::prelude::{Collider as RapierCollider, RapierContext};
 use bevy_rapier3d::rapier::prelude::{
     Capsule, Collider, ColliderBuilder, ColliderSet as RapierColliderSet, QueryFilter,
@@ -7,7 +8,7 @@ use bevy_rapier3d::rapier::prelude::{
 };
 use rg_core::CollisionLayers;
 
-use crate::{chunk_pos_to_world, NavMeshAffector, NavMeshSettings};
+use crate::{chunk_pos_to_world, NavMeshAffector, NavMeshSettings, CHUNK_OVERSCAN};
 
 pub struct ColliderSet {
     collider_set: RapierColliderSet,
@@ -32,9 +33,9 @@ impl ColliderSet {
     ) -> ColliderSet {
         let mut set = ColliderSet::new();
 
-        let eps = 0.01;
-        let min = (chunk_pos_to_world(chunk_pos) + eps).extend(settings.min_world_z);
-        let max = (chunk_pos_to_world(chunk_pos + IVec2::ONE) - eps).extend(settings.max_world_z);
+        let min = (chunk_pos_to_world(chunk_pos) - CHUNK_OVERSCAN).extend(settings.min_world_z);
+        let max = (chunk_pos_to_world(chunk_pos + IVec2::ONE) + CHUNK_OVERSCAN)
+            .extend(settings.max_world_z);
 
         let shape = RapierCollider::cuboid(
             (max.x - min.x) * 0.5,
@@ -99,6 +100,29 @@ impl ColliderSet {
     }
 
     pub fn raycast(&self, settings: &NavMeshSettings, pos: Vec2) -> Option<f32> {
+        let filter = QueryFilter {
+            predicate: Some(&|_, collider: &Collider| {
+                collider
+                    .collision_groups()
+                    .memberships
+                    .contains(CollisionLayers::WALKABLE.into())
+            }),
+            ..default()
+        };
+
+        let collision = self.query_pipeline.cast_ray(
+            &self.rigid_body_set,
+            &self.collider_set,
+            &Ray::new(pos.extend(settings.max_world_z).into(), (-Vec3::Z).into()),
+            settings.max_world_z - settings.min_world_z,
+            false,
+            filter,
+        );
+
+        if collision.is_none() {
+            return None;
+        }
+
         let capsule = Capsule::new_z(
             settings.agent_height * 0.5 - settings.agent_radius,
             settings.agent_radius,
@@ -118,15 +142,7 @@ impl ColliderSet {
             &capsule,
             settings.max_world_z - settings.min_world_z,
             false,
-            QueryFilter {
-                predicate: Some(&|_, collider: &Collider| {
-                    collider
-                        .collision_groups()
-                        .memberships
-                        .contains(CollisionLayers::WALKABLE.into())
-                }),
-                ..default()
-            },
+            filter,
         )?;
 
         Some(settings.max_world_z - toi.toi + settings.agent_offset)

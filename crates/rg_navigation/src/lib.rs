@@ -15,6 +15,7 @@ use crate::observer::ObserverPlugin;
 
 pub const CHUNK_SIZE: f32 = 16.0;
 pub const CHUNK_CELLS: u32 = 64;
+pub const CHUNK_OVERSCAN: f32 = 1.0;
 
 pub struct NavigationPlugin;
 
@@ -56,7 +57,7 @@ impl Default for NavMeshSettings {
             climb_height: 1.0,
             agent_height: 1.8,
             agent_radius: 0.3,
-            agent_offset: 0.01,
+            agent_offset: 0.05,
         }
     }
 }

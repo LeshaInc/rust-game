@@ -21,12 +21,24 @@ pub fn generate_chunk(
     let _span = info_span!("generate_chunk").entered();
 
     let height_map = generate_height_map(settings, colliders, chunk_pos);
+    let is_empty = height_map.values().all(|v| v.is_nan());
+
+    if is_empty {
+        return NavMeshChunk {
+            is_empty: true,
+            connections: Grid::new(height_map.size(), 0),
+            height_map,
+            triangles: Vec::new(),
+        };
+    }
+
     let connections = generate_connections(settings, &height_map);
     let mut edges = generate_edges(&connections);
     sort_edges(&mut edges);
     let triangles = triangulate(&edges);
 
     NavMeshChunk {
+        is_empty: false,
         height_map,
         connections,
         triangles,

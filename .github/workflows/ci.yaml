@@ -64,7 +64,8 @@ jobs:
       - name: Prepare package
         run: |
           mkdir ${{ env.NAME }}-${{ matrix.target }}
-          cp target/x86_64-unknown-linux-gnu/production/${{ env.BINARY }}{,.exe} ${{ env.NAME }}-${{ matrix.target }}/${{ env.NAME }} ||:
+          cp target/x86_64-unknown-linux-gnu/production/${{ env.BINARY }}  ${{ env.NAME }}-${{ matrix.target }}/${{ env.NAME }} ||:
+          cp target/x86_64-pc-windows-gnu/production/${{ env.BINARY }}.exe ${{ env.NAME }}-${{ matrix.target }}/${{ env.NAME }}.exe ||:
           cp -r assets ${{ env.NAME }}-${{ matrix.target }}/
 
       - name: Package as a zip

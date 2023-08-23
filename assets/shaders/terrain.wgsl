@@ -26,11 +26,24 @@ fn fragment(
     let uv = (in.world_position.xy * 2.0) % 1.0;
     var albedo = textureSample(texture, texture_sampler, uv, tile).rgb;
 
+    let wall_color = vec3(0.04231, 0.02217, 0.01298);
+
+    var dither_matrix = mat4x4<f32>(
+        vec4<f32>( 0.0 / 16.0, 12.0 / 16.0,  3.0 / 16.0, 15.0 / 16.0),
+        vec4<f32>( 8.0 / 16.0,  4.0 / 16.0, 11.0 / 16.0,  7.0 / 16.0),
+        vec4<f32>( 2.0 / 16.0, 14.0 / 16.0,  1.0 / 16.0, 13.0 / 16.0),
+        vec4<f32>(10.0 / 16.0,  6.0 / 16.0,  9.0 / 16.0,  5.0 / 16.0)
+    );
+
+    let idx = (vec2<u32>(in.position.xy) + material.dither_offset) % 4u;
+    let bayer = dither_matrix[idx.x][idx.y];
+
     if abs(in.world_normal.z) < 0.1 {
-        albedo = vec3(0.04231, 0.02217, 0.01298);
-    }
-    
-    albedo *= 1.0 - smoothstep(0.5, 1.0, in.color.x) * 0.5;
+        albedo = wall_color;
+    } else {
+        let fac = 1.0 - smoothstep(0.4, 0.9, in.color.x) * 1.0;
+        albedo = mix(wall_color, albedo, f32(fac > bayer));
+    };
 
     var pixel_input: pixel::PixelInput;
     pixel_input.frag_coord = in.position;

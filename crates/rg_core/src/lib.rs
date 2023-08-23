@@ -1,3 +1,4 @@
+mod array_texture;
 mod deserialized_resource;
 mod grid;
 mod layers;
@@ -10,6 +11,7 @@ mod vec_utils;
 
 use bevy::prelude::*;
 
+pub use crate::array_texture::{ArrayTexturePlugin, BuildArrayTexture};
 pub use crate::deserialized_resource::{DeserializedResource, DeserializedResourcePlugin};
 pub use crate::grid::{EdtSettings, Grid};
 pub use crate::layers::CollisionLayers;

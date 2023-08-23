@@ -1,9 +1,11 @@
+use bevy::asset::HandleId;
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::{
     AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat,
 };
+use rg_core::BuildArrayTexture;
 use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight};
 
 use crate::{Chunk, SharedChunkMaps};
@@ -30,7 +32,7 @@ pub struct TerrainMaterial {
     pub dither_offset: UVec2,
     #[uniform(0)]
     pub fog_height: f32,
-    #[texture(1)]
+    #[texture(1, dimension = "2d_array")]
     #[sampler(2)]
     pub texture: Handle<Image>,
     #[texture(3, sample_type = "u_int")]
@@ -97,6 +99,16 @@ impl FromWorld for SurfaceMaterials {
         let (asset_server, mut terrain_materials, mut water_materials, mut images) =
             system_state.get_mut(world);
 
+        let texture = images.get_handle(HandleId::random::<Image>());
+
+        let build_array_texture = BuildArrayTexture {
+            target: texture.clone(),
+            layers: vec![
+                asset_server.load("images/tiles/grass.png"),
+                asset_server.load("images/tiles/sand.png"),
+            ],
+        };
+
         let tile_map = images.add(Image::new_fill(
             Extent3d::default(),
             TextureDimension::D2,
@@ -104,15 +116,18 @@ impl FromWorld for SurfaceMaterials {
             TextureFormat::R8Uint,
         ));
 
-        Self {
-            terrain: terrain_materials.add(TerrainMaterial {
-                dither_offset: UVec2::ZERO,
-                fog_height: 0.0,
-                texture: asset_server.load("images/tiles/terrain.png"),
-                tile_map,
-            }),
-            water: water_materials.add(WaterMaterial { fog_height: 0.0 }),
-        }
+        let terrain = terrain_materials.add(TerrainMaterial {
+            dither_offset: UVec2::ZERO,
+            fog_height: 0.0,
+            texture,
+            tile_map,
+        });
+
+        let water = water_materials.add(WaterMaterial { fog_height: 0.0 });
+
+        world.spawn(build_array_texture);
+
+        Self { terrain, water }
     }
 }
 

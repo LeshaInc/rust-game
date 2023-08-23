@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bytemuck::cast_slice;
 
+use std::path::Path;
+
 use crate::{Grid, Noise};
 
 impl Grid<f32> {
@@ -81,7 +83,7 @@ impl Grid<f32> {
         }
     }
 
-    pub fn debug_save(&self, path: &str) {
+    pub fn debug_save(&self, path: impl AsRef<Path>) {
         if !cfg!(debug_assertions) {
             return;
         }

@@ -1,5 +1,6 @@
 target/
 *.pdb
+.direnv
 
 # Krita temp files
 *~

@@ -3,6 +3,8 @@ name = "rg_main"
 version = "0.1.0"
 edition = "2021"
 
+build = "build.rs"
+
 [dependencies]
 rg_agent = { path = "../rg_agent" }
 rg_ai = { path = "../rg_ai" }
@@ -10,7 +12,6 @@ rg_billboard = { path = "../rg_billboard" }
 rg_camera_controller = { path = "../rg_camera_controller" }
 rg_core = { path = "../rg_core" }
 rg_dev_overlay = { path = "../rg_dev_overlay" }
-# rg_navigation = { path = "../rg_navigation" }
 rg_pixel_material = { path = "../rg_pixel_material" }
 rg_terrain = { path = "../rg_terrain" }
 rg_worldgen = { path = "../rg_worldgen" }
@@ -18,4 +19,11 @@ rg_worldgen = { path = "../rg_worldgen" }
 bevy = { workspace = true }
 bevy_egui = { workspace = true }
 bevy_xpbd_3d = { workspace = true }
-tracing-tracy = { workspace = true }
+tracing-tracy = { optional = true, workspace = true }
+
+[build-dependencies]
+vergen = { workspace = true }
+
+[features]
+default = []
+dev = ["dep:tracing-tracy", "bevy/dynamic_linking", "bevy/trace_tracy"]

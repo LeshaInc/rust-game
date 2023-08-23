@@ -8,7 +8,6 @@ use crate::Grid;
 
 const MAX_KERNEL_SIZE: usize = 63;
 const MIN_SIGMA: f32 = 0.1;
-const MIN_SIGMA_DIFF: f32 = 0.1;
 
 impl Grid<f32> {
     pub fn blur(&mut self, kernel_size: i32) {
@@ -74,15 +73,12 @@ impl Grid<f32> {
         });
     }
 
-    pub fn variable_gaussian_blur(&mut self, sigma_map: &Grid<f32>) {
-        let min_sigma = sigma_map.min_value();
-        let max_sigma = sigma_map.max_value();
-
-        if max_sigma - min_sigma < MIN_SIGMA_DIFF {
-            self.gaussian_blur(max_sigma);
-            return;
-        }
-
+    pub fn variable_gaussian_blur(
+        &mut self,
+        sigma_map: &Grid<f32>,
+        min_sigma: f32,
+        max_sigma: f32,
+    ) {
         let num_kernels = 256;
         let sigma_step = (max_sigma - min_sigma) / (num_kernels as f32);
 

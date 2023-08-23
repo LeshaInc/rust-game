@@ -10,11 +10,11 @@ use bevy::window::{PresentMode, WindowResolution};
 use bevy_egui::EguiPlugin;
 use bevy_xpbd_3d::prelude::*;
 use rg_agent::{AgentPlugin, SpawnCharacter};
-use rg_ai::{actions, AiPlugin, BehaviorTree};
+use rg_ai::AiPlugin;
 use rg_billboard::BillboardPlugin;
 use rg_camera_controller::{CameraController, CameraControllerPlugin};
-use rg_core::{CollisionLayer, PrevTransformPlugin};
-use rg_dev_overlay::DevOverlayPlugin;
+use rg_core::{CollisionLayer, PrevTransformPlugin, ScalePlugin};
+use rg_dev_overlay::{DevOverlayPlugin, VersionOverlayPlugin};
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
 use rg_terrain::{ChunkSpawnCenter, TerrainPlugin};
 use rg_worldgen::{WorldSeed, WorldgenPlugin, WorldgenState};
@@ -33,8 +33,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         present_mode: PresentMode::AutoVsync,
-                        resolution: WindowResolution::new(800., 600.)
-                            .with_scale_factor_override(1.0),
+                        resolution: WindowResolution::new(800., 600.),
                         ..default()
                     }),
                     ..default()
@@ -47,6 +46,7 @@ fn main() {
         )
         .add_plugins(EguiPlugin)
         .add_plugins(PhysicsPlugins::default())
+        .add_plugins(ScalePlugin)
         .add_plugins(PrevTransformPlugin)
         .add_plugins(PixelMaterialPlugin)
         .add_plugins(BillboardPlugin)
@@ -56,6 +56,10 @@ fn main() {
         .add_plugins(AiPlugin)
         .add_plugins(AgentPlugin)
         .add_plugins(DevOverlayPlugin)
+        .add_plugins(VersionOverlayPlugin {
+            git_describe: env!("VERGEN_GIT_DESCRIBE"),
+            git_commit_date: env!("VERGEN_GIT_COMMIT_DATE"),
+        })
         .insert_resource(ClearColor(Color::rgb_linear(0.5, 0.5, 1.0)))
         .insert_resource(Msaa::Off)
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
@@ -77,7 +81,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>>) {
+fn setup(mut commands: Commands) {
     // light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -116,30 +120,6 @@ fn setup(mut commands: Commands, mut behavior_trees: ResMut<Assets<BehaviorTree>
         DepthPrepass,
         NormalPrepass,
     ));
-
-    // test AI
-    let mut behavior_tree = BehaviorTree::new();
-
-    let sequence = behavior_tree.add_node(actions::SequenceUntilFailure::default());
-
-    let sleep_1 = behavior_tree.add_node(actions::Sleep {
-        duration: Duration::from_secs(1),
-    });
-    let message_1 = behavior_tree.add_node(actions::LogMessage {
-        message: "Hello!".into(),
-    });
-    let sleep_2 = behavior_tree.add_node(actions::Sleep {
-        duration: Duration::from_secs(2),
-    });
-    let message_2 = behavior_tree.add_node(actions::LogMessage {
-        message: "World!".into(),
-    });
-
-    behavior_tree.add_child(sequence, sleep_1);
-    behavior_tree.add_child(sequence, message_1);
-    behavior_tree.add_child(sequence, sleep_2);
-    behavior_tree.add_child(sequence, message_2);
-    commands.spawn((Name::new("Agent"), behavior_trees.add(behavior_tree)));
 }
 
 #[derive(Resource)]

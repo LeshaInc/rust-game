@@ -1,3 +1,5 @@
+mod version_overlay;
+
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::plot::{Line, Plot};
@@ -5,6 +7,8 @@ use bevy_egui::egui::{self, pos2, Color32, Frame, Rounding};
 use bevy_egui::EguiContext;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_xpbd_3d::prelude::*;
+
+pub use crate::version_overlay::VersionOverlayPlugin;
 
 pub struct DevOverlayPlugin;
 
@@ -54,6 +58,7 @@ pub struct DevOverlaySettings {
     pub show_inspector: bool,
     pub show_frame_statistics: bool,
     pub show_navmesh: bool,
+    pub show_navmesh_heightmap: bool,
     pub show_colliders: bool,
 }
 
@@ -159,6 +164,10 @@ fn ui_settings(
         ui.checkbox(&mut settings.show_frame_statistics, "Show frame statistics");
         ui.checkbox(&mut gizmo_config.aabb.draw_all, "Show bounding boxes");
         ui.checkbox(&mut settings.show_navmesh, "Show navigation mesh");
+        ui.checkbox(
+            &mut settings.show_navmesh_heightmap,
+            "Show navigation mesh heightmap",
+        );
         ui.checkbox(&mut settings.show_colliders, "Show colliders");
     });
 }

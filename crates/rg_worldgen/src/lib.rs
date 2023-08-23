@@ -128,8 +128,9 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
     let seed = seed.0;
     let settings = *settings;
 
+    let tmp_dir = std::env::temp_dir();
     let (progress_reader, mut progress) = new_progress_tracker(
-        cfg!(debug_assertions).then(|| "/tmp/worldgen_progress.bin"),
+        cfg!(debug_assertions).then(|| tmp_dir.join("worldgen_progress.bin")),
         Some(include_bytes!("progress.bin")),
     );
 
@@ -138,10 +139,11 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
     let task = pool.spawn(async move {
         let _scope = info_span!("worldgen").entered();
 
-        let path = Path::new("/tmp/world.bin");
+        let tmp_dir = &tmp_dir;
+        let path = tmp_dir.join("world.bin");
 
         if path.exists() {
-            match WorldMaps::load("/tmp/world.bin") {
+            match WorldMaps::load(&path) {
                 Ok(world_maps) => return world_maps,
                 Err(e) => {
                     warn!("{e:?}");
@@ -206,14 +208,14 @@ fn schedule_task(seed: Res<WorldSeed>, settings: Res<WorldgenSettings>, mut comm
                 for (name, grid) in maps {
                     let task = &task;
                     s.spawn(move |_| {
-                        grid.debug_save(&format!("/tmp/{name}.png"));
+                        grid.debug_save(tmp_dir.join(format!("{name}.png")));
                         task.subtask_completed();
                     });
                 }
             });
         });
 
-        saving_stage.task(|| topographic_map.debug_save("/tmp/topographic_map.png"));
+        saving_stage.task(|| topographic_map.debug_save(tmp_dir.join("topographic_map.png")));
 
         let world_maps = WorldMaps {
             seed,

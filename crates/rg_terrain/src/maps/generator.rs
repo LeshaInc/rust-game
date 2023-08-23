@@ -82,7 +82,7 @@ fn generate_height_map(
         height
     });
 
-    height_map.variable_gaussian_blur(&blur_map);
+    height_map.variable_gaussian_blur(&blur_map, 1.0, 6.0);
 
     for (cell, height) in height_map.entries_mut() {
         let pos = tile_pos_to_world(chunk_pos, cell);

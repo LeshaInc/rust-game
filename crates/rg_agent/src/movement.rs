@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 use rg_core::CollisionLayer;
@@ -48,15 +49,16 @@ impl Default for MovementBundle {
     }
 }
 
-#[derive(Debug, Default, Component)]
+#[derive(Copy, Clone, Debug, Default, Component)]
 pub struct MovementInput {
     pub direction: Vec2,
     pub jump: bool,
 }
 
-#[derive(Debug, Default, Component)]
+#[derive(Copy, Clone, Debug, Default, Component)]
 pub struct MovementState {
     pub velocity: Vec3,
+    pub jump_time: f32,
 }
 
 fn handle_movement_input(
@@ -77,7 +79,11 @@ fn handle_movement_input(
     let step_height = 0.3;
     let gravity = 30.0;
     let speed = 6.0;
-    let jump_velocity = 8.0;
+    let jump_velocity = 5.0;
+    let jump_time = 0.3;
+    let jump_acceleration = 5.0;
+    let air_acceleration = 30.0;
+    let ground_acceleration = 300.0;
 
     for (entity, input, mut state, collider, mut out_position) in &mut q_agents {
         let mut velocity = state.velocity;
@@ -103,18 +109,34 @@ fn handle_movement_input(
         let is_grounded = shape_cast(position, -Vec3::Z, 2.0 * offset).is_some();
         let enable_stepping = is_grounded && !input.jump;
 
-        if input.direction.abs_diff_eq(Vec2::ZERO, 1e-3) {
-            velocity.x = 0.0;
-            velocity.y = 0.0;
+        let acceleration = if is_grounded {
+            ground_acceleration
         } else {
-            velocity.x = input.direction.x * speed;
-            velocity.y = input.direction.y * speed;
-        }
+            air_acceleration
+        };
+
+        let velocity_target = input.direction * speed;
+        let change = velocity_target - velocity.xy();
+        let impulse = change.normalize_or_zero() * change.length().min(acceleration * dt);
+        velocity.x += impulse.x;
+        velocity.y += impulse.y;
 
         if is_grounded {
-            velocity.z = if input.jump { jump_velocity } else { 0.0 };
+            if input.jump {
+                velocity.z = jump_velocity;
+                state.jump_time = jump_time;
+            } else {
+                velocity.z = 0.0;
+                state.jump_time = 0.0;
+            }
         } else {
-            velocity.z -= gravity * dt;
+            if input.jump && state.jump_time > 0.0 {
+                velocity.z += jump_acceleration * dt;
+                state.jump_time -= dt;
+            } else {
+                velocity.z -= gravity * dt;
+                state.jump_time = 0.0;
+            }
         }
 
         if enable_stepping {

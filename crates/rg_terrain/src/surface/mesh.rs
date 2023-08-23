@@ -1,4 +1,4 @@
-use bevy::math::{ivec2, uvec2, vec2, vec3, Vec3Swizzles};
+use bevy::math::{ivec2, vec2, vec3, Vec3Swizzles};
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::utils::HashMap;
@@ -76,12 +76,8 @@ impl MeshGenerator<'_> {
         self.generate_cells();
         self.compute_colors();
         self.snap_normals();
-        self.merge_quads(16);
-        self.merge_quads(8);
-        self.merge_quads(4);
-        self.merge_quads(2);
-        self.remove_rejected_triangles();
         self.cleanup_triangles();
+        self.remove_rejected_triangles();
         self.deduplicate();
         self.apply_scale();
 
@@ -328,76 +324,6 @@ impl MeshGenerator<'_> {
             let grad = self.height_map.sample_grad(pos.xy());
             let target_normal = vec3(-grad.x, -grad.y, 1.0 * TILE_SIZE).normalize();
             *normal = (*normal * 0.7 + target_normal * 0.3).normalize();
-        }
-    }
-
-    fn merge_quads(&mut self, size: usize) {
-        let _span = info_span!("merge_quads", size).entered();
-
-        let origins = (0..CHUNK_TILES).step_by(size).flat_map(move |x| {
-            (0..CHUNK_TILES)
-                .step_by(size)
-                .map(move |y| uvec2(x, y).as_ivec2())
-        });
-
-        'next_group: for origin in origins {
-            let cells = (origin.x..origin.x + size as i32)
-                .flat_map(move |x| (origin.y..origin.y + size as i32).map(move |y| ivec2(x, y)));
-
-            let mut group_z = None;
-
-            for cell in cells.clone() {
-                let [start_vertex, end_vertex] = self.cell_vertices[cell];
-                if end_vertex - start_vertex != 4 {
-                    continue 'next_group;
-                }
-
-                let z = self.positions[start_vertex].z;
-                if let Some(group_z) = group_z {
-                    if z != group_z {
-                        continue 'next_group;
-                    }
-                } else {
-                    group_z = Some(z);
-                }
-
-                if self.positions[start_vertex + 1..end_vertex]
-                    .iter()
-                    .any(|pos| pos.z != z)
-                {
-                    continue 'next_group;
-                }
-            }
-
-            for cell in cells {
-                let [start_idx, end_idx] = self.cell_indices[cell];
-                for idx in &mut self.indices[start_idx..end_idx] {
-                    *idx = u32::MAX;
-                }
-                self.cell_indices[cell] = [0, 0];
-                self.cell_vertices[cell] = [0, 0];
-            }
-
-            let Some(group_z) = group_z else {
-                continue;
-            };
-
-            let idx = self.positions.len() as u32;
-
-            for pos in [
-                ivec2(0, 0),
-                ivec2(size as i32, 0),
-                ivec2(size as i32, size as i32),
-                ivec2(0, size as i32),
-            ] {
-                self.positions
-                    .push((origin + pos).as_vec2().extend(group_z));
-                self.normals.push(Vec3::Z);
-                self.colors.push(Vec4::ZERO);
-            }
-
-            self.indices
-                .extend([idx, idx + 1, idx + 2, idx, idx + 2, idx + 3]);
         }
     }
 

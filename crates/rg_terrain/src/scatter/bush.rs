@@ -88,7 +88,7 @@ impl ScatterPrototype for BushPrototype {
                 // crown collider
                 commands.spawn((
                     TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.25)),
-                    Collider::ball(0.3),
+                    Collider::ball(0.5),
                 ));
                 fun_name();
             })

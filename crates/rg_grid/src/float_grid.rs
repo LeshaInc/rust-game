@@ -1,23 +1,11 @@
+use std::path::Path;
+
 use bevy::prelude::*;
 use bytemuck::cast_slice;
 
-use std::path::Path;
-
-use crate::{Grid, Noise};
+use crate::Grid;
 
 impl Grid<f32> {
-    pub fn from_noise<N: Noise<1> + Sync>(size: UVec2, origin: IVec2, noise: &N) -> Grid<f32> {
-        Grid::par_from_fn_with_origin(size, origin, |cell| noise.get(cell.as_vec2())[0])
-    }
-
-    pub fn add_noise<N: Noise<1> + Sync>(&mut self, noise: &N) {
-        let _scope = info_span!("add_noise").entered();
-
-        self.par_map_inplace(|cell, value| {
-            *value += noise.get(cell.as_vec2())[0];
-        });
-    }
-
     pub fn sample(&self, pos: Vec2) -> f32 {
         let ipos = pos.as_ivec2();
         let fpos = pos - ipos.as_vec2();

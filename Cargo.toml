@@ -2,6 +2,11 @@
 resolver = "2"
 
 members = [
+  "crates/rg_grid",
+  "crates/rg_noise",
+
+  "crates/rg_core",
+
   "crates/rg_agent",
   "crates/rg_ai",
   "crates/rg_billboard",

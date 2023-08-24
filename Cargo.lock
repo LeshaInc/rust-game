@@ -3265,6 +3265,8 @@ dependencies = [
  "rand",
  "rand_pcg",
  "rayon",
+ "rg_grid",
+ "rg_noise",
  "rmp-serde",
  "ron",
  "serde",
@@ -3280,6 +3282,19 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_egui",
  "bevy_rapier3d",
+]
+
+[[package]]
+name = "rg_grid"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bytemuck",
+ "image",
+ "rayon",
+ "serde",
+ "smallvec",
+ "zstd",
 ]
 
 [[package]]
@@ -3314,6 +3329,15 @@ dependencies = [
  "rg_dev_overlay",
  "smallvec",
  "spade",
+]
+
+[[package]]
+name = "rg_noise"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "rand",
+ "serde",
 ]
 
 [[package]]

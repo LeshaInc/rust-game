@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use rayon::prelude::*;
 
-use super::Grid;
+use crate::Grid;
 
 impl Grid<bool> {
     pub fn compute_edt(&self, settings: EdtSettings) -> Grid<f32> {

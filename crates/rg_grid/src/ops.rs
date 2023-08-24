@@ -2,7 +2,7 @@ use std::ops::*;
 
 use bevy::prelude::*;
 
-use super::Grid;
+use crate::Grid;
 
 type Type = IVec2;
 

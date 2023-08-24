@@ -6,15 +6,31 @@ mod serde_blob;
 
 use std::path::Path;
 
-use bevy::core::cast_slice;
 use bevy::math::Vec2Swizzles;
 use bevy::prelude::*;
-use bytemuck::{CheckedBitPattern, NoUninit};
+use bytemuck::{cast_slice, CheckedBitPattern, NoUninit};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-pub use self::edt::EdtSettings;
-use crate::{NEIGHBORHOOD_4, NEIGHBORHOOD_8};
+pub use crate::edt::EdtSettings;
+
+pub const NEIGHBORHOOD_4: [IVec2; 4] = [
+    IVec2::new(0, -1),
+    IVec2::new(1, 0),
+    IVec2::new(0, 1),
+    IVec2::new(-1, 0),
+];
+
+pub const NEIGHBORHOOD_8: [IVec2; 8] = [
+    IVec2::new(0, -1),
+    IVec2::new(1, -1),
+    IVec2::new(1, 0),
+    IVec2::new(1, 1),
+    IVec2::new(0, 1),
+    IVec2::new(-1, 1),
+    IVec2::new(-1, 0),
+    IVec2::new(-1, -1),
+];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(serialize = "T: NoUninit", deserialize = "T: CheckedBitPattern"))]

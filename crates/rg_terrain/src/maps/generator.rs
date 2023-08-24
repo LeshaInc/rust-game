@@ -55,13 +55,13 @@ fn generate_height_map(
     let origin = -IVec2::splat(overscan as i32);
 
     let blur_map = Grid::from_fn_with_origin(size, origin, |cell| {
-        let pos = tile_pos_to_world(chunk_pos, cell);
+        let pos = tile_pos_to_world(IVec2::ZERO, chunk_pos, cell);
         let noise = world_maps.noise_maps.island.get(pos)[0];
         5.0 * (2.0 * noise - 1.0).max(0.0) + 1.0
     });
 
     let mut height_map = Grid::from_fn_with_origin(size, origin, |cell| {
-        let pos = tile_pos_to_world(chunk_pos, cell);
+        let pos = tile_pos_to_world(IVec2::ZERO, chunk_pos, cell);
 
         let mut height = world_maps.height_map.sample(pos / WORLD_SCALE);
         let shore = world_maps.shore_map.sample(pos / WORLD_SCALE);
@@ -85,7 +85,7 @@ fn generate_height_map(
     height_map.variable_gaussian_blur(&blur_map, 1.0, 6.0);
 
     for (cell, height) in height_map.entries_mut() {
-        let pos = tile_pos_to_world(chunk_pos, cell);
+        let pos = tile_pos_to_world(IVec2::ZERO, chunk_pos, cell);
         let river = world_maps.river_map.sample(pos / WORLD_SCALE);
         *height -= river * settings.river_depth;
     }
@@ -106,7 +106,7 @@ fn generate_tile_map(
             return Tile::Sand;
         }
 
-        let pos = tile_pos_to_world(chunk_pos, cell);
+        let pos = tile_pos_to_world(IVec2::ZERO, chunk_pos, cell);
         let river = world_maps.river_map.sample(pos / WORLD_SCALE);
 
         if river > 0.1 {
@@ -136,7 +136,7 @@ fn generate_grass_density_map(
             }
         }
 
-        let pos = tile_pos_to_world(chunk_pos, cell);
+        let pos = tile_pos_to_world(IVec2::ZERO, chunk_pos, cell);
         world_maps.noise_maps.grass.get(pos)[0]
     })
 }
@@ -149,7 +149,7 @@ fn generate_water_map(chunk_pos: IVec2, world_maps: &WorldMaps) -> Grid<f32> {
     let origin = -IVec2::splat(overscan as i32);
 
     Grid::from_fn_with_origin(size, origin, |cell| {
-        let pos = tile_pos_to_world(chunk_pos, cell);
+        let pos = tile_pos_to_world(IVec2::ZERO, chunk_pos, cell);
         let river = world_maps.river_map.sample(pos / WORLD_SCALE);
         let height = world_maps.height_map.sample(pos / WORLD_SCALE);
 

@@ -14,17 +14,21 @@ impl Plugin for ChunkPlugin {
             .init_resource::<ChunkSpawnCenter>()
             .init_resource::<ChunkSpawnRadius>()
             .init_resource::<ChunkDespawnRadius>()
+            .insert_resource(WorldOrigin(IVec2::new(60, 120)))
             .add_systems(PreUpdate, spawn_chunks)
             .add_systems(PostUpdate, despawn_chunks);
     }
 }
 
-pub fn chunk_pos_to_world(chunk: IVec2) -> Vec2 {
-    chunk.as_vec2() * CHUNK_SIZE
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Resource)]
+pub struct WorldOrigin(pub IVec2);
+
+pub fn chunk_pos_to_world(origin: IVec2, chunk: IVec2) -> Vec2 {
+    (chunk - origin).as_vec2() * CHUNK_SIZE
 }
 
-pub fn tile_pos_to_world(chunk: IVec2, tile: IVec2) -> Vec2 {
-    chunk.as_vec2() * CHUNK_SIZE + tile.as_vec2() * TILE_SIZE
+pub fn tile_pos_to_world(origin: IVec2, chunk: IVec2, tile: IVec2) -> Vec2 {
+    (chunk - origin).as_vec2() * CHUNK_SIZE + tile.as_vec2() * TILE_SIZE
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Component)]
@@ -97,6 +101,7 @@ fn spawn_chunks(
     parent: Option<Res<ChunksParent>>,
     center: Res<ChunkSpawnCenter>,
     radius: Res<ChunkSpawnRadius>,
+    origin: Res<WorldOrigin>,
 ) {
     let parent = match parent {
         Some(v) => v.0,
@@ -115,14 +120,15 @@ fn spawn_chunks(
 
     let center = center.0;
     let radius = radius.0;
+    let origin = origin.0;
 
-    let chunk_center = (center / CHUNK_SIZE).round().as_ivec2();
+    let chunk_center = origin + (center / CHUNK_SIZE).round().as_ivec2();
     let chunk_dist = (Vec2::new(radius, radius) / CHUNK_SIZE).ceil().as_ivec2();
 
     for sx in -chunk_dist.x..=chunk_dist.x {
         for sy in -chunk_dist.y..=chunk_dist.y {
             let chunk_pos = chunk_center + IVec2::new(sx, sy);
-            let chunk_center = (chunk_pos.as_vec2() + Vec2::splat(0.5)) * CHUNK_SIZE;
+            let chunk_center = ((chunk_pos - origin).as_vec2() + Vec2::splat(0.5)) * CHUNK_SIZE;
 
             if chunk_center.distance_squared(center) > radius.powi(2) {
                 continue;
@@ -137,7 +143,7 @@ fn spawn_chunks(
                     Name::new("Chunk"),
                     Chunk,
                     ChunkPos(chunk_pos),
-                    Transform::from_translation(chunk_pos_to_world(chunk_pos).extend(0.0)),
+                    Transform::from_translation(chunk_pos_to_world(origin, chunk_pos).extend(0.0)),
                     GlobalTransform::default(),
                     Visibility::Visible,
                     ComputedVisibility::default(),
@@ -155,12 +161,14 @@ fn despawn_chunks(
     mut commands: Commands,
     center: Res<ChunkSpawnCenter>,
     radius: Res<ChunkDespawnRadius>,
+    origin: Res<WorldOrigin>,
 ) {
     let center = center.0;
     let radius = radius.0;
+    let origin = origin.0;
 
     chunks.retain(|chunk_pos, chunk| {
-        let chunk_center = (chunk_pos.as_vec2() + Vec2::splat(0.5)) * CHUNK_SIZE;
+        let chunk_center = ((chunk_pos - origin).as_vec2() + Vec2::splat(0.5)) * CHUNK_SIZE;
 
         if chunk_center.distance_squared(center) > radius.powi(2) {
             commands.entity(chunk).despawn_recursive();

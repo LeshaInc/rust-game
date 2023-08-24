@@ -14,7 +14,7 @@ use rg_worldgen::{SharedWorldMaps, WorldMaps, WorldSeed};
 use self::bush::BushPrototype;
 use self::tree::TreePrototype;
 use crate::chunk::ChunkFullyLoaded;
-use crate::{chunk_pos_to_world, Chunk, ChunkPos, ChunkSpawnCenter, CHUNK_SIZE};
+use crate::{chunk_pos_to_world, Chunk, ChunkPos, ChunkSpawnCenter, WorldOrigin, CHUNK_SIZE};
 
 pub struct ScatterPlugins;
 
@@ -75,6 +75,7 @@ struct ChunkScattered<T>(PhantomData<T>);
 fn scatter<T: ScatterPrototype>(
     q_chunks: Query<(Entity, &ChunkPos), (With<Chunk>, With<Collider>, Without<ChunkScattered<T>>)>,
     seed: Res<WorldSeed>,
+    origin: Res<WorldOrigin>,
     world_maps: Res<SharedWorldMaps>,
     prototype: Res<T>,
     physics_context: Res<RapierContext>,
@@ -82,6 +83,7 @@ fn scatter<T: ScatterPrototype>(
     mut commands: Commands,
 ) {
     let spawn_center = spawn_center.0;
+    let origin = origin.0;
 
     let Some((chunk_id, chunk_pos)) = q_chunks.iter().min_by(|a, b| {
         let a = spawn_center.distance_squared(((a.1).0.as_vec2() + Vec2::splat(0.5)) * CHUNK_SIZE);
@@ -108,14 +110,16 @@ fn scatter<T: ScatterPrototype>(
     let mut children = Vec::new();
 
     for pos in points {
-        let global_pos = chunk_pos_to_world(chunk_pos.0) + pos;
+        let global_pos = chunk_pos_to_world(IVec2::ZERO, chunk_pos.0) + pos;
         let density = prototype.density(&world_maps, global_pos);
         if !rng.gen_bool(density as f64) {
             continue;
         }
 
+        let relative_pos = chunk_pos_to_world(origin, chunk_pos.0) + pos;
+
         let Some((_, toi)) = physics_context.cast_ray(
-            global_pos.extend(1000.0),
+            relative_pos.extend(1000.0),
             -Vec3::Z,
             2000.0,
             false,

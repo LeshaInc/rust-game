@@ -17,7 +17,7 @@ use rg_core::{ArrayTexturePlugin, CollisionLayers, PrevTransformPlugin, ScalePlu
 use rg_dev_overlay::{DevOverlayPlugin, VersionOverlayPlugin};
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
-use rg_terrain::{ChunkSpawnCenter, TerrainPlugin};
+use rg_terrain::{ChunkSpawnCenter, TerrainPlugin, WorldOrigin, CHUNK_SIZE};
 use rg_worldgen::{WorldSeed, WorldgenPlugin, WorldgenState};
 
 fn main() {
@@ -132,8 +132,12 @@ fn setup(mut commands: Commands) {
 #[derive(Resource)]
 struct CharacterSpawned;
 
-fn spawn_character(physics_context: Res<RapierContext>, mut commands: Commands) {
-    let pos = Vec3::new(1024.0, 2048.0, 100.0);
+fn spawn_character(
+    origin: Res<WorldOrigin>,
+    physics_context: Res<RapierContext>,
+    mut commands: Commands,
+) {
+    let pos = Vec3::new(1024.0, 2048.0, 100.0) - (origin.0.as_vec2() * CHUNK_SIZE).extend(0.0);
     commands.insert_resource(ChunkSpawnCenter(pos.xy()));
     if let Some((_, toi)) =
         physics_context.cast_ray(pos, -Vec3::Z, 1000.0, false, QueryFilter::new())

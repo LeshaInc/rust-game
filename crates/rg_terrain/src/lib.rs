@@ -13,8 +13,8 @@ use bevy::prelude::*;
 
 pub use crate::chunk::{
     chunk_pos_to_world, tile_pos_to_world, Chunk, ChunkDespawnRadius, ChunkFullyLoaded,
-    ChunkPlugin, ChunkPos, ChunkSpawnCenter, ChunkSpawnRadius, Chunks, CHUNK_SIZE, CHUNK_TILES,
-    TILE_SIZE,
+    ChunkPlugin, ChunkPos, ChunkSpawnCenter, ChunkSpawnRadius, Chunks, WorldOrigin, CHUNK_SIZE,
+    CHUNK_TILES, TILE_SIZE,
 };
 use crate::grass::GrassPlugin;
 use crate::maps::MapsPlugin;

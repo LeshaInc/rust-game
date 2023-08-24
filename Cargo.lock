@@ -3247,6 +3247,7 @@ dependencies = [
  "bevy",
  "rg_core",
  "rg_pixel_material",
+ "rg_terrain",
 ]
 
 [[package]]

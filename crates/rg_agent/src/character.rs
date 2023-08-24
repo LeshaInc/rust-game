@@ -9,7 +9,7 @@ use bevy_rapier3d::prelude::*;
 use rg_camera_controller::CameraController;
 use rg_core::PrevTransform;
 use rg_pixel_material::{GlobalFogHeight, PixelMaterial, ReplaceStandardMaterial};
-use rg_terrain::ChunkSpawnCenter;
+use rg_terrain::{ChunkSpawnCenter, FloatingOrigin};
 
 use crate::movement::MovementBundle;
 use crate::MovementInput;
@@ -104,6 +104,7 @@ fn spawn_character(
                 },
                 PrevTransform(transform),
                 VisibilityBundle::default(),
+                FloatingOrigin,
             ));
 
         commands
@@ -113,6 +114,7 @@ fn spawn_character(
                 transform,
                 GlobalTransform::default(),
                 VisibilityBundle::default(),
+                FloatingOrigin,
             ))
             .with_children(|commands| {
                 commands.spawn((
@@ -228,6 +230,8 @@ fn update_models(
         model_transform.translation = model_transform
             .translation
             .lerp(agent_transform.translation, alpha);
+
+        model_transform.translation = agent_transform.translation;
 
         let alpha = 1.0 - 0.0001f32.powf(time.delta_seconds());
         model_transform.rotation = model_transform

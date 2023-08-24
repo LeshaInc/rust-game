@@ -1,5 +1,8 @@
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
+use bevy::transform::TransformSystem;
 use bevy::utils::HashMap;
+use bevy_rapier3d::prelude::PhysicsSet;
 use rg_core::NEIGHBORHOOD_8;
 
 pub const CHUNK_SIZE: f32 = 16.0;
@@ -10,18 +13,36 @@ pub struct ChunkPlugin;
 
 impl Plugin for ChunkPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Chunks>()
+        app.add_event::<WorldOriginChanged>()
+            .init_resource::<Chunks>()
             .init_resource::<ChunkSpawnCenter>()
             .init_resource::<ChunkSpawnRadius>()
             .init_resource::<ChunkDespawnRadius>()
-            .insert_resource(WorldOrigin(IVec2::new(60, 120)))
+            .insert_resource(WorldOrigin(IVec2::new(64, 128)))
             .add_systems(PreUpdate, spawn_chunks)
-            .add_systems(PostUpdate, despawn_chunks);
+            .add_systems(
+                PostUpdate,
+                (
+                    despawn_chunks,
+                    update_origin
+                        .before(TransformSystem::TransformPropagate)
+                        .before(PhysicsSet::SyncBackend),
+                )
+                    .chain(),
+            );
     }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Resource)]
 pub struct WorldOrigin(pub IVec2);
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Component)]
+pub struct FloatingOrigin;
+
+#[derive(Debug, Clone, Copy, Event)]
+pub struct WorldOriginChanged {
+    pub translation: Vec3,
+}
 
 pub fn chunk_pos_to_world(origin: IVec2, chunk: IVec2) -> Vec2 {
     (chunk - origin).as_vec2() * CHUNK_SIZE
@@ -92,32 +113,13 @@ impl Chunks {
     }
 }
 
-#[derive(Resource)]
-pub struct ChunksParent(pub Entity);
-
 fn spawn_chunks(
     mut commands: Commands,
     mut chunks: ResMut<Chunks>,
-    parent: Option<Res<ChunksParent>>,
     center: Res<ChunkSpawnCenter>,
     radius: Res<ChunkSpawnRadius>,
     origin: Res<WorldOrigin>,
 ) {
-    let parent = match parent {
-        Some(v) => v.0,
-        None => {
-            let id = commands
-                .spawn((
-                    Name::new("Chunks"),
-                    TransformBundle::default(),
-                    VisibilityBundle::default(),
-                ))
-                .id();
-            commands.insert_resource(ChunksParent(id));
-            id
-        }
-    };
-
     let center = center.0;
     let radius = radius.0;
     let origin = origin.0;
@@ -147,11 +149,11 @@ fn spawn_chunks(
                     GlobalTransform::default(),
                     Visibility::Visible,
                     ComputedVisibility::default(),
+                    FloatingOrigin,
                 ))
                 .id();
 
             chunks.insert(chunk_pos, new_chunk);
-            commands.entity(parent).add_child(new_chunk);
         }
     }
 }
@@ -177,4 +179,28 @@ fn despawn_chunks(
             true
         }
     });
+}
+
+pub fn update_origin(
+    mut ev_origin_changed: EventWriter<WorldOriginChanged>,
+    mut q_transform: Query<&mut Transform, With<FloatingOrigin>>,
+    mut center: ResMut<ChunkSpawnCenter>,
+    mut origin: ResMut<WorldOrigin>,
+) {
+    let old_origin = origin.0;
+    let new_origin = old_origin + (center.0 / CHUNK_SIZE).round().as_ivec2();
+    if old_origin == new_origin {
+        return;
+    }
+
+    let translation = ((old_origin - new_origin).as_vec2() * CHUNK_SIZE).extend(0.0);
+
+    for mut transform in &mut q_transform {
+        transform.translation += translation;
+    }
+
+    center.0 += translation.xy();
+    origin.0 = new_origin;
+
+    ev_origin_changed.send(WorldOriginChanged { translation });
 }

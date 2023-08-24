@@ -8,6 +8,7 @@ use bevy::render::view::NoFrustumCulling;
 use bevy::sprite::Anchor;
 use rg_core::GameScale;
 use rg_pixel_material::GlobalDitherOffset;
+use rg_terrain::{update_origin, WorldOriginChanged};
 
 pub struct CameraControllerPlugin;
 
@@ -22,7 +23,8 @@ impl Plugin for CameraControllerPlugin {
                 update_camera,
             )
                 .chain(),
-        );
+        )
+        .add_systems(PostUpdate, handle_updated_origin.after(update_origin));
     }
 }
 
@@ -296,5 +298,19 @@ fn handle_input(
 
     if keyboard_input.just_pressed(KeyCode::F1) {
         camera.target_zoom = 1.0;
+    }
+}
+
+fn handle_updated_origin(
+    mut ev_origin_changed: EventReader<WorldOriginChanged>,
+    mut q_camera: Query<&mut CameraController>,
+) {
+    let Ok(mut camera) = q_camera.get_single_mut() else {
+        return;
+    };
+
+    for event in ev_origin_changed.iter() {
+        camera.translation += event.translation;
+        camera.target_translation += event.translation;
     }
 }

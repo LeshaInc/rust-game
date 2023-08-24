@@ -17,7 +17,7 @@ use rg_core::{ArrayTexturePlugin, CollisionLayers, PrevTransformPlugin, ScalePlu
 use rg_dev_overlay::{DevOverlayPlugin, VersionOverlayPlugin};
 use rg_navigation::NavigationPlugin;
 use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
-use rg_terrain::{ChunkSpawnCenter, TerrainPlugin, WorldOrigin, CHUNK_SIZE};
+use rg_terrain::{ChunkSpawnCenter, FloatingOrigin, TerrainPlugin, WorldOrigin, CHUNK_SIZE};
 use rg_worldgen::{WorldSeed, WorldgenPlugin, WorldgenState};
 
 fn main() {
@@ -126,6 +126,7 @@ fn setup(mut commands: Commands) {
         CameraController::default(),
         DepthPrepass,
         NormalPrepass,
+        FloatingOrigin,
     ));
 }
 
@@ -177,6 +178,7 @@ fn handle_input(
             RigidBody::Dynamic,
             Collider::cuboid(0.5, 0.5, 0.5),
             CollisionLayers::DYNAMIC_GROUP,
+            FloatingOrigin,
         ));
     }
 }

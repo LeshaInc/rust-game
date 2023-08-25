@@ -2,10 +2,12 @@ use std::time::Duration;
 
 use bevy::asset::ChangeWatcher;
 use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
+use bevy::core_pipeline::tonemapping::DebandDither;
 use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
 use bevy::math::Vec3Swizzles;
 use bevy::pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use bevy::window::{PresentMode, WindowResolution};
 use bevy_egui::EguiPlugin;
 use bevy_rapier3d::prelude::*;
@@ -113,13 +115,19 @@ fn setup(mut commands: Commands) {
         ..default()
     });
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle {
+        camera: Camera::default(),
+        deband_dither: DebandDither::Disabled,
+        ..default()
+    });
+
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
                 order: -1,
                 ..default()
             },
+            dither: DebandDither::Disabled,
             ..default()
         },
         UiCameraConfig { show_ui: false },
@@ -127,6 +135,7 @@ fn setup(mut commands: Commands) {
         DepthPrepass,
         NormalPrepass,
         FloatingOrigin,
+        RenderLayers::from_layers(&[0, 1]),
     ));
 }
 

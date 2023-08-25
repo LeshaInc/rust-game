@@ -1,6 +1,7 @@
 mod version_overlay;
 
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::plot::{Line, Plot};
 use bevy_egui::egui::{self, pos2, Color32, Frame, Rounding};
@@ -24,6 +25,7 @@ impl Plugin for DevOverlayPlugin {
                 draw_all: false,
                 ..default()
             },
+            render_layers: RenderLayers::from_layers(&[1]),
             ..default()
         })
         .insert_resource(FrameTimePoints::default())

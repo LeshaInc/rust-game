@@ -55,7 +55,7 @@ struct VertexOutput {
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     let world_origin_pos = (uniforms.transform * vec4(vertex.i_pos, 1.0)).xyz;
-    let noise = textureSampleLevel(noise, noise_sampler, (world_origin_pos.xy + world_origin_pos.z) / 5.0 % 1.0, 0.0);
+    let noise = textureSampleLevel(noise, noise_sampler, fract((world_origin_pos.xy + world_origin_pos.z) / 4.0), 0.0);
     let translate = sin(2.0 * bindings::globals.time + noise.x * 10.0) * 0.1;
 
     let camera_dir = (bindings::view.view * vec4(0.0, 0.0, 1.0, 0.0)).xyz;

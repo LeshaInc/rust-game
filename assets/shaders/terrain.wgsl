@@ -23,7 +23,7 @@ fn fragment(
     let tile_pos = vec2<u32>((transpose(mesh.inverse_transpose_model) * in.world_position).xy * 2.0);
     let tile = textureLoad(tile_map, tile_pos, 0).r;
 
-    let uv = (in.world_position.xy * 2.0) % 1.0;
+    let uv = fract(in.world_position.xy * 2.0);
     var albedo = textureSample(texture, texture_sampler, uv, tile).rgb;
 
     let wall_color = vec3(0.04231, 0.02217, 0.01298);

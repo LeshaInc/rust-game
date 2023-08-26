@@ -12,7 +12,7 @@ pub fn generate_height_map(
 ) -> Grid<f32> {
     let _scope = info_span!("generate_height_map").entered();
 
-    let mut height_map = progress.task(|| shape(settings, &noise_maps, island));
+    let mut height_map = progress.task(|| shape(settings, noise_maps, island));
 
     progress.task(|| height_map.blur(2));
     progress.task(|| height_map.blur(2));

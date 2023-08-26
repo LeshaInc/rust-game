@@ -59,6 +59,7 @@ fn schedule_tasks(
     mut commands: Commands,
 ) {
     let task_pool = AsyncComputeTaskPool::get();
+    let settings = *settings;
 
     let mut in_flight = q_in_flight.iter().count();
 
@@ -70,7 +71,6 @@ fn schedule_tasks(
         in_flight += 1;
 
         let world_maps = world_maps.clone();
-        let settings = settings.clone();
         let task = task_pool.spawn(async move { generate_maps(&settings, chunk_pos, &world_maps) });
         commands.entity(chunk_id).insert(MapsTask(task));
     }

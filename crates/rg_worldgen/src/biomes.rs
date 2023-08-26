@@ -12,7 +12,7 @@ pub fn generate_biome_map(
     let _scope = info_span!("generate_biome_map").entered();
 
     let size = height_map.size();
-    let biome_map = progress.task(|| {
+    progress.task(|| {
         Grid::par_from_fn(size, |cell| {
             if height_map[cell] < 0.0 {
                 return Biome::Ocean;
@@ -25,7 +25,5 @@ pub fn generate_biome_map(
                 Biome::Plains
             }
         })
-    });
-
-    biome_map
+    })
 }

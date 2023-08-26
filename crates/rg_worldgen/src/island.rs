@@ -84,7 +84,7 @@ fn remove_small_islands(settings: &IslandSettings, grid: &mut Grid<bool>) {
             continue;
         }
 
-        let count = floodfill(&grid, true, &mut visited, true, cell);
+        let count = floodfill(grid, true, &mut visited, true, cell);
         let area = (count as f32) / (size.x as f32) / (size.y as f32);
         if area < settings.min_island_area {
             floodfill(&visited, true, grid, false, cell);

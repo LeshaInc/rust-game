@@ -42,13 +42,12 @@ fn handle_added(
 ) {
     let pool = AsyncComputeTaskPool::get();
     let origin = origin.0;
+    let settings = *settings;
 
     for &AddNavMeshChunk(chunk_pos) in ev_added.iter() {
         if chunk_tasks.map.contains_key(&chunk_pos) {
             continue;
         }
-
-        let settings = settings.clone();
 
         let mut collider_set =
             ColliderSet::extract(&settings, &physics_context, &q_affectors, origin, chunk_pos);

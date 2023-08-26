@@ -114,18 +114,14 @@ impl ColliderSet {
             ..default()
         };
 
-        let collision = self.query_pipeline.cast_ray(
+        self.query_pipeline.cast_ray(
             &self.rigid_body_set,
             &self.collider_set,
             &Ray::new(pos.extend(settings.max_world_z).into(), (-Vec3::Z).into()),
             settings.max_world_z - settings.min_world_z,
             false,
             filter,
-        );
-
-        if collision.is_none() {
-            return None;
-        }
+        )?;
 
         let capsule = Capsule::new_z(
             settings.agent_height * 0.5 - settings.agent_radius,

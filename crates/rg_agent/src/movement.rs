@@ -122,22 +122,18 @@ fn handle_movement_input(
         velocity.x += impulse.x;
         velocity.y += impulse.y;
 
-        if is_grounded {
-            if input.jump {
-                velocity.z = jump_velocity;
-                state.jump_time = jump_time;
-            } else {
-                velocity.z = 0.0;
-                state.jump_time = 0.0;
-            }
+        if is_grounded && input.jump {
+            velocity.z = jump_velocity;
+            state.jump_time = jump_time;
+        } else if is_grounded {
+            velocity.z = 0.0;
+            state.jump_time = 0.0;
+        } else if input.jump && state.jump_time > 0.0 {
+            velocity.z += jump_acceleration * dt;
+            state.jump_time -= dt;
         } else {
-            if input.jump && state.jump_time > 0.0 {
-                velocity.z += jump_acceleration * dt;
-                state.jump_time -= dt;
-            } else {
-                velocity.z -= gravity * dt;
-                state.jump_time = 0.0;
-            }
+            velocity.z -= gravity * dt;
+            state.jump_time = 0.0;
         }
 
         if enable_stepping {

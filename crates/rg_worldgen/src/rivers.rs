@@ -38,10 +38,7 @@ pub fn generate_river_map<R: Rng>(
 
     let strahler = progress.task(|| compute_strahler(&points, &upstream));
 
-    let river_map =
-        progress.task(|| draw_rivers(&points, island_map, &downstream, &upstream, &strahler));
-
-    river_map
+    progress.task(|| draw_rivers(&points, island_map, &downstream, &upstream, &strahler))
 }
 
 #[derive(Default)]
@@ -125,7 +122,7 @@ impl Eq for QueueItem {}
 
 impl PartialOrd for QueueItem {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(f32::total_cmp(&self.priority, &other.priority))
+        Some(self.cmp(other))
     }
 }
 
@@ -510,9 +507,9 @@ fn thomas_algorithm(
     let segments = points.len() - 1;
     let mut solution_set = vec![Vec2::NAN; segments];
 
-    ad[0] = ad[0] / d[0];
-    rhs_array[0].x = rhs_array[0].x / d[0];
-    rhs_array[0].y = rhs_array[0].y / d[0];
+    ad[0] /= d[0];
+    rhs_array[0].x /= d[0];
+    rhs_array[0].y /= d[0];
 
     if segments > 2 {
         for i in 1..=segments - 2 {
@@ -522,7 +519,7 @@ fn thomas_algorithm(
             let rhs_value_y = rhs_array[i].y;
             let prev_rhs_value_y = rhs_array[i - 1].y;
 
-            ad[i] = ad[i] / (d[i] - bd[i] * ad[i - 1]);
+            ad[i] /= d[i] - bd[i] * ad[i - 1];
 
             let exp1x = rhs_value_x - (bd[i] * prev_rhs_value_x);
             let exp1y = rhs_value_y - (bd[i] * prev_rhs_value_y);

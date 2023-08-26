@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use rayon::prelude::*;
 use smallvec::{smallvec, SmallVec};
 
-use crate::Grid;
+use super::Grid;
 
 const MAX_KERNEL_SIZE: usize = 63;
 const MIN_SIGMA: f32 = 0.1;
@@ -172,6 +172,7 @@ fn compute_gaussian_kernel(sigma: f32, out: &mut [f32]) {
 }
 
 // works only for -104 <= x <= 104
+#[allow(clippy::excessive_precision)]
 fn fast_exp(x: f32) -> f32 {
     const A: f32 = (1 << 23) as f32;
     const MASK: i32 = 0xff800000u32 as i32;

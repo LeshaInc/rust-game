@@ -3216,9 +3216,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_rapier3d",
- "rg_camera_controller",
  "rg_core",
- "rg_pixel_material",
  "rg_terrain",
 ]
 
@@ -3227,27 +3225,6 @@ name = "rg_ai"
 version = "0.1.0"
 dependencies = [
  "bevy",
-]
-
-[[package]]
-name = "rg_billboard"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bytemuck",
- "rand",
- "rand_pcg",
- "rg_core",
-]
-
-[[package]]
-name = "rg_camera_controller"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "rg_core",
- "rg_pixel_material",
- "rg_terrain",
 ]
 
 [[package]]
@@ -3265,8 +3242,6 @@ dependencies = [
  "rand",
  "rand_pcg",
  "rayon",
- "rg_grid",
- "rg_noise",
  "rmp-serde",
  "ron",
  "serde",
@@ -3285,19 +3260,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rg_grid"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bytemuck",
- "image",
- "rayon",
- "serde",
- "smallvec",
- "zstd",
-]
-
-[[package]]
 name = "rg_main"
 version = "0.1.0"
 dependencies = [
@@ -3306,12 +3268,9 @@ dependencies = [
  "bevy_rapier3d",
  "rg_agent",
  "rg_ai",
- "rg_billboard",
- "rg_camera_controller",
  "rg_core",
  "rg_dev_overlay",
  "rg_navigation",
- "rg_pixel_material",
  "rg_terrain",
  "rg_worldgen",
  "tracing-tracy",
@@ -3332,22 +3291,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rg_noise"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "rand",
- "serde",
-]
-
-[[package]]
-name = "rg_pixel_material"
-version = "0.1.0"
-dependencies = [
- "bevy",
-]
-
-[[package]]
 name = "rg_terrain"
 version = "0.1.0"
 dependencies = [
@@ -3356,10 +3299,8 @@ dependencies = [
  "futures-lite",
  "rand",
  "rand_pcg",
- "rg_billboard",
  "rg_core",
  "rg_navigation",
- "rg_pixel_material",
  "rg_worldgen",
  "serde",
 ]

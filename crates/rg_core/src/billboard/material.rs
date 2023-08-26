@@ -38,8 +38,8 @@ use bevy::render::view::{
 use bevy::render::{Extract, Render, RenderApp, RenderSet};
 use bevy::utils::{HashMap, HashSet};
 
-use crate::instance::{BillboardVertex, MultiBillboardUniform};
-use crate::{BillboardInstance, MultiBillboard};
+use super::instance::{BillboardVertex, MultiBillboardUniform};
+use super::{BillboardInstance, MultiBillboard};
 
 pub trait BillboardMaterial:
     AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized

@@ -19,8 +19,9 @@ use futures_lite::future;
 use progress::WorldgenProgressUiPlugin;
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
+use rg_core::grid::Grid;
 use rg_core::progress::new_progress_tracker;
-use rg_core::{DeserializedResource, DeserializedResourcePlugin, Grid};
+use rg_core::{DeserializedResource, DeserializedResourcePlugin};
 use rivers::RiversSettings;
 use serde::{Deserialize, Serialize};
 

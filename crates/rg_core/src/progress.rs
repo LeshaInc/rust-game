@@ -77,7 +77,7 @@ impl ProgressStage<'_> {
     ) -> R {
         self.tracker.begin_task(num_subtasks.try_into().unwrap());
         let res = callback(ProgressTask {
-            tracker: &self.tracker,
+            tracker: self.tracker,
         });
         self.tracker.end_task();
         res
@@ -106,7 +106,7 @@ pub trait Stage: Copy + Into<u32> + TryFrom<u32> {}
 impl<T: Copy + Into<u32> + TryFrom<u32>> Stage for T {}
 
 #[macro_export]
-macro_rules! define_stages {
+macro_rules! progress_stages {
     (pub enum $ty:ident { $($name:ident => $message:expr,)* }) => {
         #[derive(Debug, Clone, Copy)]
         #[repr(u32)]
@@ -159,7 +159,7 @@ impl ProgressTracker {
             num_subtasks: CachePadded::new(AtomicU32::new(0)),
             progress: CachePadded::new(AtomicU32::new(0)),
             samples: save_path.map(|path| Mutex::new(RuntimeSamples::new(path))),
-            baked_samples: data.map(|v| BakedSamples::load(v)).unwrap_or_default(),
+            baked_samples: data.map(BakedSamples::load).unwrap_or_default(),
         }
     }
 

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use rayon::prelude::*;
 
-use crate::Grid;
+use super::Grid;
 
 impl Grid<bool> {
     pub fn compute_edt(&self, settings: EdtSettings) -> Grid<f32> {
@@ -64,11 +64,11 @@ fn dt1d_float(d: &mut [f32], v: &mut [i32], z: &mut [f32], f: &[f32]) {
     }
 
     k = 0;
-    for q in 0..f.len() {
+    for (q, d) in d.iter_mut().enumerate() {
         while z[k + 1] <= q as f32 {
             k += 1;
         }
-        d[q] = ((q as i32 - v[k]) * (q as i32 - v[k])) as f32 + f[v[k] as usize];
+        *d = ((q as i32 - v[k]) * (q as i32 - v[k])) as f32 + f[v[k] as usize];
     }
 }
 

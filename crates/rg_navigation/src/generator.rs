@@ -3,7 +3,8 @@ use std::collections::VecDeque;
 use bevy::math::{ivec2, vec2};
 use bevy::prelude::*;
 use bevy::utils::{HashMap, HashSet};
-use rg_core::{Grid, VecToBits};
+use rg_core::grid::Grid;
+use rg_core::VecToBits;
 use smallvec::SmallVec;
 use spade::{ConstrainedDelaunayTriangulation, Point2, Triangulation};
 

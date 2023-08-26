@@ -5,12 +5,14 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
-use rg_core::{DeserializedResourcePlugin, Grid};
+use rg_core::chunk::{Chunk, ChunkPos};
+use rg_core::grid::Grid;
+use rg_core::DeserializedResourcePlugin;
 use rg_worldgen::SharedWorldMaps;
 
 use self::generator::generate_maps;
 pub use self::generator::ChunkGenSettings;
-use crate::{Chunk, ChunkPos, Tile, MAX_TASKS_IN_FLIGHT};
+use crate::{Tile, MAX_TASKS_IN_FLIGHT};
 
 pub struct MapsPlugin;
 

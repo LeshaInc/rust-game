@@ -40,7 +40,7 @@ where
 }
 
 fn data_to_blob<T: NoUninit>(data: &[T]) -> Option<Vec<u8>> {
-    let data_size = data.len() * std::mem::size_of::<T>();
+    let data_size = std::mem::size_of_val(data);
     let mut blob = Vec::with_capacity(data_size);
     let mut encoder = zstd::Encoder::new(&mut blob, 0).ok()?;
     encoder.set_pledged_src_size(Some(data_size as u64)).ok()?;

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::utils::HashMap;
-use rg_core::Grid;
+use rg_core::grid::Grid;
 use smallvec::SmallVec;
 
 use crate::{chunk_pos_to_world, CHUNK_CELLS, CHUNK_SIZE};

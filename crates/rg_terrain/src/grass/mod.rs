@@ -4,12 +4,13 @@ mod material;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
-use rg_billboard::{MultiBillboard, MultiBillboardBundle};
+use rg_core::billboard::{MultiBillboard, MultiBillboardBundle};
+use rg_core::chunk::{Chunk, ChunkPos};
 use rg_worldgen::{SharedWorldMaps, WorldSeed};
 
 use self::generator::{generate, GrassResult};
 use self::material::{DefaultGrassMaterial, GrassMaterialPlugin};
-use crate::{Chunk, ChunkPos, SharedChunkMaps, MAX_TASKS_IN_FLIGHT};
+use crate::{SharedChunkMaps, MAX_TASKS_IN_FLIGHT};
 
 pub struct GrassPlugin;
 

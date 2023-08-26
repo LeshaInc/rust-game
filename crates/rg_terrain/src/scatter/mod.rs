@@ -8,13 +8,15 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
+use rg_core::chunk::{
+    chunk_pos_to_world, Chunk, ChunkFullyLoaded, ChunkPos, ChunkSpawnCenter, WorldOrigin,
+    CHUNK_SIZE,
+};
 use rg_core::PoissonDiscSampling;
 use rg_worldgen::{SharedWorldMaps, WorldMaps, WorldSeed};
 
 use self::bush::BushPrototype;
 use self::tree::TreePrototype;
-use crate::chunk::ChunkFullyLoaded;
-use crate::{chunk_pos_to_world, Chunk, ChunkPos, ChunkSpawnCenter, WorldOrigin, CHUNK_SIZE};
 
 pub struct ScatterPlugins;
 

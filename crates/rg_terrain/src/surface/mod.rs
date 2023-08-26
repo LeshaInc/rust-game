@@ -4,12 +4,13 @@ mod mesh;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
+use rg_core::chunk::Chunk;
 use rg_core::CollisionLayers;
 use rg_navigation::NavMeshAffector;
 
 use self::material::{SurfaceMaterials, SurfaceMaterialsPlugin};
 use self::mesh::{generate_mesh, MeshResult};
-use crate::{Chunk, SharedChunkMaps, MAX_TASKS_IN_FLIGHT};
+use crate::{SharedChunkMaps, MAX_TASKS_IN_FLIGHT};
 
 pub struct SurfacePlugin;
 

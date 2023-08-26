@@ -6,9 +6,9 @@ use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy::utils::HashMap;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
-use rg_core::VecToBits;
 
-use crate::{BillboardInstance, MultiBillboard};
+use super::{BillboardInstance, MultiBillboard};
+use crate::VecToBits;
 
 pub struct ScatterPlugin;
 

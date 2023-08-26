@@ -3,13 +3,37 @@ use std::marker::PhantomData;
 use bevy::prelude::{UiScale as BevyUiScale, *};
 use bevy_egui::EguiSettings;
 
+pub struct ScalePlugin;
+
+impl Plugin for ScalePlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<UiScale>()
+            .register_type::<UiScaleSetting>()
+            .insert_resource(UiScale::new(1))
+            .insert_resource(UiScaleSetting::auto(0.5)) // for now
+            .register_type::<GameScale>()
+            .register_type::<GameScaleSetting>()
+            .insert_resource(GameScale::new(1))
+            .insert_resource(GameScaleSetting::auto(1.5))
+            .add_systems(
+                PreUpdate,
+                (
+                    update_scale::<Game>,
+                    (update_scale::<Ui>, update_ui_scale).chain(),
+                ),
+            );
+    }
+}
+
 #[derive(Debug, Clone, Copy, Reflect)]
+#[doc(hidden)]
 pub struct Ui;
 
 pub type UiScale = Scale<Ui>;
 pub type UiScaleSetting = ScaleSetting<Ui>;
 
 #[derive(Debug, Clone, Copy, Reflect)]
+#[doc(hidden)]
 pub struct Game;
 
 pub type GameScale = Scale<Game>;
@@ -68,28 +92,6 @@ impl<T> ScaleSetting<T> {
 impl<T> Default for ScaleSetting<T> {
     fn default() -> Self {
         Self::auto(1.0)
-    }
-}
-
-pub struct ScalePlugin;
-
-impl Plugin for ScalePlugin {
-    fn build(&self, app: &mut App) {
-        app.register_type::<UiScale>()
-            .register_type::<UiScaleSetting>()
-            .insert_resource(UiScale::new(1))
-            .insert_resource(UiScaleSetting::auto(0.5)) // for now
-            .register_type::<GameScale>()
-            .register_type::<GameScaleSetting>()
-            .insert_resource(GameScale::new(1))
-            .insert_resource(GameScaleSetting::auto(1.5))
-            .add_systems(
-                PreUpdate,
-                (
-                    update_scale::<Game>,
-                    (update_scale::<Ui>, update_ui_scale).chain(),
-                ),
-            );
     }
 }
 

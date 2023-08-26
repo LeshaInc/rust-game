@@ -3,9 +3,8 @@ use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::utils::HashMap;
 use bevy_rapier3d::prelude::*;
-use rg_core::Grid;
-
-use crate::chunk::{CHUNK_TILES, TILE_SIZE};
+use rg_core::chunk::{CHUNK_TILES, TILE_SIZE};
+use rg_core::grid::Grid;
 
 const VERTICES_CAP: usize = 128 * 1024;
 const INDICES_CAP: usize = 128 * 1024;

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
+use rg_core::grid::Grid;
 use rg_core::progress::ProgressStage;
-use rg_core::Grid;
 
 pub fn generate_shore_map(
     progress: &mut ProgressStage,

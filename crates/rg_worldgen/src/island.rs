@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use rand::Rng;
+use rg_core::grid::{EdtSettings, Grid};
 use rg_core::progress::ProgressStage;
-use rg_core::{EdtSettings, FloatGridExt, Grid};
 use serde::Deserialize;
 
 use crate::NoiseMaps;

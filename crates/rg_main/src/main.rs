@@ -13,13 +13,12 @@ use bevy_egui::EguiPlugin;
 use bevy_rapier3d::prelude::*;
 use rg_agent::{AgentPlugin, SpawnCharacter};
 use rg_ai::AiPlugin;
-use rg_billboard::BillboardPlugin;
-use rg_camera_controller::{CameraController, CameraControllerPlugin};
-use rg_core::{ArrayTexturePlugin, CollisionLayers, PrevTransformPlugin, ScalePlugin};
+use rg_core::chunk::{ChunkSpawnCenter, FloatingOrigin, WorldOrigin, CHUNK_SIZE};
+use rg_core::material::PixelMaterial;
+use rg_core::{CameraController, CollisionLayers, CorePlugins};
 use rg_dev_overlay::{DevOverlayPlugin, VersionOverlayPlugin};
 use rg_navigation::NavigationPlugin;
-use rg_pixel_material::{PixelMaterial, PixelMaterialPlugin};
-use rg_terrain::{ChunkSpawnCenter, FloatingOrigin, TerrainPlugin, WorldOrigin, CHUNK_SIZE};
+use rg_terrain::TerrainPlugin;
 use rg_worldgen::{WorldSeed, WorldgenPlugin, WorldgenState};
 
 fn main() {
@@ -50,15 +49,10 @@ fn main() {
         .add_plugins(EguiPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(RapierDebugRenderPlugin::default().disabled())
-        .add_plugins(ScalePlugin)
-        .add_plugins(PrevTransformPlugin)
-        .add_plugins(ArrayTexturePlugin)
-        .add_plugins(PixelMaterialPlugin)
-        .add_plugins(BillboardPlugin)
+        .add_plugins(CorePlugins)
         .add_plugins(WorldgenPlugin)
         .add_plugins(TerrainPlugin)
         .add_plugins(NavigationPlugin)
-        .add_plugins(CameraControllerPlugin)
         .add_plugins(AiPlugin)
         .add_plugins(AgentPlugin)
         .add_plugins(DevOverlayPlugin)

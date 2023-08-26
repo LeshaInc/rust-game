@@ -2,21 +2,16 @@
 resolver = "2"
 
 members = [
-  "crates/rg_grid",
-  "crates/rg_noise",
-
   "crates/rg_core",
 
   "crates/rg_agent",
   "crates/rg_ai",
-  "crates/rg_billboard",
-  "crates/rg_camera_controller",
   "crates/rg_dev_overlay",
-  "crates/rg_main",
   "crates/rg_navigation",
-  "crates/rg_pixel_material",
   "crates/rg_terrain",
   "crates/rg_worldgen",
+
+  "crates/rg_main",
 ]
 
 [workspace.dependencies]

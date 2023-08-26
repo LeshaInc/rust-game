@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use bevy::transform::TransformSystem;
 use bevy::utils::HashMap;
 use bevy_rapier3d::prelude::PhysicsSet;
-use rg_core::NEIGHBORHOOD_8;
+
+use crate::grid::NEIGHBORHOOD_8;
 
 pub const CHUNK_SIZE: f32 = 16.0;
 pub const TILE_SIZE: f32 = 0.5;

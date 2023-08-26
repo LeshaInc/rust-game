@@ -124,7 +124,7 @@ impl FromWorld for PixelMaterialShaders {
 #[derive(Component)]
 pub struct ReplaceStandardMaterial<T: Material>(pub Handle<T>);
 
-pub fn replace_standard_material<T: Material>(
+fn replace_standard_material<T: Material>(
     q_entities: Query<(
         Entity,
         &ReplaceStandardMaterial<T>,

@@ -14,7 +14,7 @@ impl Plugin for VersionOverlayPlugin {
 
         let mut msg = format!("rg {}", self.git_describe);
         if self.git_commit_date == "1980-01-01" {
-            msg.push_str("*");
+            msg.push('*');
         } else {
             msg += &format!(" ({})", self.git_commit_date);
         }
@@ -37,7 +37,6 @@ impl Plugin for VersionOverlayPlugin {
                         font: font.clone(),
                         font_size: 16.0,
                         color: Color::WHITE,
-                        ..default()
                     },
                 ));
             });

@@ -6,9 +6,10 @@ use bevy::render::render_resource::{
 };
 use bevy::render::view::NoFrustumCulling;
 use bevy::sprite::Anchor;
-use rg_core::GameScale;
-use rg_pixel_material::GlobalDitherOffset;
-use rg_terrain::{update_origin, WorldOriginChanged};
+
+use crate::chunk::{update_origin, WorldOriginChanged};
+use crate::material::GlobalDitherOffset;
+use crate::scale::GameScale;
 
 pub struct CameraControllerPlugin;
 

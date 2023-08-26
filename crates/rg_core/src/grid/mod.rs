@@ -12,7 +12,7 @@ use bytemuck::{cast_slice, CheckedBitPattern, NoUninit};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-pub use crate::edt::EdtSettings;
+pub use self::edt::EdtSettings;
 
 pub const NEIGHBORHOOD_4: [IVec2; 4] = [
     IVec2::new(0, -1),

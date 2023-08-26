@@ -3,11 +3,12 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
-use rg_billboard::{BillboardInstance, MultiBillboard};
-use rg_core::{Grid, PoissonDiscSampling};
+use rg_core::billboard::{BillboardInstance, MultiBillboard};
+use rg_core::chunk::{CHUNK_SIZE, CHUNK_TILES};
+use rg_core::grid::Grid;
+use rg_core::PoissonDiscSampling;
 
 use crate::utils::{get_barycentric, is_inside_barycentric};
-use crate::{CHUNK_SIZE, CHUNK_TILES};
 
 pub const MIN_RADIUS: f32 = 0.14;
 

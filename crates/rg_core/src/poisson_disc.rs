@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 
-use crate::Grid;
+use crate::grid::Grid;
 
 #[derive(Debug)]
 pub struct PoissonDiscSampling {

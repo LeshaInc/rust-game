@@ -2,12 +2,15 @@ use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
-use rg_core::{DeserializedResource, Grid, Noise};
+use rg_core::chunk::{tile_pos_to_world, CHUNK_TILES};
+use rg_core::grid::Grid;
+use rg_core::noise::Noise;
+use rg_core::DeserializedResource;
 use rg_worldgen::{WorldMaps, WORLD_SCALE};
 use serde::Deserialize;
 
 use super::{ChunkMaps, SharedChunkMaps};
-use crate::{tile_pos_to_world, Tile, CHUNK_TILES};
+use crate::Tile;
 
 #[derive(Debug, Copy, Clone, Resource, Deserialize, TypePath, TypeUuid)]
 #[uuid = "d4b77ce0-db8c-477e-b771-deb43ca107c2"]

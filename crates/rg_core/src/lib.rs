@@ -1,34 +1,41 @@
+pub mod billboard;
+pub mod chunk;
+pub mod grid;
+pub mod material;
+pub mod noise;
+pub mod progress;
+pub mod scale;
+
 mod array_texture;
+mod camera;
 mod deserialized_resource;
 mod layers;
 mod poisson_disc;
 mod prev_transform;
-pub mod progress;
-mod scale;
 mod vec_utils;
 
-use bevy::prelude::*;
-pub use rg_grid::{EdtSettings, Grid, NEIGHBORHOOD_4, NEIGHBORHOOD_8};
-pub use rg_noise::{FbmNoise, FbmNoiseSettings, Noise, SimplexNoise};
+use bevy::app::PluginGroupBuilder;
+use bevy::prelude::PluginGroup;
 
-pub use crate::array_texture::{ArrayTexturePlugin, BuildArrayTexture};
-pub use crate::deserialized_resource::{DeserializedResource, DeserializedResourcePlugin};
-pub use crate::layers::CollisionLayers;
-pub use crate::poisson_disc::PoissonDiscSampling;
-pub use crate::prev_transform::{PrevTransform, PrevTransformPlugin};
-pub use crate::scale::{GameScale, GameScaleSetting, ScalePlugin, UiScale, UiScaleSetting};
-pub use crate::vec_utils::VecToBits;
+pub use crate::array_texture::*;
+pub use crate::camera::*;
+pub use crate::deserialized_resource::*;
+pub use crate::layers::*;
+pub use crate::poisson_disc::*;
+pub use crate::prev_transform::*;
+pub use crate::vec_utils::*;
 
-pub trait FloatGridExt {
-    fn add_noise<N: Noise<1> + Sync>(&mut self, noise: &N);
-}
+pub struct CorePlugins;
 
-impl FloatGridExt for Grid<f32> {
-    fn add_noise<N: Noise<1> + Sync>(&mut self, noise: &N) {
-        let _scope = info_span!("add_noise").entered();
-
-        self.par_map_inplace(|cell, value| {
-            *value += noise.get(cell.as_vec2())[0];
-        });
+impl PluginGroup for CorePlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(self::billboard::BillboardPlugin)
+            .add(self::chunk::ChunkPlugin)
+            .add(self::material::PixelMaterialPlugin)
+            .add(self::scale::ScalePlugin)
+            .add(ArrayTexturePlugin)
+            .add(PrevTransformPlugin)
+            .add(CameraControllerPlugin)
     }
 }

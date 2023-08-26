@@ -4,10 +4,10 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
-use rg_billboard::ScatterMultiBillboard;
+use rg_core::billboard::ScatterMultiBillboard;
+use rg_core::material::PixelMaterial;
 use rg_core::CollisionLayers;
 use rg_navigation::NavMeshAffector;
-use rg_pixel_material::PixelMaterial;
 use rg_worldgen::{Biome, WorldMaps, WORLD_SCALE};
 
 use super::tree::LeavesMaterial;

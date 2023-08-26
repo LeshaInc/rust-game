@@ -3,9 +3,18 @@ use std::path::Path;
 use bevy::prelude::*;
 use bytemuck::cast_slice;
 
-use crate::Grid;
+use super::Grid;
+use crate::noise::Noise;
 
 impl Grid<f32> {
+    pub fn add_noise<N: Noise<1> + Sync>(&mut self, noise: &N) {
+        let _scope = info_span!("add_noise").entered();
+
+        self.par_map_inplace(|cell, value| {
+            *value += noise.get(cell.as_vec2())[0];
+        });
+    }
+
     pub fn sample(&self, pos: Vec2) -> f32 {
         let ipos = pos.as_ivec2();
         let fpos = pos - ipos.as_vec2();

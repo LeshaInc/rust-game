@@ -7,10 +7,10 @@ use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::AsBindGroup;
 use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
-use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin, ScatterMultiBillboard};
+use rg_core::billboard::{BillboardMaterial, BillboardMaterialPlugin, ScatterMultiBillboard};
+use rg_core::material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
 use rg_core::CollisionLayers;
 use rg_navigation::NavMeshAffector;
-use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
 use rg_worldgen::{Biome, WorldMaps, WORLD_SCALE};
 
 use super::ScatterPrototype;

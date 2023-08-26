@@ -5,10 +5,11 @@ use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::{
     AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat,
 };
+use rg_core::chunk::Chunk;
+use rg_core::material::{GlobalDitherOffset, GlobalFogHeight};
 use rg_core::BuildArrayTexture;
-use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight};
 
-use crate::{Chunk, SharedChunkMaps};
+use crate::SharedChunkMaps;
 
 pub struct SurfaceMaterialsPlugin;
 

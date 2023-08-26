@@ -4,8 +4,8 @@ use raqote::{
     AntialiasMode, DrawOptions, DrawTarget, PathBuilder, SolidSource, Source, StrokeStyle,
 };
 use rayon::prelude::*;
+use rg_core::grid::Grid;
 use rg_core::progress::ProgressStage;
-use rg_core::Grid;
 use serde::Deserialize;
 
 #[derive(Debug, Copy, Clone, Deserialize)]

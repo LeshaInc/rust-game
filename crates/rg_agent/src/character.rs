@@ -6,10 +6,9 @@ use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::transform::TransformSystem;
 use bevy_rapier3d::prelude::*;
-use rg_camera_controller::CameraController;
-use rg_core::PrevTransform;
-use rg_pixel_material::{GlobalFogHeight, PixelMaterial, ReplaceStandardMaterial};
-use rg_terrain::{ChunkSpawnCenter, FloatingOrigin};
+use rg_core::chunk::{ChunkSpawnCenter, FloatingOrigin};
+use rg_core::material::{GlobalFogHeight, PixelMaterial, ReplaceStandardMaterial};
+use rg_core::{CameraController, PrevTransform};
 
 use crate::movement::MovementBundle;
 use crate::MovementInput;

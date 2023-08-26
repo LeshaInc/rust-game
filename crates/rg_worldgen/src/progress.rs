@@ -1,10 +1,9 @@
 use bevy::prelude::*;
-use rg_core::define_stages;
 use rg_core::progress::ProgressReader;
 
 use crate::WorldgenState;
 
-define_stages! {
+rg_core::progress_stages! {
     pub enum WorldgenStage {
         Init => "Initializing world generator...",
         Island => "Generating the island...",

@@ -9,8 +9,9 @@ use raqote::{
     AntialiasMode, DrawOptions, DrawTarget, LineCap, LineJoin, Path, PathBuilder, SolidSource,
     Source, StrokeStyle,
 };
+use rg_core::grid::Grid;
 use rg_core::progress::ProgressStage;
-use rg_core::{Grid, PoissonDiscSampling};
+use rg_core::PoissonDiscSampling;
 use serde::Deserialize;
 
 #[derive(Debug, Copy, Clone, Deserialize)]

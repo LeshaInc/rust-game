@@ -3,8 +3,8 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::render_resource::AsBindGroup;
-use rg_billboard::{BillboardMaterial, BillboardMaterialPlugin};
-use rg_pixel_material::{GlobalDitherOffset, GlobalFogHeight};
+use rg_core::billboard::{BillboardMaterial, BillboardMaterialPlugin};
+use rg_core::material::{GlobalDitherOffset, GlobalFogHeight};
 
 pub struct GrassMaterialPlugin;
 

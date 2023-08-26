@@ -11,13 +11,13 @@ use bevy::render::render_asset::RenderAssetPlugin;
 use bevy::render::view::VisibilitySystems;
 use bevy::render::RenderApp;
 
-use crate::instance::{
+use self::instance::{
     compute_multi_billboard_bounds, extract_multi_billboards, MultiBillboardUniform,
 };
-pub use crate::instance::{BillboardInstance, MultiBillboard};
-use crate::material::DummyMesh;
-pub use crate::material::{BillboardMaterial, BillboardMaterialKey, BillboardMaterialPlugin};
-pub use crate::scatter::{ScatterMultiBillboard, ScatterPlugin};
+pub use self::instance::{BillboardInstance, MultiBillboard};
+use self::material::DummyMesh;
+pub use self::material::{BillboardMaterial, BillboardMaterialKey, BillboardMaterialPlugin};
+pub use self::scatter::{ScatterMultiBillboard, ScatterPlugin};
 
 pub struct BillboardPlugin;
 

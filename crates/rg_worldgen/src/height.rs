@@ -1,6 +1,7 @@
 use bevy::prelude::*;
+use rg_core::grid::Grid;
+use rg_core::noise::Noise;
 use rg_core::progress::ProgressStage;
-use rg_core::{Grid, Noise};
 use serde::Deserialize;
 
 use crate::NoiseMaps;

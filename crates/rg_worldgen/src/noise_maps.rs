@@ -1,5 +1,5 @@
 use rand::Rng;
-use rg_core::{FbmNoise, FbmNoiseSettings};
+use rg_core::noise::{FbmNoise, FbmNoiseSettings};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]

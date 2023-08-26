@@ -6,7 +6,7 @@ use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
 use rg_core::chunk::Chunk;
 use rg_core::CollisionLayers;
-use rg_navigation::NavMeshAffector;
+use rg_navigation_api::NavMeshAffector;
 
 use self::material::{SurfaceMaterials, SurfaceMaterialsPlugin};
 use self::mesh::{generate_mesh, MeshResult};

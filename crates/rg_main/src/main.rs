@@ -19,11 +19,11 @@ use rg_core::{CameraController, CollisionLayers, CorePlugins};
 use rg_dev_overlay::{DevOverlayPlugin, VersionOverlayPlugin};
 use rg_navigation::NavigationPlugin;
 use rg_terrain::TerrainPlugin;
-use rg_worldgen::{WorldSeed, WorldgenPlugin, WorldgenState};
+use rg_worldgen::WorldgenPlugin;
+use rg_worldgen_api::WorldgenState;
 
 fn main() {
     App::new()
-        .insert_resource(WorldSeed(0))
         .edit_schedule(Main, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Warn,

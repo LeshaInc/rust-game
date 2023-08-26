@@ -1,18 +1,8 @@
 use bevy::prelude::*;
-use bytemuck::{CheckedBitPattern, NoUninit};
 use rg_core::grid::Grid;
 use rg_core::noise::Noise;
 use rg_core::progress::ProgressStage;
-
-use crate::NoiseMaps;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, NoUninit, CheckedBitPattern)]
-#[repr(u8)]
-pub enum Biome {
-    Ocean,
-    Plains,
-    Forest,
-}
+use rg_worldgen_api::{Biome, NoiseMaps};
 
 pub fn generate_biome_map(
     progress: &mut ProgressStage,

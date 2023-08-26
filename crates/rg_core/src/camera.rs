@@ -7,9 +7,10 @@ use bevy::render::render_resource::{
 use bevy::render::view::NoFrustumCulling;
 use bevy::sprite::Anchor;
 
-use crate::chunk::{update_origin, WorldOriginChanged};
+use crate::chunk::WorldOriginChanged;
 use crate::material::GlobalDitherOffset;
 use crate::scale::GameScale;
+use crate::CoreSystems;
 
 pub struct CameraControllerPlugin;
 
@@ -25,7 +26,10 @@ impl Plugin for CameraControllerPlugin {
             )
                 .chain(),
         )
-        .add_systems(PostUpdate, handle_updated_origin.after(update_origin));
+        .add_systems(
+            PostUpdate,
+            handle_updated_origin.after(CoreSystems::UpdateOrigin),
+        );
     }
 }
 

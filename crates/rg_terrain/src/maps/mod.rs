@@ -8,7 +8,7 @@ use futures_lite::future;
 use rg_core::chunk::{Chunk, ChunkPos};
 use rg_core::grid::Grid;
 use rg_core::DeserializedResourcePlugin;
-use rg_worldgen::SharedWorldMaps;
+use rg_worldgen_api::SharedWorldMaps;
 
 use self::generator::generate_maps;
 pub use self::generator::ChunkGenSettings;

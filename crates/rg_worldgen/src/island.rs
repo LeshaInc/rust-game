@@ -2,21 +2,7 @@ use bevy::prelude::*;
 use rand::Rng;
 use rg_core::grid::{EdtSettings, Grid};
 use rg_core::progress::ProgressStage;
-use serde::Deserialize;
-
-use crate::NoiseMaps;
-
-#[derive(Debug, Copy, Clone, Deserialize)]
-pub struct IslandSettings {
-    pub size: UVec2,
-    pub cutoff: f32,
-    pub reshape_margin: f32,
-    pub reshape_radius: f32,
-    pub reshape_alpha: f32,
-    pub min_island_area: f32,
-    pub min_total_area: f32,
-    pub max_total_area: f32,
-}
+use rg_worldgen_api::{IslandSettings, NoiseMaps};
 
 pub fn generate_island_map<R: Rng>(
     rng: &mut R,

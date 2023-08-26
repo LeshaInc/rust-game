@@ -15,7 +15,7 @@ mod prev_transform;
 mod vec_utils;
 
 use bevy::app::PluginGroupBuilder;
-use bevy::prelude::PluginGroup;
+use bevy::prelude::*;
 
 pub use crate::array_texture::*;
 pub use crate::camera::*;
@@ -38,4 +38,9 @@ impl PluginGroup for CorePlugins {
             .add(PrevTransformPlugin)
             .add(CameraControllerPlugin)
     }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, SystemSet)]
+pub enum CoreSystems {
+    UpdateOrigin,
 }

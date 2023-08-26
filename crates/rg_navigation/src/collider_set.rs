@@ -6,9 +6,11 @@ use bevy_rapier3d::rapier::prelude::{
     Capsule, Collider, ColliderBuilder, ColliderSet as RapierColliderSet, QueryFilter,
     QueryPipeline, RigidBodySet,
 };
+use rg_core::chunk::chunk_pos_to_world;
 use rg_core::CollisionLayers;
+use rg_navigation_api::NavMeshAffector;
 
-use crate::{chunk_pos_to_world, NavMeshAffector, NavMeshSettings, CHUNK_OVERSCAN};
+use crate::{NavMeshSettings, CHUNK_OVERSCAN};
 
 pub struct ColliderSet {
     collider_set: RapierColliderSet,
@@ -29,12 +31,14 @@ impl ColliderSet {
         settings: &NavMeshSettings,
         context: &RapierContext,
         q_affectors: &Query<(), With<NavMeshAffector>>,
+        origin: IVec2,
         chunk_pos: IVec2,
     ) -> ColliderSet {
         let mut set = ColliderSet::new();
 
-        let min = (chunk_pos_to_world(chunk_pos) - CHUNK_OVERSCAN).extend(settings.min_world_z);
-        let max = (chunk_pos_to_world(chunk_pos + IVec2::ONE) + CHUNK_OVERSCAN)
+        let min =
+            (chunk_pos_to_world(origin, chunk_pos) - CHUNK_OVERSCAN).extend(settings.min_world_z);
+        let max = (chunk_pos_to_world(origin, chunk_pos + IVec2::ONE) + CHUNK_OVERSCAN)
             .extend(settings.max_world_z);
 
         let shape = RapierCollider::cuboid(

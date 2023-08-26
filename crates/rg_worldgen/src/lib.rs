@@ -1,53 +1,37 @@
 mod biomes;
 mod height;
 mod island;
-mod noise_maps;
 mod progress;
 mod rivers;
 mod shores;
 mod topography;
 
-use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
-use std::path::Path;
 use std::sync::Arc;
 
 use bevy::prelude::*;
-use bevy::reflect::{TypePath, TypeUuid};
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
-use progress::WorldgenProgressUiPlugin;
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
-use rg_core::grid::Grid;
 use rg_core::progress::new_progress_tracker;
-use rg_core::{DeserializedResource, DeserializedResourcePlugin};
-use rivers::RiversSettings;
-use serde::{Deserialize, Serialize};
+use rg_worldgen_api::{
+    NoiseMaps, SharedWorldMaps, WorldMaps, WorldSeed, WorldgenApiPlugin, WorldgenProgress,
+    WorldgenSettings, WorldgenStage, WorldgenState,
+};
 
 use crate::biomes::generate_biome_map;
-pub use crate::biomes::Biome;
 use crate::height::generate_height_map;
-pub use crate::height::HeightSettings;
 use crate::island::generate_island_map;
-pub use crate::island::IslandSettings;
-pub use crate::noise_maps::{NoiseMaps, NoiseSettings};
-pub use crate::progress::{WorldgenProgress, WorldgenStage};
+use crate::progress::WorldgenProgressUiPlugin;
 use crate::rivers::generate_river_map;
 use crate::shores::generate_shore_map;
 use crate::topography::generate_topographic_map;
-pub use crate::topography::TopographySettings;
-
-pub const WORLD_SCALE: f32 = 2.0;
 
 pub struct WorldgenPlugin;
 
 impl Plugin for WorldgenPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<WorldgenState>()
-            .add_plugins(DeserializedResourcePlugin::<WorldgenSettings>::new(
-                "default.worldgen.ron",
-            ))
+        app.add_plugins(WorldgenApiPlugin)
             .add_plugins(WorldgenProgressUiPlugin)
             .add_systems(
                 PreUpdate,
@@ -62,64 +46,6 @@ impl Plugin for WorldgenPlugin {
             );
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, States)]
-pub enum WorldgenState {
-    #[default]
-    InProgress,
-    Done,
-}
-
-#[derive(Debug, Copy, Clone, Resource)]
-pub struct WorldSeed(pub u64);
-
-#[derive(Debug, Copy, Clone, Resource, Deserialize, TypePath, TypeUuid)]
-#[uuid = "9642a5f8-7606-4775-b5bc-6fda6d73bd84"]
-pub struct WorldgenSettings {
-    pub noise: NoiseSettings,
-    pub island: IslandSettings,
-    pub height: HeightSettings,
-    pub rivers: RiversSettings,
-    pub topography: TopographySettings,
-}
-
-impl DeserializedResource for WorldgenSettings {
-    const EXTENSION: &'static str = "worldgen.ron";
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorldMaps {
-    pub seed: u64,
-    pub noise_maps: NoiseMaps,
-    pub height_map: Grid<f32>,
-    pub river_map: Grid<f32>,
-    pub shore_map: Grid<f32>,
-    pub biome_map: Grid<Biome>,
-}
-
-impl WorldMaps {
-    pub fn load(path: impl AsRef<Path>) -> anyhow::Result<WorldMaps> {
-        let _scope = info_span!("load").entered();
-
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        let world_maps = rmp_serde::decode::from_read(reader)?;
-        Ok(world_maps)
-    }
-
-    pub fn save(&self, path: impl AsRef<Path>) -> anyhow::Result<()> {
-        let _scope = info_span!("save").entered();
-
-        let file = File::create(path)?;
-        let mut writer = BufWriter::new(file);
-        rmp_serde::encode::write_named(&mut writer, self)?;
-        writer.flush()?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Deref, Clone, Resource)]
-pub struct SharedWorldMaps(pub Arc<WorldMaps>);
 
 #[derive(Resource)]
 struct WorldgenTask(pub Task<WorldMaps>);

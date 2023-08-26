@@ -1,0 +1,14 @@
+[package]
+name = "rg_worldgen_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rg_core = { path = "../rg_core" }
+
+anyhow = { workspace = true }
+bevy = { workspace = true }
+bytemuck = { workspace = true }
+rand = { workspace = true }
+rmp-serde = { workspace = true }
+serde = { workspace = true }

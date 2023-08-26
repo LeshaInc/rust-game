@@ -2,19 +2,7 @@ use bevy::prelude::*;
 use rg_core::grid::Grid;
 use rg_core::noise::Noise;
 use rg_core::progress::ProgressStage;
-use serde::Deserialize;
-
-use crate::NoiseMaps;
-
-#[derive(Debug, Copy, Clone, Deserialize)]
-pub struct HeightSettings {
-    pub beach_size: f32,
-    pub land_height: f32,
-    pub peak_height: f32,
-    pub ocean_depth: f32,
-    pub warp_dist: f32,
-    pub mountain_power: f32,
-}
+use rg_worldgen_api::{HeightSettings, NoiseMaps};
 
 pub fn generate_height_map(
     progress: &mut ProgressStage,

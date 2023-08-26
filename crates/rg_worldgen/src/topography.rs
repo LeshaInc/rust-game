@@ -6,13 +6,7 @@ use raqote::{
 use rayon::prelude::*;
 use rg_core::grid::Grid;
 use rg_core::progress::ProgressStage;
-use serde::Deserialize;
-
-#[derive(Debug, Copy, Clone, Deserialize)]
-pub struct TopographySettings {
-    pub max_height: f32,
-    pub iso_step: f32,
-}
+use rg_worldgen_api::TopographySettings;
 
 pub fn generate_topographic_map(
     progress: &mut ProgressStage,

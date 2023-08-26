@@ -10,8 +10,8 @@ use rand::Rng;
 use rg_core::billboard::{BillboardMaterial, BillboardMaterialPlugin, ScatterMultiBillboard};
 use rg_core::material::{GlobalDitherOffset, GlobalFogHeight, PixelMaterial};
 use rg_core::CollisionLayers;
-use rg_navigation::NavMeshAffector;
-use rg_worldgen::{Biome, WorldMaps, WORLD_SCALE};
+use rg_navigation_api::NavMeshAffector;
+use rg_worldgen_api::{Biome, WorldMaps, WORLD_SCALE};
 
 use super::ScatterPrototype;
 

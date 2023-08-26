@@ -3273,6 +3273,7 @@ dependencies = [
  "rg_navigation",
  "rg_terrain",
  "rg_worldgen",
+ "rg_worldgen_api",
  "tracing-tracy",
  "vergen",
 ]
@@ -3286,8 +3287,16 @@ dependencies = [
  "futures-lite",
  "rg_core",
  "rg_dev_overlay",
+ "rg_navigation_api",
  "smallvec",
  "spade",
+]
+
+[[package]]
+name = "rg_navigation_api"
+version = "0.1.0"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]
@@ -3300,8 +3309,8 @@ dependencies = [
  "rand",
  "rand_pcg",
  "rg_core",
- "rg_navigation",
- "rg_worldgen",
+ "rg_navigation_api",
+ "rg_worldgen_api",
  "serde",
 ]
 
@@ -3320,6 +3329,20 @@ dependencies = [
  "rand_pcg",
  "raqote",
  "rayon",
+ "rg_core",
+ "rg_worldgen_api",
+ "rmp-serde",
+ "serde",
+]
+
+[[package]]
+name = "rg_worldgen_api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "bytemuck",
+ "rand",
  "rg_core",
  "rmp-serde",
  "serde",

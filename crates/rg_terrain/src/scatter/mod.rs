@@ -13,7 +13,7 @@ use rg_core::chunk::{
     CHUNK_SIZE,
 };
 use rg_core::PoissonDiscSampling;
-use rg_worldgen::{SharedWorldMaps, WorldMaps, WorldSeed};
+use rg_worldgen_api::{SharedWorldMaps, WorldMaps, WorldSeed};
 
 use self::bush::BushPrototype;
 use self::tree::TreePrototype;

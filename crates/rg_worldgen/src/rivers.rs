@@ -1,6 +1,3 @@
-#![allow(clippy::type_complexity)]
-#![allow(clippy::too_many_arguments)]
-
 use std::collections::BinaryHeap;
 
 use bevy::prelude::*;
@@ -12,15 +9,7 @@ use raqote::{
 use rg_core::grid::Grid;
 use rg_core::progress::ProgressStage;
 use rg_core::PoissonDiscSampling;
-use serde::Deserialize;
-
-#[derive(Debug, Copy, Clone, Deserialize)]
-pub struct RiversSettings {
-    pub point_radius: f32,
-    pub inertia: f32,
-    pub evaporation: f32,
-    pub erosion: f32,
-}
+use rg_worldgen_api::RiversSettings;
 
 pub fn generate_river_map<R: Rng>(
     rng: &mut R,

@@ -6,7 +6,7 @@ use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
 use rg_core::billboard::{MultiBillboard, MultiBillboardBundle};
 use rg_core::chunk::{Chunk, ChunkPos};
-use rg_worldgen::{SharedWorldMaps, WorldSeed};
+use rg_worldgen_api::{SharedWorldMaps, WorldSeed};
 
 use self::generator::{generate, GrassResult};
 use self::material::{DefaultGrassMaterial, GrassMaterialPlugin};

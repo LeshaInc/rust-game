@@ -3,25 +3,24 @@ use std::collections::VecDeque;
 use bevy::math::{ivec2, vec2};
 use bevy::prelude::*;
 use bevy::utils::{HashMap, HashSet};
+use rg_core::chunk::{frac_tile_pos_to_world, CHUNK_SIZE, CHUNK_TILES};
 use rg_core::grid::Grid;
 use rg_core::VecToBits;
 use smallvec::SmallVec;
 use spade::{ConstrainedDelaunayTriangulation, Point2, Triangulation};
 
 use crate::collider_set::ColliderSet;
-use crate::{
-    cell_pos_to_world, Link, LinkKind, NavMeshChunk, NavMeshSettings, Triangle, CHUNK_CELLS,
-    CHUNK_SIZE,
-};
+use crate::{Link, LinkKind, NavMeshChunk, NavMeshSettings, Triangle, NAVMESH_QUALITY};
 
 pub fn generate_chunk(
     settings: &NavMeshSettings,
     colliders: &ColliderSet,
+    origin: IVec2,
     chunk_pos: IVec2,
 ) -> NavMeshChunk {
     let _span = info_span!("generate_chunk").entered();
 
-    let height_map = generate_height_map(settings, colliders, chunk_pos);
+    let height_map = generate_height_map(settings, colliders, origin, chunk_pos);
     let is_empty = height_map.values().all(|v| v.is_nan());
 
     if is_empty {
@@ -49,13 +48,16 @@ pub fn generate_chunk(
 fn generate_height_map(
     settings: &NavMeshSettings,
     collider_set: &ColliderSet,
+    origin: IVec2,
     chunk_pos: IVec2,
 ) -> Grid<f32> {
     let _span = info_span!("generate_height_map").entered();
 
-    let size = UVec2::splat(CHUNK_CELLS);
+    let size = UVec2::splat(CHUNK_TILES * NAVMESH_QUALITY);
     Grid::par_from_fn(size, |cell| {
-        let pos = cell_pos_to_world(chunk_pos, cell.as_vec2() + 0.5);
+        let pos =
+            frac_tile_pos_to_world(origin, chunk_pos, cell.as_vec2() / (NAVMESH_QUALITY as f32));
+
         collider_set
             .check_walkability(settings, pos)
             .unwrap_or(f32::NAN)
@@ -101,8 +103,10 @@ fn generate_edges(connections: &Grid<u8>) -> Vec<(Vec2, Vec2)> {
     for cell in cells {
         let mut add_edge = |x1, y1, x2, y2| {
             edges.push((
-                (cell.as_vec2() + vec2(x1, y1) + 0.5) / (CHUNK_CELLS as f32) * CHUNK_SIZE,
-                (cell.as_vec2() + vec2(x2, y2) + 0.5) / (CHUNK_CELLS as f32) * CHUNK_SIZE,
+                (cell.as_vec2() + vec2(x1, y1) + 0.5) / ((CHUNK_TILES * NAVMESH_QUALITY) as f32)
+                    * CHUNK_SIZE,
+                (cell.as_vec2() + vec2(x2, y2) + 0.5) / ((CHUNK_TILES * NAVMESH_QUALITY) as f32)
+                    * CHUNK_SIZE,
             ));
         };
 

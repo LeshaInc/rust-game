@@ -6,7 +6,7 @@ use rg_core::chunk::{tile_pos_to_world, CHUNK_TILES};
 use rg_core::grid::Grid;
 use rg_core::noise::Noise;
 use rg_core::DeserializedResource;
-use rg_worldgen::{WorldMaps, WORLD_SCALE};
+use rg_worldgen_api::{WorldMaps, WORLD_SCALE};
 use serde::Deserialize;
 
 use super::{ChunkMaps, SharedChunkMaps};

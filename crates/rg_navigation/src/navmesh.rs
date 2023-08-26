@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 use bevy::utils::HashMap;
+use rg_core::chunk::{chunk_pos_to_world, WorldOrigin, CHUNK_SIZE, CHUNK_TILES};
 use rg_core::grid::Grid;
 use smallvec::SmallVec;
 
-use crate::{chunk_pos_to_world, CHUNK_CELLS, CHUNK_SIZE};
+use crate::NAVMESH_QUALITY;
 
 #[derive(Debug, Default, Resource)]
 pub struct NavMesh {
@@ -31,7 +32,7 @@ pub struct NavMeshChunk {
 impl NavMeshChunk {
     pub fn sample_height(&self, pos: Vec2) -> f32 {
         self.height_map
-            .sample(pos / CHUNK_SIZE * (CHUNK_CELLS as f32) - 0.5)
+            .sample(pos / CHUNK_SIZE * ((CHUNK_TILES * NAVMESH_QUALITY) as f32) - 0.5)
     }
 }
 
@@ -60,11 +61,10 @@ pub enum LinkKind {
     NegY,
 }
 
-pub fn draw_navmesh_gizmos(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
+pub fn draw_navmesh_gizmos(navmesh: Res<NavMesh>, mut gizmos: Gizmos, origin: Res<WorldOrigin>) {
     for (&chunk_pos, chunk) in navmesh.chunks.iter() {
-        let world_pos = chunk_pos_to_world(chunk_pos);
-
-        let transform = |pos: Vec2| (world_pos + pos).extend(chunk.sample_height(pos) + 0.3);
+        let chunk_origin = chunk_pos_to_world(origin.0, chunk_pos);
+        let transform = |pos: Vec2| (chunk_origin + pos).extend(chunk.sample_height(pos) + 0.3);
 
         let mut line = |a: Vec2, b: Vec2, color: Color| {
             let subdiv = ((b - a).length() * 2.0).ceil();
@@ -91,15 +91,21 @@ pub fn draw_navmesh_gizmos(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
     }
 }
 
-pub fn draw_navmesh_heightmap_gizmos(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
+pub fn draw_navmesh_heightmap_gizmos(
+    navmesh: Res<NavMesh>,
+    mut gizmos: Gizmos,
+    origin: Res<WorldOrigin>,
+) {
     for (&chunk_pos, chunk) in navmesh.chunks.iter() {
+        let chunk_origin = chunk_pos_to_world(origin.0, chunk_pos);
+
         for (cell, height) in chunk.height_map.entries() {
             if height.is_nan() {
                 continue;
             }
 
-            let pos = (chunk_pos_to_world(chunk_pos)
-                + (cell.as_vec2() + 0.5) / (CHUNK_CELLS as f32) * CHUNK_SIZE)
+            let pos = (chunk_origin
+                + (cell.as_vec2() + 0.5) / ((CHUNK_TILES * NAVMESH_QUALITY) as f32) * CHUNK_SIZE)
                 .extend(height + 0.1);
 
             for (i, neighbor) in chunk.height_map.neighborhood_4(cell) {
@@ -112,8 +118,9 @@ pub fn draw_navmesh_heightmap_gizmos(navmesh: Res<NavMesh>, mut gizmos: Gizmos) 
                     continue;
                 }
 
-                let neighbor_pos = (chunk_pos_to_world(chunk_pos)
-                    + (neighbor.as_vec2() + 0.5) / (CHUNK_CELLS as f32) * CHUNK_SIZE)
+                let neighbor_pos = (chunk_origin
+                    + (neighbor.as_vec2() + 0.5) / ((CHUNK_TILES * NAVMESH_QUALITY) as f32)
+                        * CHUNK_SIZE)
                     .extend(neighbor_height + 0.1);
 
                 gizmos.line(pos, neighbor_pos, Color::GREEN);

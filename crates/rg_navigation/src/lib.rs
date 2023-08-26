@@ -3,26 +3,27 @@
 
 mod collider_set;
 mod generator;
+mod listener;
 mod navmesh;
-mod observer;
 
 use bevy::prelude::*;
 use rg_dev_overlay::DevOverlaySettings;
+use rg_navigation_api::NavigationApiPlugin;
 
+use crate::listener::ListenerPlugin;
 use crate::navmesh::{draw_navmesh_gizmos, draw_navmesh_heightmap_gizmos};
 pub use crate::navmesh::{Link, LinkKind, NavMesh, NavMeshChunk, Triangle};
-use crate::observer::ObserverPlugin;
 
-pub const CHUNK_SIZE: f32 = 16.0;
-pub const CHUNK_CELLS: u32 = 64;
+pub const NAVMESH_QUALITY: u32 = 2;
 pub const CHUNK_OVERSCAN: f32 = 1.0;
 
 pub struct NavigationPlugin;
 
 impl Plugin for NavigationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<NavMeshSettings>()
-            .add_plugins(ObserverPlugin)
+        app.add_plugins(NavigationApiPlugin)
+            .init_resource::<NavMeshSettings>()
+            .add_plugins(ListenerPlugin)
             .add_systems(
                 Update,
                 (
@@ -60,15 +61,4 @@ impl Default for NavMeshSettings {
             agent_offset: 0.05,
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, Component)]
-pub struct NavMeshAffector;
-
-pub fn chunk_pos_to_world(chunk_pos: IVec2) -> Vec2 {
-    chunk_pos.as_vec2() * CHUNK_SIZE
-}
-
-pub fn cell_pos_to_world(chunk_pos: IVec2, cell_pos: Vec2) -> Vec2 {
-    chunk_pos_to_world(chunk_pos) + cell_pos / (CHUNK_CELLS as f32) * CHUNK_SIZE
 }

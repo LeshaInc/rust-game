@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 rg_core = { path = "../rg_core" }
+rg_worldgen_api = { path = "../rg_worldgen_api" }
 
 anyhow = { workspace = true }
 bevy = { workspace = true }

@@ -5,6 +5,7 @@ use bevy::utils::HashMap;
 use bevy_rapier3d::prelude::PhysicsSet;
 
 use crate::grid::NEIGHBORHOOD_8;
+use crate::CoreSystems;
 
 pub const CHUNK_SIZE: f32 = 16.0;
 pub const TILE_SIZE: f32 = 0.5;
@@ -26,6 +27,7 @@ impl Plugin for ChunkPlugin {
                 (
                     despawn_chunks,
                     update_origin
+                        .in_set(CoreSystems::UpdateOrigin)
                         .before(TransformSystem::TransformPropagate)
                         .before(PhysicsSet::SyncBackend),
                 )
@@ -50,7 +52,11 @@ pub fn chunk_pos_to_world(origin: IVec2, chunk: IVec2) -> Vec2 {
 }
 
 pub fn tile_pos_to_world(origin: IVec2, chunk: IVec2, tile: IVec2) -> Vec2 {
-    (chunk - origin).as_vec2() * CHUNK_SIZE + tile.as_vec2() * TILE_SIZE
+    frac_tile_pos_to_world(origin, chunk, tile.as_vec2())
+}
+
+pub fn frac_tile_pos_to_world(origin: IVec2, chunk: IVec2, tile: Vec2) -> Vec2 {
+    (chunk - origin).as_vec2() * CHUNK_SIZE + tile * TILE_SIZE
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Component)]
@@ -182,7 +188,7 @@ fn despawn_chunks(
     });
 }
 
-pub fn update_origin(
+fn update_origin(
     mut ev_origin_changed: EventWriter<WorldOriginChanged>,
     mut q_transform: Query<&mut Transform, With<FloatingOrigin>>,
     mut center: ResMut<ChunkSpawnCenter>,

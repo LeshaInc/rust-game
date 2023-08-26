@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 rg_core = { path = "../rg_core" }
 rg_dev_overlay = { path = "../rg_dev_overlay" }
+rg_navigation_api = { path = "../rg_navigation_api" }
 
 bevy = { workspace = true }
 bevy_rapier3d = { workspace = true }

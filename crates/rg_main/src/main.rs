@@ -91,8 +91,8 @@ fn setup(mut commands: Commands) {
             color: Color::WHITE,
             illuminance: 4800.0,
             shadows_enabled: true,
-            shadow_depth_bias: 0.01,
-            shadow_normal_bias: 0.3,
+            shadow_depth_bias: 0.1,
+            shadow_normal_bias: 0.5,
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,

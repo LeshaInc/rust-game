@@ -7,7 +7,7 @@ use bevy::render::render_resource::{
 use bevy::render::view::NoFrustumCulling;
 use bevy::sprite::Anchor;
 
-use crate::chunk::WorldOriginChanged;
+use crate::chunk::{WorldOrigin, WorldOriginChanged, CHUNK_SIZE};
 use crate::material::GlobalDitherOffset;
 use crate::scale::GameScale;
 use crate::CoreSystems;
@@ -187,6 +187,7 @@ fn update_camera(
     mut dither_offset: ResMut<GlobalDitherOffset>,
     mut images: ResMut<Assets<Image>>,
     game_scale: Res<GameScale>,
+    world_origin: Res<WorldOrigin>,
 ) {
     let Ok(window) = q_window.get_single() else {
         return;
@@ -198,23 +199,26 @@ fn update_camera(
         return;
     };
 
+    let camera_rot_inv = controller.rotation.inverse();
     let camera_scale = controller.camera_scale / controller.zoom;
     let camera_distance = controller.camera_distance / controller.zoom;
     let pixel_scale = game_scale.pixels as f32;
 
-    let scale = Vec3::new(
-        camera_scale.recip(),
-        camera_scale.recip() * controller.camera_pitch.sin().abs(),
-        camera_scale.recip() * controller.camera_pitch.cos().abs(),
-    );
+    let basis = Vec3::new(
+        1.0,
+        controller.camera_pitch.sin().abs(),
+        controller.camera_pitch.cos().abs(),
+    ) / camera_scale;
 
-    let pos = controller.rotation.inverse() * controller.translation;
-    let snapped_pos = (pos * scale).round() / scale;
+    let pos = camera_rot_inv * controller.translation;
+    let snapped_pos = (pos * basis).round() / basis;
     let offset = snapped_pos - pos;
 
+    let origin = camera_rot_inv * (world_origin.0.as_vec2() * CHUNK_SIZE).extend(0.0);
+    let dither = ((origin * basis % 4.0).round() + (pos * basis % 4.0).round()).as_ivec3();
     dither_offset.0 = UVec2::new(
-        ((pos.x * scale.x).round() as i32).rem_euclid(4) as u32,
-        ((-pos.z * scale.z).round() as i32 - (pos.y * scale.y).round() as i32).rem_euclid(4) as u32,
+        dither.x.rem_euclid(4) as u32,
+        (-dither.y - dither.z).rem_euclid(4) as u32,
     );
 
     camera_transform.rotation =
@@ -258,9 +262,9 @@ fn update_camera(
 
     sprite_transform.scale = Vec3::splat(sprite_scale);
     sprite_transform.translation = Vec3::new(
-        -window.width() / 2.0 + ((offset.x * scale.x - 0.5) * sprite_scale).round(),
+        -window.width() / 2.0 + ((offset.x * basis.x - 0.5) * sprite_scale).round(),
         window.height() / 2.0
-            + ((offset.z * scale.z + offset.y * scale.y + 1.0) * sprite_scale).round(),
+            + ((offset.z * basis.z + offset.y * basis.y + 1.0) * sprite_scale).round(),
         0.0,
     );
 }

@@ -195,7 +195,7 @@ fn update_origin(
     mut origin: ResMut<WorldOrigin>,
 ) {
     let old_origin = origin.0;
-    let new_origin = old_origin + (center.0 / CHUNK_SIZE).round().as_ivec2();
+    let new_origin = old_origin + (center.0 / CHUNK_SIZE).floor().as_ivec2();
     if old_origin == new_origin {
         return;
     }

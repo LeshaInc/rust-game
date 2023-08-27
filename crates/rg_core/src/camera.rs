@@ -210,12 +210,12 @@ fn update_camera(
         controller.camera_pitch.cos().abs(),
     ) / camera_scale;
 
-    let pos = camera_rot_inv * controller.translation;
+    let origin = camera_rot_inv * (world_origin.0.as_vec2() * CHUNK_SIZE).extend(0.0);
+    let pos = origin + camera_rot_inv * controller.translation;
     let snapped_pos = (pos * basis).round() / basis;
     let offset = snapped_pos - pos;
 
-    let origin = camera_rot_inv * (world_origin.0.as_vec2() * CHUNK_SIZE).extend(0.0);
-    let dither = ((origin * basis % 4.0).round() + (pos * basis % 4.0).round()).as_ivec3();
+    let dither = ((pos * basis % 4.0).round()).as_ivec3();
     dither_offset.0 = UVec2::new(
         dither.x.rem_euclid(4) as u32,
         (-dither.y - dither.z).rem_euclid(4) as u32,

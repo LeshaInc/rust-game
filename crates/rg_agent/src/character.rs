@@ -4,11 +4,10 @@ use std::time::Duration;
 use bevy::ecs::system::SystemState;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-use bevy::transform::TransformSystem;
 use bevy_rapier3d::prelude::*;
 use rg_core::chunk::{ChunkSpawnCenter, FloatingOrigin};
 use rg_core::material::{GlobalFogHeight, PixelMaterial, ReplaceStandardMaterial};
-use rg_core::{CameraController, PrevTransform};
+use rg_core::{CameraController, CoreSystems, PrevTransform};
 
 use crate::movement::MovementBundle;
 use crate::MovementInput;
@@ -31,8 +30,7 @@ impl Plugin for CharacterPlugin {
         .add_systems(
             PostUpdate,
             (update_rotation, update_models.after(update_rotation))
-                .after(PhysicsSet::Writeback)
-                .before(TransformSystem::TransformPropagate),
+                .before(CoreSystems::UpdateOrigin),
         );
     }
 

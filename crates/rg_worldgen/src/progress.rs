@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rg_core::progress::ProgressReader;
+use rg_worldgen_api::WorldgenProgress;
 
 use crate::WorldgenState;
 
@@ -15,9 +15,6 @@ rg_core::progress_stages! {
         Saving => "Saving the world...",
     }
 }
-
-#[derive(Resource, Deref)]
-pub struct WorldgenProgress(pub ProgressReader<WorldgenStage>);
 
 pub struct WorldgenProgressUiPlugin;
 

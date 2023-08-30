@@ -91,20 +91,47 @@ fn handle_movement_input(
         let prev_position = position;
 
         let shape_cast = |pos, dir, limit| {
-            query
-                .cast_shape(
-                    pos,
-                    Quat::IDENTITY,
-                    dir,
-                    collider,
-                    limit,
-                    QueryFilter {
-                        exclude_collider: Some(entity),
-                        flags: QueryFilterFlags::EXCLUDE_DYNAMIC,
-                        ..default()
-                    },
-                )
-                .map(|(_, toi)| toi.toi)
+            query.cast_shape(
+                pos,
+                Quat::IDENTITY,
+                dir,
+                collider,
+                limit,
+                QueryFilter {
+                    exclude_collider: Some(entity),
+                    flags: QueryFilterFlags::EXCLUDE_DYNAMIC,
+                    ..default()
+                },
+            )
+        };
+
+        let move_and_stop = |pos: &mut Vec3, dir, limit| {
+            let dist = shape_cast(*pos, dir, limit)
+                .map(|(_, hit)| hit.toi)
+                .unwrap_or(limit + offset);
+            *pos += (dist - offset) * dir;
+        };
+
+        let move_and_slide = |pos: &mut Vec3, mut trans: Vec3| {
+            for _ in 0..3 {
+                if trans.length() < 0.001 {
+                    break;
+                }
+
+                let dir = trans.normalize_or_zero();
+                let limit = trans.length();
+                match shape_cast(*pos, dir, limit) {
+                    Some((_, hit)) => {
+                        let moved = dir * (hit.toi - offset);
+                        *pos += moved;
+                        trans = (trans - moved).reject_from(hit.normal2);
+                    }
+                    None => {
+                        *pos += dir * limit;
+                        break;
+                    }
+                }
+            }
         };
 
         let is_grounded = shape_cast(position, -Vec3::Z, 2.0 * offset).is_some();
@@ -138,22 +165,16 @@ fn handle_movement_input(
 
         if enable_stepping {
             // cast up
-            let limit = step_height;
-            let dist = shape_cast(position, Vec3::Z, limit).unwrap_or(limit + offset) - offset;
-            position.z += dist;
+            move_and_stop(&mut position, Vec3::Z, step_height);
         }
 
         // cast forward
-        let dir = velocity.normalize_or_zero();
-        let limit = velocity.length() * dt;
-        let dist = shape_cast(position, dir, limit).unwrap_or(limit + offset) - offset;
-        position += dir * dist;
+        move_and_slide(&mut position, velocity * dt);
 
         if enable_stepping {
             // cast down
             let limit = position.z - prev_position.z + step_height;
-            let dist = shape_cast(position, -Vec3::Z, limit).unwrap_or(limit + offset) - offset;
-            position.z -= dist;
+            move_and_stop(&mut position, -Vec3::Z, limit);
         }
 
         let translation = position - prev_position;

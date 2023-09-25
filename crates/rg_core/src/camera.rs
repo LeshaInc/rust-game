@@ -43,7 +43,7 @@ pub struct CameraController {
     pub target_rotation: Quat,
     pub target_zoom: f32,
 
-    pub translation_smoothing: f32,
+    pub translation_smoothing: Vec3,
     pub rotation_smoothing: f32,
     pub zoom_smoothing: f32,
 
@@ -70,7 +70,7 @@ impl Default for CameraController {
             target_translation: Vec3::ZERO,
             target_rotation: Quat::IDENTITY,
             target_zoom: 1.0,
-            translation_smoothing: 0.01,
+            translation_smoothing: Vec3::new(0.1, 0.1, 0.3),
             rotation_smoothing: 0.0001,
             zoom_smoothing: 0.001,
             translation_snap: 0.0001,
@@ -150,9 +150,11 @@ fn update_transform(mut q_controller: Query<&mut CameraController>, time: Res<Ti
         controller.translation = controller.target_translation;
     } else {
         let alpha = 1.0 - controller.translation_smoothing.powf(time.delta_seconds());
-        controller.translation = controller
-            .translation
-            .lerp(controller.target_translation, alpha);
+        let target = controller.target_translation;
+        let trans = &mut controller.translation;
+        trans.x = lerp(trans.x, target.x, alpha.x);
+        trans.y = lerp(trans.y, target.y, alpha.y);
+        trans.z = lerp(trans.z, target.z, alpha.z);
     }
 
     if controller
@@ -322,4 +324,9 @@ fn handle_updated_origin(
         camera.translation += event.translation;
         camera.target_translation += event.translation;
     }
+}
+
+// TODO: move this somewhere else
+fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a * (1.0 - t) + b * t
 }

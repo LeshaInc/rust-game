@@ -80,6 +80,7 @@ pub struct CharacterAnimationPlayer(pub Entity);
 
 fn spawn_character(
     q_character: Query<(Entity, &Transform), With<SpawnCharacter>>,
+    mut q_camera: Query<&mut CameraController>,
     mut commands: Commands,
     prototype: Res<CharacterPrototype>,
 ) {
@@ -123,6 +124,11 @@ fn spawn_character(
                     ReplaceStandardMaterial(prototype.material.clone()),
                 ));
             });
+
+        if let Ok(mut camera) = q_camera.get_single_mut() {
+            camera.translation = transform.translation;
+            camera.target_translation = transform.translation;
+        }
     }
 }
 
@@ -261,13 +267,10 @@ fn update_camera(
     camera.target_translation = character_transform.translation;
 }
 
-fn update_fog_height(
-    q_character: Query<&Transform, With<ControlledCharacter>>,
-    mut fog_height: ResMut<GlobalFogHeight>,
-) {
-    let Ok(character_transform) = q_character.get_single() else {
+fn update_fog_height(q_camera: Query<&CameraController>, mut fog_height: ResMut<GlobalFogHeight>) {
+    let Ok(camera) = q_camera.get_single() else {
         return;
     };
 
-    fog_height.0 = character_transform.translation.z;
+    fog_height.0 = camera.translation.z;
 }

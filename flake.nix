@@ -23,6 +23,7 @@
       {
         devShell = with pkgs; mkShell rec {
           buildInputs = [
+            stdenv.cc.cc.lib
             alsa-lib
             clang
             cargo-criterion

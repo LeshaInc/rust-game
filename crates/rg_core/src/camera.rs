@@ -288,7 +288,7 @@ fn handle_input(
         camera.target_rotation *= Quat::from_rotation_z(-45f32.to_radians());
     }
 
-    for scroll_event in scroll_events.iter() {
+    for scroll_event in scroll_events.read() {
         let delta = match scroll_event.unit {
             MouseScrollUnit::Line => scroll_event.y,
             MouseScrollUnit::Pixel => scroll_event.y / 16.0,
@@ -320,7 +320,7 @@ fn handle_updated_origin(
         return;
     };
 
-    for event in ev_origin_changed.iter() {
+    for event in ev_origin_changed.read() {
         camera.translation += event.translation;
         camera.target_translation += event.translation;
     }

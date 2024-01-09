@@ -157,7 +157,7 @@ impl FromWorld for TreePrototype {
     }
 }
 
-#[derive(Debug, Default, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
+#[derive(Debug, Default, Clone, Component, AsBindGroup, TypeUuid, TypePath, Asset)]
 #[uuid = "8b047c11-1b1d-4590-b5e8-e33f50c61b37"]
 pub struct LeavesMaterial {
     #[uniform(0)]

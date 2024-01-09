@@ -1,5 +1,7 @@
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
-#import bevy_pbr::mesh_bindings mesh
+#import bevy_pbr::forward_io::VertexOutput
+#import bevy_pbr::mesh_bindings::mesh
+#import bevy_render::maths::mat2x4_f32_to_mat3x3_unpack
+#import bevy_render::instance_index::get_instance_index
 #import rg::pixel_funcs as pixel
 
 struct TerrainMaterial {
@@ -18,9 +20,11 @@ var tile_map: texture_2d<u32>;
 
 @fragment
 fn fragment(
-    in: MeshVertexOutput,
+    in: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    let tile_pos = vec2<u32>((transpose(mesh.inverse_transpose_model) * in.world_position).xy * 2.0);
+    let mesh = mesh[get_instance_index(in.instance_index)];
+    let itm = mat2x4_f32_to_mat3x3_unpack(mesh.inverse_transpose_model_a, mesh.inverse_transpose_model_b);
+    let tile_pos = vec2<u32>((transpose(itm) * in.world_position.xyz).xy * 2.0);
     let tile = textureLoad(tile_map, tile_pos, 0).r;
 
     let uv = fract(in.world_position.xy * 2.0);

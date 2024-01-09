@@ -154,8 +154,7 @@ fn spawn_chunks(
                     ChunkPos(chunk_pos),
                     Transform::from_translation(chunk_pos_to_world(origin, chunk_pos).extend(0.0)),
                     GlobalTransform::default(),
-                    Visibility::Visible,
-                    ComputedVisibility::default(),
+                    VisibilityBundle::default(),
                     FloatingOrigin,
                 ))
                 .id();

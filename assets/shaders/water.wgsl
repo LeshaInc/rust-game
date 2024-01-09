@@ -1,6 +1,6 @@
 #define DISABLE_SHADOWS
 
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::forward_io::VertexOutput
 #import rg::pixel_funcs as pixel
 
 struct WaterMaterial {
@@ -12,7 +12,7 @@ var<uniform> material: WaterMaterial;
 
 @fragment
 fn fragment(
-    in: MeshVertexOutput,
+    in: VertexOutput,
 ) -> @location(0) vec4<f32> {
     let prepass_depth = pixel::get_linear_depth(in.position.xy);
     let our_depth = pixel::raw_depth_to_linear(in.position.z / in.position.w);

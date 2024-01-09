@@ -26,7 +26,7 @@ impl Plugin for PixelMaterialPlugin {
     }
 }
 
-#[derive(Debug, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
+#[derive(Debug, Clone, Component, AsBindGroup, TypeUuid, TypePath, Asset)]
 #[uuid = "7e80d778-3cb8-4ec2-95bf-ceb03ce277e0"]
 #[bind_group_data(PixelMaterialKey)]
 pub struct PixelMaterial {

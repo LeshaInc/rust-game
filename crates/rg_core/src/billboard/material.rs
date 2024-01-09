@@ -1,11 +1,9 @@
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use bevy::asset::{AssetPath, HandleId};
-use bevy::core_pipeline::core_3d::AlphaMask3d;
-use bevy::core_pipeline::prepass::{
-    AlphaMask3dPrepass, DEPTH_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
-};
+use bevy::asset::{AssetId, AssetPath};
+use bevy::core_pipeline::core_3d::{AlphaMask3d, CORE_3D_DEPTH_FORMAT};
+use bevy::core_pipeline::prepass::{AlphaMask3dPrepass, NORMAL_PREPASS_FORMAT};
 use bevy::ecs::query::ROQueryItem;
 use bevy::ecs::system::lifetimeless::{Read, SRes};
 use bevy::ecs::system::SystemParamItem;
@@ -17,13 +15,13 @@ use bevy::render::extract_component::{
 };
 use bevy::render::globals::{GlobalsBuffer, GlobalsUniform};
 use bevy::render::mesh::MeshVertexBufferLayout;
-use bevy::render::render_asset::{PrepareAssetSet, RenderAssets};
+use bevy::render::render_asset::{prepare_assets, RenderAssets};
 use bevy::render::render_phase::{
     AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase,
     SetItemPipeline, TrackedRenderPass,
 };
 use bevy::render::render_resource::{
-    AsBindGroup, AsBindGroupError, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    AsBindGroup, AsBindGroupError, BindGroup, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType,
     ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, IndexFormat,
     OwnedBindingResource, PipelineCache, PrimitiveState, PrimitiveTopology,
@@ -42,7 +40,7 @@ use super::instance::{BillboardVertex, MultiBillboardUniform};
 use super::{BillboardInstance, MultiBillboard};
 
 pub trait BillboardMaterial:
-    AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized
+    AsBindGroup + Send + Sync + Clone + Asset + TypeUuid + TypePath + Sized
 {
     fn vertex_shader() -> AssetPath<'static>;
 
@@ -74,7 +72,7 @@ where
     M::Data: Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.add_asset::<M>()
+        app.init_asset::<M>()
             .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         app.sub_app_mut(RenderApp)
@@ -91,7 +89,8 @@ where
                 (
                     prepare_materials::<M>
                         .in_set(RenderSet::Prepare)
-                        .after(PrepareAssetSet::PreAssetPrepare),
+                        .after(prepare_assets::<Image>)
+                        .after(prepare_assets::<MultiBillboard>),
                     queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
                     queue_billboard_uniform_bind_groups::<M>.in_set(RenderSet::Queue),
                     queue_billboard_batches::<M>.in_set(RenderSet::Queue),
@@ -117,14 +116,12 @@ pub fn queue_billboard_uniform_bind_groups<M: BillboardMaterial>(
 ) {
     if let Some(binding) = uniform.uniforms().binding() {
         commands.insert_resource(BillboardUniformBindGroup(render_device.create_bind_group(
-            &BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("billboard uniform"),
-                layout: &pipeline.uniform_layout,
-            },
+            None,
+            &pipeline.uniform_layout,
+            &[BindGroupEntry {
+                binding: 0,
+                resource: binding,
+            }],
         )));
     }
 }
@@ -139,7 +136,6 @@ pub fn queue_billboard_batches<M>(
     q_multi_billboards: Query<(Entity, &MultiBillboardUniform, &Handle<M>)>,
     main_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
     prepass_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
-    meshes: Res<RenderAssets<Mesh>>,
     materials: Res<PreparedBillboardMaterials<M>>,
     main_pipeline: Res<BillboardMaterialPipeline<M>>,
     prepass_pipeline: Res<BillboardPrepassPipeline<M>>,
@@ -160,10 +156,8 @@ pub fn queue_billboard_batches<M>(
         .get_id::<DrawMultiBillboard<M>>()
         .unwrap();
 
-    let dummy_mesh_handle = Handle::weak(DUMMY_MESH_HANDLE_ID);
-    let Some(dummy_mesh) = meshes.get(&dummy_mesh_handle) else {
-        return;
-    };
+    let dummy_mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mesh_layout = dummy_mesh.get_mesh_vertex_buffer_layout();
 
     for (view, visible_entities, mut prepass_phase, mut main_phase) in &mut q_views {
         let mesh_key = MeshPipelineKey::from_hdr(view.hdr);
@@ -171,7 +165,7 @@ pub fn queue_billboard_batches<M>(
 
         for (entity, uniform, material) in q_multi_billboards.iter_many(&visible_entities.entities)
         {
-            let Some(material) = materials.map.get(material) else {
+            let Some(material) = materials.map.get(&material.id()) else {
                 continue;
             };
 
@@ -185,7 +179,7 @@ pub fn queue_billboard_batches<M>(
                         mesh_key,
                         bind_group_data: material.key.clone(),
                     },
-                    &dummy_mesh.layout,
+                    &mesh_layout,
                 )
                 .unwrap();
 
@@ -194,6 +188,8 @@ pub fn queue_billboard_batches<M>(
                 pipeline_id: prepass_pipeline,
                 entity,
                 draw_function: prepass_draw_function,
+                batch_range: 0..0,
+                dynamic_offset: None,
             });
 
             let main_pipeline = main_pipelines
@@ -204,7 +200,7 @@ pub fn queue_billboard_batches<M>(
                         mesh_key,
                         bind_group_data: material.key.clone(),
                     },
-                    &dummy_mesh.layout,
+                    &mesh_layout,
                 )
                 .unwrap();
 
@@ -213,24 +209,10 @@ pub fn queue_billboard_batches<M>(
                 pipeline: main_pipeline,
                 entity,
                 draw_function: main_draw_function,
+                batch_range: 0..0,
+                dynamic_offset: None,
             });
         }
-    }
-}
-
-#[derive(Resource)]
-pub struct DummyMesh(pub Handle<Mesh>);
-
-pub const DUMMY_MESH_HANDLE_ID: HandleId = HandleId::new(Mesh::TYPE_UUID, 2923664944183213475);
-
-impl FromWorld for DummyMesh {
-    fn from_world(world: &mut World) -> Self {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
-        let handle = meshes.set(
-            DUMMY_MESH_HANDLE_ID,
-            Mesh::new(PrimitiveTopology::TriangleList),
-        );
-        DummyMesh(handle)
     }
 }
 
@@ -435,7 +417,7 @@ where
         }
 
         descripor.depth_stencil = Some(DepthStencilState {
-            format: DEPTH_PREPASS_FORMAT,
+            format: CORE_3D_DEPTH_FORMAT,
             depth_write_enabled: true,
             depth_compare: CompareFunction::GreaterEqual,
             stencil: StencilState {
@@ -473,21 +455,20 @@ pub fn queue_prepass_view_bind_group<M: BillboardMaterial>(
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        prepass_view_bind_group.bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: globals_binding.clone(),
-                    },
-                ],
-                label: Some("billboard_prepass_view_bind_group"),
-                layout: &prepass_pipeline.view_layout,
-            }));
+        prepass_view_bind_group.bind_group = Some(render_device.create_bind_group(
+            None,
+            &prepass_pipeline.view_layout,
+            &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: view_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: globals_binding.clone(),
+                },
+            ],
+        ));
     }
 }
 
@@ -569,7 +550,7 @@ impl<const I: usize, M: BillboardMaterial, P: PhaseItem> RenderCommand<P>
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials.into_inner().map.get(handle).unwrap();
+        let material = materials.into_inner().map.get(&handle.id()).unwrap();
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
     }
@@ -609,8 +590,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawBillboardBatch {
 
 #[derive(Resource)]
 pub struct ExtractedBillboardMaterials<M: BillboardMaterial> {
-    extracted: Vec<(Handle<M>, M)>,
-    removed: Vec<Handle<M>>,
+    extracted: Vec<(AssetId<M>, M)>,
+    removed: Vec<AssetId<M>>,
 }
 
 impl<M: BillboardMaterial> Default for ExtractedBillboardMaterials<M> {
@@ -629,22 +610,23 @@ pub fn extract_materials<M: BillboardMaterial>(
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
-    for event in events.iter() {
+    for event in events.read() {
         match event {
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle.clone_weak());
+            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                changed_assets.insert(*id);
             }
-            AssetEvent::Removed { handle } => {
-                changed_assets.remove(handle);
-                removed.push(handle.clone_weak());
+            AssetEvent::Removed { id } => {
+                changed_assets.remove(id);
+                removed.push(*id);
             }
+            _ => {}
         }
     }
 
     let mut extracted_assets = Vec::new();
-    for handle in changed_assets.drain() {
-        if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, asset.clone()));
+    for id in changed_assets.drain() {
+        if let Some(asset) = assets.get(id) {
+            extracted_assets.push((id, asset.clone()));
         }
     }
 
@@ -656,11 +638,11 @@ pub fn extract_materials<M: BillboardMaterial>(
 
 #[derive(Resource)]
 pub struct PreparedBillboardMaterials<M: BillboardMaterial> {
-    map: HashMap<Handle<M>, PreparedBillboardMaterial<M>>,
+    map: HashMap<AssetId<M>, PreparedBillboardMaterial<M>>,
 }
 
 pub struct PreparedBillboardMaterial<M: BillboardMaterial> {
-    pub bindings: Vec<OwnedBindingResource>,
+    pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
     pub key: M::Data,
 }
@@ -674,7 +656,7 @@ impl<M: BillboardMaterial> Default for PreparedBillboardMaterials<M> {
 }
 
 pub struct PrepareNextFrameMaterials<M: BillboardMaterial> {
-    assets: Vec<(Handle<M>, M)>,
+    assets: Vec<(AssetId<M>, M)>,
 }
 
 impl<M: BillboardMaterial> Default for PrepareNextFrameMaterials<M> {
@@ -693,7 +675,7 @@ pub fn prepare_materials<M: BillboardMaterial>(
     pipeline: Res<BillboardMaterialPipeline<M>>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets.into_iter() {
+    for (id, material) in queued_assets.into_iter() {
         match prepare_material(
             &material,
             &render_device,
@@ -702,10 +684,10 @@ pub fn prepare_materials<M: BillboardMaterial>(
             &pipeline,
         ) {
             Ok(prepared_asset) => {
-                prepared_materials.map.insert(handle, prepared_asset);
+                prepared_materials.map.insert(id, prepared_asset);
             }
             Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((handle, material));
+                prepare_next_frame.assets.push((id, material));
             }
         }
     }

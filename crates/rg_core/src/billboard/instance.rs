@@ -59,7 +59,7 @@ impl BillboardVertex {
     }
 }
 
-#[derive(Debug, Clone, TypeUuid, TypePath)]
+#[derive(Debug, Clone, TypeUuid, TypePath, Asset)]
 #[uuid = "75c2e3e7-ce11-441a-9751-0dd4556f8bda"]
 pub struct MultiBillboard {
     pub instances: Arc<[BillboardInstance]>,
@@ -179,14 +179,14 @@ pub fn extract_multi_billboards(
             Entity,
             &Handle<MultiBillboard>,
             &GlobalTransform,
-            &ComputedVisibility,
+            &ViewVisibility,
         )>,
     >,
     multi_billboards: Extract<Res<Assets<MultiBillboard>>>,
     mut commands: Commands,
 ) {
     for (entity, multi_billboard_handle, transform, visibility) in &q_multi_billboards {
-        if !visibility.is_visible() {
+        if !visibility.get() {
             continue;
         }
 

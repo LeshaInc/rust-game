@@ -13,7 +13,7 @@ impl Plugin for MovementPlugin {
     }
 }
 
-#[derive(Debug, Bundle)]
+#[derive(Bundle)]
 pub struct MovementBundle {
     pub movement_input: MovementInput,
     pub movement_state: MovementState,
@@ -97,6 +97,7 @@ fn handle_movement_input(
                 dir,
                 collider,
                 limit,
+                true,
                 QueryFilter {
                     exclude_collider: Some(entity),
                     flags: QueryFilterFlags::EXCLUDE_DYNAMIC,
@@ -124,7 +125,9 @@ fn handle_movement_input(
                     Some((_, hit)) => {
                         let moved = dir * (hit.toi - offset);
                         *pos += moved;
-                        trans = (trans - moved).reject_from(hit.normal2);
+                        if let Some(details) = hit.details {
+                            trans = (trans - moved).reject_from(details.normal2);
+                        }
                     }
                     None => {
                         *pos += dir * limit;

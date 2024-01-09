@@ -1,9 +1,12 @@
 #define DITHER_ENABLED
 
+#import bevy_render::{view::View, globals::Globals};
+
 #ifdef PREPASS
-#import bevy_pbr::prepass_bindings as bindings
+@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(1) var<uniform> globals: Globals;
 #else
-#import bevy_pbr::mesh_view_bindings as bindings
+#import bevy_pbr::mesh_view_bindings::{view, globals};
 #import rg::pixel_funcs as pixel
 #endif
 
@@ -56,9 +59,9 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     let world_origin_pos = (uniforms.transform * vec4(vertex.i_pos, 1.0)).xyz;
     let noise = textureSampleLevel(noise, noise_sampler, fract((world_origin_pos.xy + world_origin_pos.z) / 4.0), 0.0);
-    let translate = sin(2.0 * bindings::globals.time + noise.x * 10.0) * 0.1;
+    let translate = sin(2.0 * globals.time + noise.x * 10.0) * 0.1;
 
-    let camera_dir = (bindings::view.view * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
+    let camera_dir = (view.view * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
     let facing = normalize(camera_dir * vec3(1.0, 1.0, 0.0));
 
     let instance_transform = mat3x3(
@@ -76,7 +79,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let world_normal = normalize((uniforms.transform * vec4(vertex.i_normal, 0.0)).xyz);
 
     var out: VertexOutput;
-    out.position = bindings::view.view_proj * vec4(world_pos, 1.0);
+    out.position = view.view_proj * vec4(world_pos, 1.0);
     out.uv = vertex.uv;
     out.world_position = vec4(world_pos, 1.0);
     out.world_normal = world_normal;

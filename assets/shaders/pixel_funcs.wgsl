@@ -2,8 +2,8 @@
 
 #import bevy_pbr::utils
 #import bevy_pbr::mesh_view_bindings as bindings
-#import bevy_pbr::prepass_utils prepass_depth, prepass_normal
-#import bevy_pbr::shadows fetch_directional_shadow
+#import bevy_pbr::prepass_utils::{prepass_depth, prepass_normal}
+#import bevy_pbr::shadows::fetch_directional_shadow
 
 struct PixelInput {
     frag_coord: vec4<f32>,
@@ -101,10 +101,16 @@ fn raw_depth_to_linear(raw: f32) -> f32 {
     return -view_space.z / view_space.w;
 }
 
+#ifdef DEPTH_PREPASS
 fn get_linear_depth(frag_coord: vec2<f32>) -> f32 {
     let raw_depth = prepass_depth(vec4(frag_coord, 0.0, 1.0), 0u);
     return raw_depth_to_linear(raw_depth);
 }
+#elseif
+fn get_linear_depth(frag_coord: vec2<f32>) -> f32 {
+    return 0.0;
+}
+#endif
 
 fn get_depth_samples(frag_coord: vec2<f32>) -> DepthSamples {
     var samples: DepthSamples;
@@ -122,10 +128,16 @@ fn check_depth_edge(s: DepthSamples, treshold: f32) -> bool {
 }
 
 
+#ifdef DEPTH_PREPASS
 fn get_view_normal(frag_coord: vec2<f32>) -> vec3<f32> {
     let view_mat = mat3x3(bindings::view.view[0].xyz, bindings::view.view[1].xyz, bindings::view.view[2].xyz);
     return view_mat * prepass_normal(vec4(frag_coord, 0.0, 1.0), 0u);
 }
+#elseif
+fn get_view_normal(frag_coord: vec2<f32>) -> vec3<f32> {
+    return vec3(0.0);
+}
+#endif
 
 fn get_normal_samples(frag_coord: vec2<f32>) -> NormalSamples {
     var samples: NormalSamples;

@@ -16,25 +16,26 @@ members = [
 
 [workspace.dependencies]
 anyhow = "1.0"
-bevy-inspector-egui = "0.19"
-bevy_rapier3d = "0.22"
-bitflags = "2.3"
-bytemuck = "1.13"
-contour = "0.10"
+bevy-inspector-egui = "0.22"
+bevy_rapier3d = "0.23"
+bitflags = "2.4"
+bytemuck = "1.14"
+contour = "0.12"
 crossbeam-utils = "0.8"
 delaunator = "1.0"
-futures-lite = "1.13"
+egui_plot = "0.24"
+futures-lite = "2.1"
 parking_lot = "0.12"
 rand_pcg = "0.3"
-rayon = "1.7"
+rayon = "1.8"
 rmp-serde = "1.1"
 ron = "0.8"
 smallvec = "1.11"
-spade = "2.2"
-zstd = "0.12"
+spade = "2.5"
+zstd = "0.13"
 
 [workspace.dependencies.bevy]
-version = "0.11"
+version = "0.12"
 default-features = false
 features = [
   "multi-threaded",
@@ -50,7 +51,8 @@ features = [
   "bevy_text",
   "bevy_ui",
   "animation",
-  "filesystem_watcher",
+  "file_watcher",
+  "tonemapping_luts",
 
   "png",
   "vorbis",
@@ -59,7 +61,7 @@ features = [
 ]
 
 [workspace.dependencies.bevy_egui]
-version = "0.21"
+version = "0.24"
 default-features = false
 
 [workspace.dependencies.image]
@@ -84,7 +86,7 @@ version = "0.10"
 features = ["ondemand"]
 
 [workspace.dependencies.vergen]
-version = "8.0"
+version = "8.2"
 features = ["build", "git", "gitcl"]
 
 [profile.dev]

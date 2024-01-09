@@ -12,7 +12,7 @@ use serde::Deserialize;
 use super::{ChunkMaps, SharedChunkMaps};
 use crate::Tile;
 
-#[derive(Debug, Copy, Clone, Resource, Deserialize, TypePath, TypeUuid)]
+#[derive(Debug, Copy, Clone, Resource, Deserialize, TypePath, TypeUuid, Asset)]
 #[uuid = "d4b77ce0-db8c-477e-b771-deb43ca107c2"]
 pub struct ChunkGenSettings {
     pub noise_height: f32,

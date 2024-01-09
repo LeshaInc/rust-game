@@ -3,11 +3,11 @@ mod version_overlay;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::PrimaryWindow;
-use bevy_egui::egui::plot::{Line, Plot};
 use bevy_egui::egui::{self, pos2, Color32, Frame, Rounding};
 use bevy_egui::EguiContext;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::render::DebugRenderContext as RapierDebugRenderContext;
+use egui_plot::{Line, Plot};
 
 pub use crate::version_overlay::VersionOverlayPlugin;
 
@@ -92,9 +92,9 @@ impl FrameTimePoints {
     }
 }
 
-fn record_frame_time(time: Res<Time>, mut points: ResMut<FrameTimePoints>) {
-    let instant = time.raw_elapsed_seconds_f64();
-    let frame_time = time.raw_delta_seconds_f64();
+fn record_frame_time(time: Res<Time<Real>>, mut points: ResMut<FrameTimePoints>) {
+    let instant = time.elapsed_seconds_f64();
+    let frame_time = time.delta_seconds_f64();
     points.0.push([instant, frame_time]);
     while points.0.len() > 100 {
         points.0.remove(0);
@@ -113,7 +113,7 @@ fn ui_left_side(
         .resizable(false)
         .fixed_pos(pos2(0.0, 0.0))
         .frame(Frame {
-            rounding: Rounding::none(),
+            rounding: Rounding::ZERO,
             fill: Color32::from_black_alpha(220),
             ..default()
         });

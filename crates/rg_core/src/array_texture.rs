@@ -21,7 +21,7 @@ fn build_array_textures(
     mut images: ResMut<Assets<Image>>,
     mut commands: Commands,
 ) {
-    if asset_events.iter().count() == 0 {
+    if asset_events.read().count() == 0 {
         return;
     }
 
@@ -62,7 +62,7 @@ fn build_array_textures(
         }
 
         let image = Image::new(size, TextureDimension::D2, data, format);
-        images.set_untracked(array_texture.target.clone(), image);
+        images.insert(array_texture.target.clone(), image);
         commands.entity(entity).despawn();
     }
 }

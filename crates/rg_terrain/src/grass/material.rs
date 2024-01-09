@@ -19,7 +19,7 @@ impl Plugin for GrassMaterialPlugin {
     }
 }
 
-#[derive(Debug, Default, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
+#[derive(Debug, Default, Clone, Component, AsBindGroup, TypeUuid, TypePath, Asset)]
 #[uuid = "d36218ae-d090-4ef1-a660-a4579db53935"]
 pub struct GrassMaterial {
     #[uniform(0)]

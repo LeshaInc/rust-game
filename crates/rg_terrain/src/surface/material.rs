@@ -1,4 +1,3 @@
-use bevy::asset::HandleId;
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
@@ -25,7 +24,7 @@ impl Plugin for SurfaceMaterialsPlugin {
     }
 }
 
-#[derive(Debug, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
+#[derive(Debug, Clone, Component, AsBindGroup, TypeUuid, TypePath, Asset)]
 #[uuid = "cc76913b-20ee-45b2-8a71-d89ca79ec8a1"]
 #[bind_group_data(TerrainMaterialKey)]
 pub struct TerrainMaterial {
@@ -55,7 +54,7 @@ impl Material for TerrainMaterial {
     }
 }
 
-#[derive(Debug, Clone, Component, AsBindGroup, TypeUuid, TypePath)]
+#[derive(Debug, Clone, Component, AsBindGroup, TypeUuid, TypePath, Asset)]
 #[uuid = "435932e3-ff46-47eb-83c3-818ad8f3fb81"]
 #[bind_group_data(WaterMaterialKey)]
 pub struct WaterMaterial {
@@ -100,7 +99,7 @@ impl FromWorld for SurfaceMaterials {
         let (asset_server, mut terrain_materials, mut water_materials, mut images) =
             system_state.get_mut(world);
 
-        let texture = images.get_handle(HandleId::random::<Image>());
+        let texture = images.get_handle_provider().reserve_handle().typed();
 
         let build_array_texture = BuildArrayTexture {
             target: texture.clone(),
@@ -171,7 +170,7 @@ fn update_tile_maps(
             TextureFormat::R8Uint,
         ));
 
-        let old_material = materials.get(&material).unwrap().clone();
+        let old_material = materials.get(&*material).unwrap().clone();
         *material = materials.add(TerrainMaterial {
             tile_map,
             ..old_material

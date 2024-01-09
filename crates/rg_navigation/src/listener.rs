@@ -44,7 +44,7 @@ fn handle_added(
     let origin = origin.0;
     let settings = *settings;
 
-    for &AddNavMeshChunk(chunk_pos) in ev_added.iter() {
+    for &AddNavMeshChunk(chunk_pos) in ev_added.read() {
         if chunk_tasks.map.contains_key(&chunk_pos) {
             continue;
         }
@@ -71,7 +71,7 @@ fn handle_removed(
     mut chunk_tasks: ResMut<ChunkTasks>,
     mut navmesh: ResMut<NavMesh>,
 ) {
-    for RemoveNavMeshChunk(chunk_pos) in ev_removed.iter() {
+    for RemoveNavMeshChunk(chunk_pos) in ev_removed.read() {
         navmesh.remove_chunk(*chunk_pos);
         chunk_tasks.map.remove(chunk_pos);
     }

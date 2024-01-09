@@ -4,7 +4,7 @@ use rg_core::noise::FbmNoiseSettings;
 use rg_core::DeserializedResource;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone, Resource, Deserialize, TypePath, TypeUuid)]
+#[derive(Debug, Copy, Clone, Resource, Deserialize, TypePath, TypeUuid, Asset)]
 #[uuid = "9642a5f8-7606-4775-b5bc-6fda6d73bd84"]
 pub struct WorldgenSettings {
     pub noise: NoiseSettings,

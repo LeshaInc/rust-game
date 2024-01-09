@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use bevy::asset::{self, Asset, AssetLoader, AssetPath, LoadContext, LoadedAsset};
+use bevy::asset::io::Reader;
+use bevy::asset::{Asset, AssetLoader, AssetPath, AsyncReadExt, LoadContext};
 use bevy::prelude::*;
 use bevy::utils::BoxedFuture;
 use serde::de::DeserializeOwned;
@@ -13,7 +14,7 @@ pub struct DeserializedResourcePlugin<R: DeserializedResource> {
 impl<R: DeserializedResource> DeserializedResourcePlugin<R> {
     pub fn new<'a>(path: impl Into<AssetPath<'a>>) -> DeserializedResourcePlugin<R> {
         DeserializedResourcePlugin {
-            path: path.into().to_owned(),
+            path: path.into().clone_owned(),
             marker: PhantomData,
         }
     }
@@ -21,8 +22,8 @@ impl<R: DeserializedResource> DeserializedResourcePlugin<R> {
 
 impl<R: DeserializedResource> Plugin for DeserializedResourcePlugin<R> {
     fn build(&self, app: &mut App) {
-        app.add_asset::<R>()
-            .add_asset_loader(RonLoader::<R>(PhantomData))
+        app.init_asset::<R>()
+            .init_asset_loader::<RonLoader<R>>()
             .add_systems(Update, handle_events::<R>);
     }
 
@@ -39,16 +40,28 @@ pub trait DeserializedResource: DeserializeOwned + Resource + Asset + Clone {
 
 struct RonLoader<R: DeserializedResource>(PhantomData<R>);
 
+impl<R: DeserializedResource> Default for RonLoader<R> {
+    fn default() -> Self {
+        RonLoader(PhantomData)
+    }
+}
+
 impl<R: DeserializedResource> AssetLoader for RonLoader<R> {
+    type Asset = R;
+    type Settings = ();
+    type Error = anyhow::Error;
+
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<(), asset::Error>> {
+        reader: &'a mut Reader,
+        _settings: &'a Self::Settings,
+        _load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset, anyhow::Error>> {
         Box::pin(async move {
-            let asset = ron::de::from_bytes::<R>(bytes)?;
-            load_context.set_default_asset(LoadedAsset::new(asset));
-            Ok(())
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let asset = ron::de::from_bytes::<R>(&bytes)?;
+            Ok(asset)
         })
     }
 
@@ -68,20 +81,20 @@ fn handle_events<R: DeserializedResource>(
     resource_handle: Res<ResourceHandle<R>>,
     mut commands: Commands,
 ) {
-    for event in &mut events {
+    for event in events.read() {
         match event {
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                if &resource_handle.handle != handle {
+            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                if &resource_handle.handle.id() != id {
                     continue;
                 }
 
-                let Some(resource) = resources.get(handle) else {
+                let Some(resource) = resources.get(*id) else {
                     continue;
                 };
 
                 commands.insert_resource(resource.clone());
             }
-            AssetEvent::Removed { .. } => {}
+            _ => {}
         }
     }
 }

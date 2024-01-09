@@ -6,7 +6,7 @@ pub struct BehaviorTreePlugin;
 
 impl Plugin for BehaviorTreePlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<BehaviorTree>()
+        app.init_asset::<BehaviorTree>()
             .configure_sets(
                 Update,
                 (
@@ -43,7 +43,7 @@ pub enum BehaviorTreeSystem {
     Instantiate,
 }
 
-#[derive(Debug, Default, Clone, TypeUuid, TypePath)]
+#[derive(Debug, Default, Clone, TypeUuid, TypePath, Asset)]
 #[uuid = "8c479413-a75b-47a1-93ee-91af54fc5e79"]
 pub struct BehaviorTree {
     nodes: Vec<Node>,
@@ -123,7 +123,7 @@ impl Clone for Node {
     }
 }
 
-pub trait Action: Reflect + FromReflect {
+pub trait Action: TypePath + Reflect + FromReflect {
     fn register(app: &mut App);
 }
 

@@ -125,5 +125,5 @@ fn update_ui_scale(
 
     let scale_factor = (ui_scale.pixels as f64) / window.scale_factor();
     egui_settings.scale_factor = scale_factor;
-    bevy_ui_scale.scale = scale_factor;
+    bevy_ui_scale.0 = scale_factor;
 }

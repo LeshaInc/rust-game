@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::forward_io::VertexOutput
 #import rg::pixel_funcs as pixel
 
 struct PixelMaterial {
@@ -13,7 +13,7 @@ var<uniform> material: PixelMaterial;
 
 @fragment
 fn fragment(
-    in: MeshVertexOutput,
+    in: VertexOutput,
 ) -> @location(0) vec4<f32> {
     let depth_samples = pixel::get_depth_samples(in.position.xy);
     let normal_samples = pixel::get_normal_samples(in.position.xy);

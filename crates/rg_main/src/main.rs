@@ -1,6 +1,3 @@
-use std::time::Duration;
-
-use bevy::asset::ChangeWatcher;
 use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
 use bevy::core_pipeline::tonemapping::DebandDither;
 use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
@@ -41,10 +38,7 @@ fn main() {
                     ..default()
                 })
                 .set(ImagePlugin::default_nearest())
-                .set(AssetPlugin {
-                    watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(100)),
-                    ..default()
-                }),
+                .set(AssetPlugin::default()),
         )
         .add_plugins(EguiPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())

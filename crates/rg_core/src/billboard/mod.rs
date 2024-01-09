@@ -15,7 +15,6 @@ use self::instance::{
     compute_multi_billboard_bounds, extract_multi_billboards, MultiBillboardUniform,
 };
 pub use self::instance::{BillboardInstance, MultiBillboard};
-use self::material::DummyMesh;
 pub use self::material::{BillboardMaterial, BillboardMaterialKey, BillboardMaterialPlugin};
 pub use self::scatter::{ScatterMultiBillboard, ScatterPlugin};
 
@@ -24,8 +23,7 @@ pub struct BillboardPlugin;
 impl Plugin for BillboardPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScatterPlugin)
-            .add_asset::<MultiBillboard>()
-            .init_resource::<DummyMesh>()
+            .init_asset::<MultiBillboard>()
             .add_plugins(RenderAssetPlugin::<MultiBillboard>::default())
             .add_plugins(UniformComponentPlugin::<MultiBillboardUniform>::default())
             .add_systems(
@@ -44,5 +42,6 @@ pub struct MultiBillboardBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub visibility: Visibility,
-    pub computed_visibility: ComputedVisibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
 }
